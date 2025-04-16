@@ -9,10 +9,16 @@ export const PostComposer = () => {
   const [content, setContent] = useState("");
   const [isTwitterEnabled, setIsTwitterEnabled] = useState(true);
   const [isLensEnabled, setIsLensEnabled] = useState(true);
+  const [isFarcasterEnabled, setIsFarcasterEnabled] = useState(true);
 
   const handlePost = () => {
     // This will be implemented when we add actual posting functionality
-    console.log("Posting to platforms:", { content, isTwitterEnabled, isLensEnabled });
+    console.log("Posting to platforms:", { 
+      content, 
+      isTwitterEnabled, 
+      isLensEnabled, 
+      isFarcasterEnabled 
+    });
   };
 
   return (
@@ -32,6 +38,13 @@ export const PostComposer = () => {
             className="data-[state=on]:bg-green-500"
           >
             Lens
+          </Toggle>
+          <Toggle 
+            pressed={isFarcasterEnabled}
+            onPressedChange={setIsFarcasterEnabled}
+            className="data-[state=on]:bg-purple-500"
+          >
+            Farcaster
           </Toggle>
         </div>
         
