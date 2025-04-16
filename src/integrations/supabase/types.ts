@@ -9,6 +9,39 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      post_configurations: {
+        Row: {
+          access_token: string | null
+          created_at: string | null
+          id: string
+          is_enabled: boolean | null
+          platform: Database["public"]["Enums"]["platform_type"]
+          refresh_token: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          platform: Database["public"]["Enums"]["platform_type"]
+          refresh_token?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          platform?: Database["public"]["Enums"]["platform_type"]
+          refresh_token?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -41,7 +74,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      platform_type: "twitter" | "farcaster" | "lens"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -156,6 +189,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      platform_type: ["twitter", "farcaster", "lens"],
+    },
   },
 } as const

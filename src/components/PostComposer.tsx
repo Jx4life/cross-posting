@@ -4,48 +4,62 @@ import { Card } from "./ui/card";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
 import { Toggle } from "./ui/toggle";
+import { PlatformConfigDialog } from "./PlatformConfigDialog";
+import { usePostConfigurations } from "@/hooks/usePostConfigurations";
+import { toast } from "sonner";
 
 export const PostComposer = () => {
   const [content, setContent] = useState("");
   const [isTwitterEnabled, setIsTwitterEnabled] = useState(true);
   const [isLensEnabled, setIsLensEnabled] = useState(true);
   const [isFarcasterEnabled, setIsFarcasterEnabled] = useState(true);
+  const { data: configurations } = usePostConfigurations();
 
   const handlePost = () => {
-    // This will be implemented when we add actual posting functionality
+    if (!content.trim()) {
+      toast.error("Please enter some content to post");
+      return;
+    }
+
+    // This will be implemented when we add posting functionality
     console.log("Posting to platforms:", { 
       content, 
       isTwitterEnabled, 
       isLensEnabled, 
-      isFarcasterEnabled 
+      isFarcasterEnabled,
+      configurations 
     });
+    toast.success("Post created! Cross-posting coming soon.");
   };
 
   return (
     <Card className="w-full max-w-2xl p-6 bg-white/5 backdrop-blur-sm border-purple-500/20">
       <div className="space-y-4">
-        <div className="flex gap-4">
-          <Toggle 
-            pressed={isTwitterEnabled}
-            onPressedChange={setIsTwitterEnabled}
-            className="data-[state=on]:bg-blue-500"
-          >
-            Twitter
-          </Toggle>
-          <Toggle 
-            pressed={isLensEnabled}
-            onPressedChange={setIsLensEnabled}
-            className="data-[state=on]:bg-green-500"
-          >
-            Lens
-          </Toggle>
-          <Toggle 
-            pressed={isFarcasterEnabled}
-            onPressedChange={setIsFarcasterEnabled}
-            className="data-[state=on]:bg-purple-500"
-          >
-            Farcaster
-          </Toggle>
+        <div className="flex items-center justify-between">
+          <div className="flex gap-4">
+            <Toggle 
+              pressed={isTwitterEnabled}
+              onPressedChange={setIsTwitterEnabled}
+              className="data-[state=on]:bg-blue-500"
+            >
+              Twitter
+            </Toggle>
+            <Toggle 
+              pressed={isLensEnabled}
+              onPressedChange={setIsLensEnabled}
+              className="data-[state=on]:bg-green-500"
+            >
+              Lens
+            </Toggle>
+            <Toggle 
+              pressed={isFarcasterEnabled}
+              onPressedChange={setIsFarcasterEnabled}
+              className="data-[state=on]:bg-purple-500"
+            >
+              Farcaster
+            </Toggle>
+          </div>
+          <PlatformConfigDialog />
         </div>
         
         <Textarea
