@@ -35,6 +35,15 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] to-[#2C1A2F] text-white">
       <div className="container mx-auto px-4 py-8">
         <header className="text-center mb-12">
+          <div className="flex justify-end mb-4">
+            <Button
+              onClick={() => navigate("/profile")}
+              variant="outline"
+              className="mr-2"
+            >
+              Profile
+            </Button>
+          </div>
           <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
             Cross Post Hub
           </h1>
@@ -49,6 +58,3 @@ const Index = () => {
       </div>
     </div>
   );
-};
-
-export default Index;
