@@ -6,6 +6,8 @@ import { Button } from "./ui/button";
 import { Toggle } from "./ui/toggle";
 import { PlatformConfigDialog } from "./PlatformConfigDialog";
 import { usePostConfigurations } from "@/hooks/usePostConfigurations";
+import { usePostIntegrations } from "@/hooks/usePostIntegrations";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const PostComposer = () => {
@@ -14,23 +16,28 @@ export const PostComposer = () => {
   const [isLensEnabled, setIsLensEnabled] = useState(true);
   const [isFarcasterEnabled, setIsFarcasterEnabled] = useState(true);
   const { data: configurations } = usePostConfigurations();
+  const { isPosting, crossPost } = usePostIntegrations();
 
-  const handlePost = () => {
+  const handlePost = async () => {
     if (!content.trim()) {
       toast.error("Please enter some content to post");
       return;
     }
 
-    // This will be implemented when we add posting functionality
-    console.log("Posting to platforms:", { 
-      content, 
-      isTwitterEnabled, 
-      isLensEnabled, 
-      isFarcasterEnabled,
-      configurations 
+    const results = await crossPost(content, {
+      twitter: isTwitterEnabled,
+      lens: isLensEnabled,
+      farcaster: isFarcasterEnabled
     });
-    toast.success("Post created! Cross-posting coming soon.");
+    
+    if (results.some(result => result.success)) {
+      setContent(""); // Clear content if at least one platform was successful
+    }
   };
+
+  const maxLength = 280; // Twitter character limit
+  const remainingChars = maxLength - content.length;
+  const isOverLimit = remainingChars < 0;
 
   return (
     <Card className="w-full max-w-2xl p-6 bg-white/5 backdrop-blur-sm border-purple-500/20">
@@ -66,18 +73,24 @@ export const PostComposer = () => {
           placeholder="What's on your mind?"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          className="min-h-[150px] bg-white/10 border-purple-500/20"
+          className={`min-h-[150px] bg-white/10 border-purple-500/20 ${isOverLimit ? 'border-red-500' : ''}`}
         />
         
         <div className="flex justify-between items-center">
-          <div className="text-sm text-gray-400">
-            {280 - content.length} characters remaining
+          <div className={`text-sm ${isOverLimit ? 'text-red-400' : 'text-gray-400'}`}>
+            {remainingChars} characters remaining
           </div>
           <Button 
             onClick={handlePost}
             className="bg-purple-600 hover:bg-purple-700"
+            disabled={isPosting || isOverLimit || !content.trim()}
           >
-            Post
+            {isPosting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Posting...
+              </>
+            ) : 'Post'}
           </Button>
         </div>
       </div>

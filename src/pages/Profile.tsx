@@ -7,14 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function Profile() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [bio, setBio] = useState("");
 
   useEffect(() => {
     if (user) {
@@ -27,7 +29,7 @@ export default function Profile() {
       setLoading(true);
       const { data, error } = await supabase
         .from("profiles")
-        .select("username, full_name, bio, avatar_url")
+        .select("username, avatar_url, bio")
         .eq("id", user?.id)
         .single();
 
@@ -35,9 +37,8 @@ export default function Profile() {
 
       if (data) {
         setUsername(data.username || "");
-        setFullName(data.full_name || "");
-        setBio(data.bio || "");
         setAvatarUrl(data.avatar_url || "");
+        setBio(data.bio || "");
       }
     } catch (error: any) {
       toast.error(error.message);
@@ -54,7 +55,6 @@ export default function Profile() {
         .upsert({
           id: user?.id,
           username,
-          full_name: fullName,
           bio,
           avatar_url: avatarUrl,
           updated_at: new Date().toISOString(),
@@ -75,6 +75,17 @@ export default function Profile() {
     <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] to-[#2C1A2F] text-white">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
+          <div className="flex items-center mb-6">
+            <Button 
+              variant="ghost" 
+              className="text-white hover:bg-white/10" 
+              onClick={() => navigate("/")}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Home
+            </Button>
+          </div>
+          
           <h1 className="text-3xl font-bold mb-8 text-center">Profile Settings</h1>
           
           <div className="space-y-6 bg-white/5 backdrop-blur-sm p-6 rounded-lg">
@@ -100,14 +111,14 @@ export default function Profile() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2" htmlFor="fullName">
-                  Full Name
+                <label className="block text-sm font-medium mb-2" htmlFor="avatarUrl">
+                  Avatar URL
                 </label>
                 <Input
-                  id="fullName"
+                  id="avatarUrl"
                   type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  value={avatarUrl}
+                  onChange={(e) => setAvatarUrl(e.target.value)}
                   className="bg-white/10 border-purple-500/20"
                 />
               </div>
