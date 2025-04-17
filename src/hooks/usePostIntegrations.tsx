@@ -63,8 +63,16 @@ export const usePostIntegrations = () => {
   
   const postToLens = async (content: string): Promise<PostResult> => {
     try {
+      // Get connected wallet and Lens handle from localStorage
+      const walletAddress = localStorage.getItem('walletAddress');
+      const lensHandle = localStorage.getItem('lensHandle');
+      
       const { data, error } = await supabase.functions.invoke('post-to-lens', {
-        body: { content }
+        body: { 
+          content,
+          walletAddress,
+          lensHandle
+        }
       });
       
       if (error) throw error;
@@ -110,6 +118,14 @@ export const usePostIntegrations = () => {
       }
       
       if (platforms.lens) {
+        // Check if wallet and Lens account are connected
+        const walletAddress = localStorage.getItem('walletAddress');
+        const lensHandle = localStorage.getItem('lensHandle');
+        
+        if (!walletAddress || !lensHandle) {
+          toast.warning("Please connect your wallet and Lens account first (click settings icon)");
+        }
+        
         platformPromises.push(postToLens(content));
       }
       

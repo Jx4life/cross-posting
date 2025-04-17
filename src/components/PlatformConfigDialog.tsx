@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/providers/AuthProvider";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
+import { LensConnector } from "./LensConnector";
 
 export const PlatformConfigDialog = () => {
   const { user } = useAuth();
@@ -112,34 +113,35 @@ export const PlatformConfigDialog = () => {
           </TabsContent>
           
           <TabsContent value="lens" className="space-y-4 mt-4">
-            <div>
-              <p className="text-sm mb-4">
-                To enable Lens Protocol integration, you need to set up your API key in Supabase Edge Function Secrets.
+            <div className="mb-4">
+              <p className="text-sm mb-2">
+                To enable Lens Protocol integration, you need to connect your wallet and Lens account.
               </p>
               
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
                   <div className="h-5 w-5 rounded-full bg-green-400 flex items-center justify-center text-black font-bold text-xs">L</div>
-                  <span>Your Lens Protocol account will be used for posting</span>
+                  <span>Connect your Lens Protocol account to post content</span>
                 </div>
-                
-                <div className="bg-green-500/10 p-3 rounded-md text-sm">
-                  <p>Required secrets need to be set in Supabase:</p>
-                  <ul className="list-disc pl-5 mt-2 space-y-1">
-                    <li>LENS_API_KEY</li>
-                  </ul>
-                </div>
-                
-                <p className="text-sm text-gray-400">
-                  Full Lens Protocol integration requires authentication with a wallet. 
-                  This is a simplified implementation for demonstration purposes.
-                </p>
               </div>
             </div>
             
-            <div className="flex justify-end space-x-2">
+            {/* Add the Lens Connector component here */}
+            <LensConnector />
+            
+            <div className="bg-green-500/10 mt-4 p-3 rounded-md text-sm">
+              <p>Required secrets for backend integration:</p>
+              <ul className="list-disc pl-5 mt-2 space-y-1">
+                <li>LENS_API_KEY</li>
+              </ul>
+              <p className="mt-2 text-gray-400">
+                Full Lens Protocol integration requires wallet connection for authentication.
+              </p>
+            </div>
+            
+            <div className="flex justify-end space-x-2 mt-4">
               <Button variant="outline" onClick={handleLensConfigTest} disabled={testingConnection}>
-                {testingConnection ? "Testing..." : "Test Connection"}
+                {testingConnection ? "Testing..." : "Test API Connection"}
               </Button>
             </div>
           </TabsContent>

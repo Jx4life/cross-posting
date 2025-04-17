@@ -30,7 +30,7 @@ serve(async (req) => {
     }
 
     // Parse the request body
-    const { content } = await req.json();
+    const { content, walletAddress, lensHandle } = await req.json();
     
     if (!content) {
       return new Response(
@@ -43,6 +43,14 @@ serve(async (req) => {
     }
     
     console.log(`Attempting to post to Lens: ${content}`);
+    
+    if (walletAddress) {
+      console.log(`Using connected wallet: ${walletAddress}`);
+    }
+    
+    if (lensHandle) {
+      console.log(`Using Lens handle: ${lensHandle}`);
+    }
 
     // This is the GraphQL mutation for posting content to Lens
     // Note: In a full implementation, you'd need to handle authentication
@@ -97,13 +105,19 @@ serve(async (req) => {
       // we'll return a simulated successful response
       console.log("Simulating successful Lens post (actual implementation requires wallet authentication)");
       
+      const accountStatus = walletAddress && lensHandle 
+        ? `Using connected account: ${lensHandle}` 
+        : "No connected account (simulated post)";
+      
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: "Content posted to Lens Protocol (simulated, requires wallet auth)",
+          message: `Content posted to Lens Protocol (simulated, requires wallet auth). ${accountStatus}`,
           note: "Full implementation requires wallet-based authentication and IPFS content upload",
           publication_id: `lens_${Date.now()}`,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          wallet: walletAddress || "Not connected",
+          handle: lensHandle || "Not connected"
         }),
         { 
           status: 200, 
