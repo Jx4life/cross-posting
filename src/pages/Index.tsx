@@ -58,3 +58,6 @@ const Index = () => {
       </div>
     </div>
   );
+}; // Added the missing closing brace here
+
+export default Index;
