@@ -31,7 +31,7 @@ export default function Profile() {
         .from("profiles")
         .select("username, avatar_url, bio")
         .eq("id", user?.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
