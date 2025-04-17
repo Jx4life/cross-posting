@@ -1,1 +1,8 @@
+
 project_id = "eppgmfcebxhjsyhosxtm"
+[functions.post-to-twitter]
+verify_jwt = true
+[functions.post-to-lens]
+verify_jwt = true
+[functions.post-to-farcaster]
+verify_jwt = true

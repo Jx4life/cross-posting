@@ -39,21 +39,49 @@ export const usePostIntegrations = () => {
   };
   
   const postToFarcaster = async (content: string): Promise<PostResult> => {
-    // This would be implemented once we have a Farcaster API integration
-    return {
-      platform: 'farcaster',
-      success: false,
-      message: 'Farcaster integration coming soon'
-    };
+    try {
+      const { data, error } = await supabase.functions.invoke('post-to-farcaster', {
+        body: { content }
+      });
+      
+      if (error) throw error;
+      
+      return {
+        platform: 'farcaster',
+        success: true,
+        data
+      };
+    } catch (error: any) {
+      console.error('Farcaster posting error:', error);
+      return {
+        platform: 'farcaster',
+        success: false,
+        message: error.message || 'Error posting to Farcaster'
+      };
+    }
   };
   
   const postToLens = async (content: string): Promise<PostResult> => {
-    // This would be implemented once we have a Lens API integration
-    return {
-      platform: 'lens',
-      success: false,
-      message: 'Lens integration coming soon'
-    };
+    try {
+      const { data, error } = await supabase.functions.invoke('post-to-lens', {
+        body: { content }
+      });
+      
+      if (error) throw error;
+      
+      return {
+        platform: 'lens',
+        success: true,
+        data
+      };
+    } catch (error: any) {
+      console.error('Lens posting error:', error);
+      return {
+        platform: 'lens',
+        success: false,
+        message: error.message || 'Error posting to Lens'
+      };
+    }
   };
   
   const crossPost = async (content: string, platforms: { 
