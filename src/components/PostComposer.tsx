@@ -9,14 +9,16 @@ import { usePostConfigurations } from "@/hooks/usePostConfigurations";
 import { usePostIntegrations } from "@/hooks/usePostIntegrations";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { SchedulePicker } from "./SchedulePicker";
 
 export const PostComposer = () => {
   const [content, setContent] = useState("");
   const [isTwitterEnabled, setIsTwitterEnabled] = useState(true);
   const [isLensEnabled, setIsLensEnabled] = useState(true);
   const [isFarcasterEnabled, setIsFarcasterEnabled] = useState(true);
+  const [scheduledAt, setScheduledAt] = useState<Date | null>(null);
   const { data: configurations } = usePostConfigurations();
-  const { isPosting, crossPost } = usePostIntegrations();
+  const { isPosting, crossPost, schedulePost } = usePostIntegrations();
 
   const handlePost = async () => {
     if (!content.trim()) {
@@ -24,14 +26,29 @@ export const PostComposer = () => {
       return;
     }
 
-    const results = await crossPost(content, {
-      twitter: isTwitterEnabled,
-      lens: isLensEnabled,
-      farcaster: isFarcasterEnabled
-    });
-    
-    if (results.some(result => result.success)) {
-      setContent(""); // Clear content if at least one platform was successful
+    // If scheduled, use schedulePost instead of crossPost
+    if (scheduledAt) {
+      const results = await schedulePost(content, {
+        twitter: isTwitterEnabled,
+        lens: isLensEnabled,
+        farcaster: isFarcasterEnabled
+      }, scheduledAt);
+      
+      if (results.success) {
+        toast.success(`Post scheduled for ${scheduledAt.toLocaleString()}`);
+        setContent(""); // Clear content after scheduling
+        setScheduledAt(null); // Reset schedule
+      }
+    } else {
+      const results = await crossPost(content, {
+        twitter: isTwitterEnabled,
+        lens: isLensEnabled,
+        farcaster: isFarcasterEnabled
+      });
+      
+      if (results.some(result => result.success)) {
+        setContent(""); // Clear content if at least one platform was successful
+      }
     }
   };
 
@@ -76,9 +93,12 @@ export const PostComposer = () => {
           className={`min-h-[150px] bg-white/10 border-purple-500/20 ${isOverLimit ? 'border-red-500' : ''}`}
         />
         
-        <div className="flex justify-between items-center">
-          <div className={`text-sm ${isOverLimit ? 'text-red-400' : 'text-gray-400'}`}>
-            {remainingChars} characters remaining
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <div className={`text-sm ${isOverLimit ? 'text-red-400' : 'text-gray-400'}`}>
+              {remainingChars} characters remaining
+            </div>
+            <SchedulePicker onScheduleChange={setScheduledAt} />
           </div>
           <Button 
             onClick={handlePost}
@@ -88,9 +108,11 @@ export const PostComposer = () => {
             {isPosting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Posting...
+                {scheduledAt ? 'Scheduling...' : 'Posting...'}
               </>
-            ) : 'Post'}
+            ) : (
+              scheduledAt ? 'Schedule Post' : 'Post'
+            )}
           </Button>
         </div>
       </div>

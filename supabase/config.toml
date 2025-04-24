@@ -6,3 +6,7 @@ verify_jwt = true
 verify_jwt = true
 [functions.post-to-farcaster]
 verify_jwt = true
+[functions.schedule-post]
+verify_jwt = true
+[functions.process-scheduled-posts]
+verify_jwt = true

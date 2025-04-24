@@ -11,6 +11,12 @@ interface PostResult {
   data?: any;
 }
 
+interface SchedulePostResult {
+  success: boolean;
+  message: string;
+  id?: string;
+}
+
 export const usePostIntegrations = () => {
   const { user } = useAuth();
   const [isPosting, setIsPosting] = useState(false);
@@ -154,8 +160,62 @@ export const usePostIntegrations = () => {
     return results;
   };
   
+  // New function to schedule posts
+  const schedulePost = async (
+    content: string, 
+    platforms: { 
+      twitter: boolean; 
+      lens: boolean; 
+      farcaster: boolean; 
+    },
+    scheduledAt: Date
+  ): Promise<SchedulePostResult> => {
+    if (!user) {
+      toast.error("You must be logged in to schedule posts");
+      return { success: false, message: "Authentication required" };
+    }
+    
+    if (!content.trim()) {
+      toast.error("Please enter content to schedule");
+      return { success: false, message: "Content required" };
+    }
+    
+    setIsPosting(true);
+    
+    try {
+      // Add to scheduled_posts table via edge function
+      const { data, error } = await supabase.functions.invoke('schedule-post', {
+        body: { 
+          content,
+          platforms,
+          scheduledAt: scheduledAt.toISOString(),
+          userId: user.id
+        }
+      });
+      
+      if (error) throw error;
+      
+      return {
+        success: true,
+        message: "Post scheduled successfully",
+        id: data.id
+      };
+      
+    } catch (error: any) {
+      console.error('Scheduling error:', error);
+      toast.error(`Error scheduling post: ${error.message || 'Unknown error occurred'}`);
+      return {
+        success: false,
+        message: error.message || 'Error scheduling post'
+      };
+    } finally {
+      setIsPosting(false);
+    }
+  };
+  
   return {
     isPosting,
-    crossPost
+    crossPost,
+    schedulePost
   };
 };
