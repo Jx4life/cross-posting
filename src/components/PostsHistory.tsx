@@ -1,9 +1,8 @@
-
 import React, { useState } from 'react';
 import { Card } from './ui/card';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, History, Calendar } from 'lucide-react';
+import { Loader2, History, Calendar, Image, Video } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { format } from 'date-fns';
 import { 
@@ -22,6 +21,8 @@ interface ScheduledPost {
   scheduled_at: string;
   status: string;
   created_at: string;
+  media_url: string | null;
+  media_type: string | null;
 }
 
 const POSTS_PER_PAGE = 5;
@@ -57,6 +58,28 @@ export const PostsHistory = () => {
       .map(([platform]) => platform);
     
     return activePlatforms.join(', ');
+  };
+
+  const renderMedia = (mediaUrl: string | null, mediaType: string | null) => {
+    if (!mediaUrl) return null;
+
+    return (
+      <div className="mt-4 rounded-md overflow-hidden">
+        {mediaType === 'image' ? (
+          <img 
+            src={mediaUrl} 
+            alt="Post media" 
+            className="w-full max-h-64 object-cover"
+          />
+        ) : mediaType === 'video' ? (
+          <video 
+            src={mediaUrl} 
+            controls 
+            className="w-full max-h-64"
+          />
+        ) : null}
+      </div>
+    );
   };
 
   const totalPages = postsData ? Math.ceil(postsData.length / POSTS_PER_PAGE) : 0;
@@ -98,6 +121,8 @@ export const PostsHistory = () => {
                     {post.status}
                   </Badge>
                 </div>
+                
+                {renderMedia(post.media_url, post.media_type)}
                 
                 <div className="flex items-center gap-4 text-sm text-gray-500">
                   <div className="flex items-center gap-1">

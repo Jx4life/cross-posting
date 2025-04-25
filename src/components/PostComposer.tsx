@@ -7,12 +7,15 @@ import { Toggle } from "./ui/toggle";
 import { PlatformConfigDialog } from "./PlatformConfigDialog";
 import { usePostConfigurations } from "@/hooks/usePostConfigurations";
 import { usePostIntegrations } from "@/hooks/usePostIntegrations";
-import { Loader2 } from "lucide-react";
+import { Loader2, Image as ImageIcon, Video as VideoIcon } from "lucide-react";
 import { toast } from "sonner";
 import { SchedulePicker } from "./SchedulePicker";
+import { MediaUploader } from "./MediaUploader";
 
 export const PostComposer = () => {
   const [content, setContent] = useState("");
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
   const [isTwitterEnabled, setIsTwitterEnabled] = useState(true);
   const [isLensEnabled, setIsLensEnabled] = useState(true);
   const [isFarcasterEnabled, setIsFarcasterEnabled] = useState(true);
@@ -20,9 +23,14 @@ export const PostComposer = () => {
   const { data: configurations } = usePostConfigurations();
   const { isPosting, crossPost, schedulePost } = usePostIntegrations();
 
+  const handleMediaUpload = (url: string, type: 'image' | 'video') => {
+    setMediaUrl(url);
+    setMediaType(type);
+  };
+
   const handlePost = async () => {
-    if (!content.trim()) {
-      toast.error("Please enter some content to post");
+    if (!content.trim() && !mediaUrl) {
+      toast.error("Please enter some content or upload media");
       return;
     }
 
@@ -32,24 +40,30 @@ export const PostComposer = () => {
         twitter: isTwitterEnabled,
         lens: isLensEnabled,
         farcaster: isFarcasterEnabled
-      }, scheduledAt);
+      }, scheduledAt, mediaUrl, mediaType);
       
       if (results.success) {
         toast.success(`Post scheduled for ${scheduledAt.toLocaleString()}`);
-        setContent(""); // Clear content after scheduling
-        setScheduledAt(null); // Reset schedule
+        resetForm();
       }
     } else {
       const results = await crossPost(content, {
         twitter: isTwitterEnabled,
         lens: isLensEnabled,
         farcaster: isFarcasterEnabled
-      });
+      }, mediaUrl, mediaType);
       
       if (results.some(result => result.success)) {
-        setContent(""); // Clear content if at least one platform was successful
+        resetForm();
       }
     }
+  };
+
+  const resetForm = () => {
+    setContent("");
+    setMediaUrl(null);
+    setMediaType(null);
+    setScheduledAt(null);
   };
 
   const maxLength = 280; // Twitter character limit
@@ -93,17 +107,36 @@ export const PostComposer = () => {
           className={`min-h-[150px] bg-white/10 border-purple-500/20 ${isOverLimit ? 'border-red-500' : ''}`}
         />
         
+        {mediaUrl && (
+          <div className="mt-2">
+            {mediaType === 'image' ? (
+              <img 
+                src={mediaUrl} 
+                alt="Uploaded media" 
+                className="max-h-64 w-full object-cover rounded-md"
+              />
+            ) : (
+              <video 
+                src={mediaUrl} 
+                controls 
+                className="max-h-64 w-full rounded-md"
+              />
+            )}
+          </div>
+        )}
+        
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <div className={`text-sm ${isOverLimit ? 'text-red-400' : 'text-gray-400'}`}>
               {remainingChars} characters remaining
             </div>
+            <MediaUploader onMediaUpload={handleMediaUpload} />
             <SchedulePicker onScheduleChange={setScheduledAt} />
           </div>
           <Button 
             onClick={handlePost}
             className="bg-purple-600 hover:bg-purple-700"
-            disabled={isPosting || isOverLimit || !content.trim()}
+            disabled={isPosting || isOverLimit || (!content.trim() && !mediaUrl)}
           >
             {isPosting ? (
               <>

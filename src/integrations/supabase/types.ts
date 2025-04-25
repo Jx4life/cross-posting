@@ -74,6 +74,8 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          media_type: string | null
+          media_url: string | null
           platforms: Json
           processed_at: string | null
           processing_results: Json | null
@@ -86,6 +88,8 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          media_type?: string | null
+          media_url?: string | null
           platforms: Json
           processed_at?: string | null
           processing_results?: Json | null
@@ -98,6 +102,8 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          media_type?: string | null
+          media_url?: string | null
           platforms?: Json
           processed_at?: string | null
           processing_results?: Json | null

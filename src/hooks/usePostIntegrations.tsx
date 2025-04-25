@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -21,10 +20,10 @@ export const usePostIntegrations = () => {
   const { user } = useAuth();
   const [isPosting, setIsPosting] = useState(false);
   
-  const postToTwitter = async (content: string): Promise<PostResult> => {
+  const postToTwitter = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
     try {
       const { data, error } = await supabase.functions.invoke('post-to-twitter', {
-        body: { content }
+        body: { content, mediaUrl, mediaType }
       });
       
       if (error) throw error;
@@ -44,10 +43,10 @@ export const usePostIntegrations = () => {
     }
   };
   
-  const postToFarcaster = async (content: string): Promise<PostResult> => {
+  const postToFarcaster = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
     try {
       const { data, error } = await supabase.functions.invoke('post-to-farcaster', {
-        body: { content }
+        body: { content, mediaUrl, mediaType }
       });
       
       if (error) throw error;
@@ -67,9 +66,8 @@ export const usePostIntegrations = () => {
     }
   };
   
-  const postToLens = async (content: string): Promise<PostResult> => {
+  const postToLens = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
     try {
-      // Get connected wallet and Lens handle from localStorage
       const walletAddress = localStorage.getItem('walletAddress');
       const lensHandle = localStorage.getItem('lensHandle');
       
@@ -77,7 +75,9 @@ export const usePostIntegrations = () => {
         body: { 
           content,
           walletAddress,
-          lensHandle
+          lensHandle,
+          mediaUrl,
+          mediaType
         }
       });
       
@@ -98,18 +98,23 @@ export const usePostIntegrations = () => {
     }
   };
   
-  const crossPost = async (content: string, platforms: { 
-    twitter: boolean; 
-    lens: boolean; 
-    farcaster: boolean; 
-  }) => {
+  const crossPost = async (
+    content: string, 
+    platforms: { 
+      twitter: boolean; 
+      lens: boolean; 
+      farcaster: boolean; 
+    },
+    mediaUrl?: string | null,
+    mediaType?: 'image' | 'video' | null
+  ) => {
     if (!user) {
       toast.error("You must be logged in to post");
       return [];
     }
     
-    if (!content.trim()) {
-      toast.error("Please enter content to post");
+    if (!content.trim() && !mediaUrl) {
+      toast.error("Please enter content or upload media");
       return [];
     }
     
@@ -120,11 +125,10 @@ export const usePostIntegrations = () => {
       const platformPromises: Promise<PostResult>[] = [];
       
       if (platforms.twitter) {
-        platformPromises.push(postToTwitter(content));
+        platformPromises.push(postToTwitter(content, mediaUrl, mediaType));
       }
       
       if (platforms.lens) {
-        // Check if wallet and Lens account are connected
         const walletAddress = localStorage.getItem('walletAddress');
         const lensHandle = localStorage.getItem('lensHandle');
         
@@ -132,11 +136,11 @@ export const usePostIntegrations = () => {
           toast.warning("Please connect your wallet and Lens account first (click settings icon)");
         }
         
-        platformPromises.push(postToLens(content));
+        platformPromises.push(postToLens(content, mediaUrl, mediaType));
       }
       
       if (platforms.farcaster) {
-        platformPromises.push(postToFarcaster(content));
+        platformPromises.push(postToFarcaster(content, mediaUrl, mediaType));
       }
       
       const postResults = await Promise.all(platformPromises);
@@ -160,7 +164,6 @@ export const usePostIntegrations = () => {
     return results;
   };
   
-  // New function to schedule posts
   const schedulePost = async (
     content: string, 
     platforms: { 
@@ -168,28 +171,31 @@ export const usePostIntegrations = () => {
       lens: boolean; 
       farcaster: boolean; 
     },
-    scheduledAt: Date
+    scheduledAt: Date,
+    mediaUrl?: string | null,
+    mediaType?: 'image' | 'video' | null
   ): Promise<SchedulePostResult> => {
     if (!user) {
       toast.error("You must be logged in to schedule posts");
       return { success: false, message: "Authentication required" };
     }
     
-    if (!content.trim()) {
-      toast.error("Please enter content to schedule");
-      return { success: false, message: "Content required" };
+    if (!content.trim() && !mediaUrl) {
+      toast.error("Please enter content or upload media to schedule");
+      return { success: false, message: "Content or media required" };
     }
     
     setIsPosting(true);
     
     try {
-      // Add to scheduled_posts table via edge function
       const { data, error } = await supabase.functions.invoke('schedule-post', {
         body: { 
           content,
           platforms,
           scheduledAt: scheduledAt.toISOString(),
-          userId: user.id
+          userId: user.id,
+          mediaUrl,
+          mediaType
         }
       });
       

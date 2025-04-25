@@ -8,13 +8,11 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Get the supabase client with admin privileges
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") || "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
@@ -25,8 +23,14 @@ serve(async (req) => {
       }
     );
     
-    // Parse the request body
-    const { content, platforms, scheduledAt, userId } = await req.json();
+    const { 
+      content, 
+      platforms, 
+      scheduledAt, 
+      userId, 
+      mediaUrl, 
+      mediaType 
+    } = await req.json();
     
     if (!content || !scheduledAt || !userId) {
       return new Response(
@@ -38,7 +42,6 @@ serve(async (req) => {
       );
     }
 
-    // Store the scheduled post in the database
     const { data, error } = await supabaseAdmin
       .from('scheduled_posts')
       .insert({
@@ -46,7 +49,9 @@ serve(async (req) => {
         content,
         platforms: JSON.stringify(platforms),
         scheduled_at: scheduledAt,
-        status: 'pending'
+        status: 'pending',
+        media_url: mediaUrl,
+        media_type: mediaType
       })
       .select()
       .single();
