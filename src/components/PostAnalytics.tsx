@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   Card, 
@@ -23,7 +22,7 @@ import {
   Legend 
 } from 'recharts';
 import { usePostAnalytics } from '@/hooks/usePostAnalytics';
-import { Loader2, TrendingUp, Download, PieChart as PieChartIcon } from 'lucide-react';
+import { Loader2, TrendingUp, Download } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -63,7 +62,6 @@ export const PostAnalytics = () => {
   
   const platformOptions = ['twitter', 'lens', 'farcaster'];
   
-  // Prepare data for the line chart
   const timelineData = processedAnalytics.reduce((acc, item) => {
     const date = item.formattedDate;
     const existing = acc.find(x => x.date === date);
@@ -86,7 +84,6 @@ export const PostAnalytics = () => {
     return acc;
   }, [] as any[]).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   
-  // Prepare data for the pie chart
   const platformData = platformBreakdown ? Object.keys(platformBreakdown).map(key => ({
     name: key.charAt(0).toUpperCase() + key.slice(1),
     value: platformBreakdown[key].count
@@ -95,13 +92,11 @@ export const PostAnalytics = () => {
   const exportToCSV = () => {
     if (!analytics || analytics.length === 0) return;
     
-    // Prepare CSV data
     const headers = "Date,Platform,Likes,Shares,Comments,Impressions,Engagement Rate\n";
     const csvContent = analytics.map(item => 
       `${format(new Date(item.created_at), 'yyyy-MM-dd')},${item.platform},${item.likes || 0},${item.shares || 0},${item.comments || 0},${item.impressions || 0},${item.engagement_rate || 0}`
     ).join("\n");
     
-    // Download CSV file
     const blob = new Blob([headers + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -157,7 +152,6 @@ export const PostAnalytics = () => {
           </div>
         </CardHeader>
         
-        {/* KPI Summary Section */}
         <CardContent>
           <div className="grid grid-cols-3 md:grid-cols-6 gap-4 mb-8">
             <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-lg">
@@ -186,7 +180,6 @@ export const PostAnalytics = () => {
             </div>
           </div>
           
-          {/* Chart Tabs */}
           <Tabs defaultValue="bar" onValueChange={setChartType}>
             <div className="flex justify-between items-center mb-4">
               <TabsList>
