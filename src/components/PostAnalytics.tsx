@@ -7,32 +7,18 @@ import {
   CardFooter,
   CardDescription 
 } from './ui/card';
-import { 
-  BarChart, 
-  Bar, 
-  LineChart,
-  Line,
-  PieChart, 
-  Pie, 
-  Cell,
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  ResponsiveContainer,
-  Legend 
-} from 'recharts';
 import { usePostAnalytics } from '@/hooks/usePostAnalytics';
 import { Loader2, TrendingUp, Download } from 'lucide-react';
-import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { format } from 'date-fns';
 import { Button } from './ui/button';
 import { DateRangePicker } from './DateRangePicker';
+import { AnalyticsBarChart } from './analytics/BarChart';
+import { AnalyticsLineChart } from './analytics/LineChart';
+import { AnalyticsPieChart } from './analytics/PieChart';
 
-const COLORS = ['#8884d8', '#83a6ed', '#8dd1e1', '#82ca9d', '#a4de6c'];
-
-export const PostAnalytics = () => {
+const PostAnalytics = () => {
   const { 
     analytics, 
     isLoading, 
@@ -190,75 +176,16 @@ export const PostAnalytics = () => {
             </div>
             
             <TabsContent value="bar" className="h-[400px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={processedAnalytics}>
-                  <XAxis dataKey="formattedDate" />
-                  <YAxis />
-                  <Tooltip 
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const data = payload[0].payload;
-                        return (
-                          <Card className="p-4">
-                            <div className="space-y-2">
-                              <p><strong>Date:</strong> {data.formattedDate}</p>
-                              <p><strong>Platform:</strong> {data.platform}</p>
-                              <div className="flex gap-2">
-                                <Badge variant="secondary">Likes: {data.likes}</Badge>
-                                <Badge variant="secondary">Shares: {data.shares}</Badge>
-                                <Badge variant="secondary">Comments: {data.comments}</Badge>
-                              </div>
-                            </div>
-                          </Card>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Bar dataKey="likes" fill="#8884d8" name="Likes" />
-                  <Bar dataKey="shares" fill="#82ca9d" name="Shares" />
-                  <Bar dataKey="comments" fill="#ffc658" name="Comments" />
-                  <Legend />
-                </BarChart>
-              </ResponsiveContainer>
+              <AnalyticsBarChart data={processedAnalytics} />
             </TabsContent>
             
             <TabsContent value="line" className="h-[400px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={timelineData}>
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="likes" stroke="#8884d8" name="Likes" />
-                  <Line type="monotone" dataKey="shares" stroke="#82ca9d" name="Shares" />
-                  <Line type="monotone" dataKey="comments" stroke="#ffc658" name="Comments" />
-                </LineChart>
-              </ResponsiveContainer>
+              <AnalyticsLineChart data={timelineData} />
             </TabsContent>
             
             <TabsContent value="pie" className="h-[400px]">
               {platformData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={platformData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={150}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {platformData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+                <AnalyticsPieChart data={platformData} />
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-gray-500">No platform data available</p>
