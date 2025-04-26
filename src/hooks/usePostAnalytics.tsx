@@ -27,7 +27,7 @@ export const usePostAnalytics = () => {
           )
         `);
 
-      if (selectedPlatform) {
+      if (selectedPlatform && selectedPlatform !== 'all') {
         query = query.eq('platform', selectedPlatform);
       }
 

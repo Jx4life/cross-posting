@@ -53,13 +53,13 @@ export const PostAnalytics = () => {
         </div>
         <Select 
           value={selectedPlatform || ''} 
-          onValueChange={(value) => setSelectedPlatform(value || null)}
+          onValueChange={(value) => setSelectedPlatform(value === '' ? null : value)}
         >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by Platform" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Platforms</SelectItem>
+            <SelectItem value="all">All Platforms</SelectItem>
             {platformOptions.map(platform => (
               <SelectItem key={platform} value={platform}>
                 {platform.charAt(0).toUpperCase() + platform.slice(1)}
