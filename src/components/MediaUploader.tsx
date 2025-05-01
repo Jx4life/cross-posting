@@ -84,6 +84,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({ onMediaUpload }) =
           
           resolve();
         };
+        img.onerror = () => reject(new Error("Failed to load image"));
         img.src = URL.createObjectURL(selectedFile);
       });
       
