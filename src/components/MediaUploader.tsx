@@ -65,7 +65,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({ onMediaUpload }) =
       const ctx = canvas.getContext('2d');
       const img = new Image();
       
-      await new Promise<void>((resolve) => {
+      await new Promise<void>((resolve, reject) => {
         img.onload = () => {
           let targetWidth = img.width;
           let targetHeight = img.height;
@@ -91,9 +91,15 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({ onMediaUpload }) =
       const format = selectedFile.type.includes('png') ? 'image/png' : 'image/jpeg';
       
       // Convert to blob with specified quality
-      const blob = await new Promise<Blob>((resolve) => {
+      const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(
-          (b) => resolve(b as Blob), 
+          (b) => {
+            if (b) {
+              resolve(b);
+            } else {
+              reject(new Error("Failed to create blob"));
+            }
+          }, 
           format, 
           quality / 100
         );
