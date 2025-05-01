@@ -26,13 +26,17 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({ onMediaUpload }) =
   // Update dimensions when a new file is selected
   useEffect(() => {
     if (selectedFile && selectedFile.type.startsWith('image/')) {
-      const img = new Image();
+      const img = document.createElement('img');
       img.onload = () => {
         setWidth(img.width);
         setHeight(img.height);
         if (imageRef.current) {
           imageRef.current.src = img.src;
         }
+      };
+      img.onerror = (error) => {
+        console.error("Error loading image:", error);
+        toast.error("Failed to load image preview");
       };
       img.src = URL.createObjectURL(selectedFile);
     }
@@ -63,7 +67,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({ onMediaUpload }) =
     try {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      const img = new Image();
+      const img = document.createElement('img');
       
       await new Promise<void>((resolve, reject) => {
         img.onload = () => {
@@ -331,3 +335,4 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({ onMediaUpload }) =
     </div>
   );
 };
+
