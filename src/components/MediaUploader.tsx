@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from './ui/button';
-import { Image, Video, Upload, X, PenLine, CropIcon, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Image, Video, Upload, X, PenLine, CropIcon, ZoomIn, ZoomOut, RotateCcw, RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Slider } from './ui/slider';
@@ -16,9 +16,10 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({ onMediaUpload }) =
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [quality, setQuality] = useState(80); // Default quality setting
-  const [processingOption, setProcessingOption] = useState<'none' | 'resize' | 'compress'>('none');
+  const [processingOption, setProcessingOption] = useState<'none' | 'resize' | 'compress' | 'rotate'>('none');
   const [width, setWidth] = useState<number | null>(null);
   const [height, setHeight] = useState<number | null>(null);
+  const [rotation, setRotation] = useState(0); // New state for rotation angle
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -55,7 +56,15 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({ onMediaUpload }) =
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
       setProcessingOption('none');
+      setRotation(0); // Reset rotation when new file is selected
     }
+  };
+
+  // Handle rotation of image
+  const rotateImage = (direction: 'clockwise' | 'counterclockwise') => {
+    const degrees = direction === 'clockwise' ? 90 : -90;
+    setRotation((prev) => (prev + degrees) % 360);
+    setProcessingOption('rotate');
   };
 
   const processImage = async (): Promise<File | null> => {
@@ -80,11 +89,39 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({ onMediaUpload }) =
             targetHeight = height;
           }
           
-          canvas.width = targetWidth;
-          canvas.height = targetHeight;
+          // Swap dimensions if rotation is 90 or 270 degrees
+          if (Math.abs(rotation % 180) === 90) {
+            canvas.width = targetHeight;
+            canvas.height = targetWidth;
+          } else {
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+          }
           
-          // Draw image with specified dimensions
-          ctx?.drawImage(img, 0, 0, targetWidth, targetHeight);
+          // Apply rotation
+          ctx?.save();
+          ctx?.translate(canvas.width / 2, canvas.height / 2);
+          ctx?.rotate((rotation * Math.PI) / 180);
+          
+          // Draw rotated image (adjust position based on rotation)
+          if (Math.abs(rotation % 180) === 90) {
+            ctx?.drawImage(
+              img, 
+              -targetHeight / 2, 
+              -targetWidth / 2, 
+              targetHeight, 
+              targetWidth
+            );
+          } else {
+            ctx?.drawImage(
+              img, 
+              -targetWidth / 2, 
+              -targetHeight / 2, 
+              targetWidth, 
+              targetHeight
+            );
+          }
+          ctx?.restore();
           
           resolve();
         };
@@ -186,6 +223,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({ onMediaUpload }) =
     setProcessingOption('none');
     setWidth(null);
     setHeight(null);
+    setRotation(0);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -232,6 +270,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({ onMediaUpload }) =
               src={previewUrl} 
               alt="Media preview" 
               className="max-h-48 w-full object-cover rounded-md"
+              style={{ transform: `rotate(${rotation}deg)` }}
             />
           ) : (
             <video 
@@ -275,6 +314,29 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({ onMediaUpload }) =
               >
                 <CropIcon className="h-4 w-4" />
                 Resize
+              </Button>
+              
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => rotateImage('counterclockwise')}
+                className="flex items-center gap-1"
+                title="Rotate counterclockwise"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Rotate
+              </Button>
+              
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => rotateImage('clockwise')}
+                className="flex items-center gap-1"
+                title="Rotate clockwise"
+              >
+                <RotateCw className="h-4 w-4" />
               </Button>
             </div>
           )}
@@ -335,4 +397,3 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({ onMediaUpload }) =
     </div>
   );
 };
-
