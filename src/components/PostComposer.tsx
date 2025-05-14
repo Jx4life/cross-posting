@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card } from "./ui/card";
 import { Textarea } from "./ui/textarea";
@@ -7,7 +8,7 @@ import { PlatformConfigDialog } from "./PlatformConfigDialog";
 import { usePostConfigurations } from "@/hooks/usePostConfigurations";
 import { usePostIntegrations } from "@/hooks/usePostIntegrations";
 import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/use-toast";
 import { SchedulePicker } from "./SchedulePicker";
 import { MediaUploader } from "./MediaUploader";
 
@@ -18,6 +19,10 @@ export const PostComposer = () => {
   const [isTwitterEnabled, setIsTwitterEnabled] = useState(true);
   const [isLensEnabled, setIsLensEnabled] = useState(true);
   const [isFarcasterEnabled, setIsFarcasterEnabled] = useState(true);
+  const [isFacebookEnabled, setIsFacebookEnabled] = useState(false);
+  const [isInstagramEnabled, setIsInstagramEnabled] = useState(false);
+  const [isTikTokEnabled, setIsTikTokEnabled] = useState(false);
+  const [isYouTubeShortsEnabled, setIsYouTubeShortsEnabled] = useState(false);
   const [scheduledAt, setScheduledAt] = useState<Date | null>(null);
   const [highlightedContent, setHighlightedContent] = useState<React.ReactNode>(null);
   const { data: configurations } = usePostConfigurations();
@@ -62,7 +67,11 @@ export const PostComposer = () => {
 
   const handlePost = async () => {
     if (!content.trim() && !mediaUrl) {
-      toast.error("Please enter some content or upload media");
+      toast({
+        title: "Missing Content",
+        description: "Please enter some content or upload media",
+        variant: "destructive"
+      });
       return;
     }
 
@@ -71,18 +80,29 @@ export const PostComposer = () => {
       const results = await schedulePost(content, {
         twitter: isTwitterEnabled,
         lens: isLensEnabled,
-        farcaster: isFarcasterEnabled
+        farcaster: isFarcasterEnabled,
+        facebook: isFacebookEnabled,
+        instagram: isInstagramEnabled,
+        tiktok: isTikTokEnabled,
+        youtubeShorts: isYouTubeShortsEnabled
       }, scheduledAt, mediaUrl, mediaType);
       
       if (results.success) {
-        toast.success(`Post scheduled for ${scheduledAt.toLocaleString()}`);
+        toast({
+          title: "Post Scheduled",
+          description: `Post scheduled for ${scheduledAt.toLocaleString()}`,
+        });
         resetForm();
       }
     } else {
       const results = await crossPost(content, {
         twitter: isTwitterEnabled,
         lens: isLensEnabled,
-        farcaster: isFarcasterEnabled
+        farcaster: isFarcasterEnabled,
+        facebook: isFacebookEnabled,
+        instagram: isInstagramEnabled,
+        tiktok: isTikTokEnabled,
+        youtubeShorts: isYouTubeShortsEnabled
       }, mediaUrl, mediaType);
       
       if (results.some(result => result.success)) {
@@ -106,8 +126,8 @@ export const PostComposer = () => {
   return (
     <Card className="w-full max-w-2xl p-6 bg-white/5 backdrop-blur-sm border-purple-500/20">
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex gap-4">
+        <div className="flex flex-col space-y-2">
+          <div className="flex flex-wrap gap-2">
             <Toggle 
               pressed={isTwitterEnabled}
               onPressedChange={setIsTwitterEnabled}
@@ -129,8 +149,41 @@ export const PostComposer = () => {
             >
               Farcaster
             </Toggle>
+            <Toggle 
+              pressed={isFacebookEnabled}
+              onPressedChange={setIsFacebookEnabled}
+              className="data-[state=on]:bg-blue-700"
+            >
+              Facebook
+            </Toggle>
           </div>
-          <PlatformConfigDialog />
+          
+          <div className="flex flex-wrap gap-2">
+            <Toggle 
+              pressed={isInstagramEnabled}
+              onPressedChange={setIsInstagramEnabled}
+              className="data-[state=on]:bg-pink-600"
+            >
+              Instagram
+            </Toggle>
+            <Toggle 
+              pressed={isTikTokEnabled}
+              onPressedChange={setIsTikTokEnabled}
+              className="data-[state=on]:bg-black"
+            >
+              TikTok
+            </Toggle>
+            <Toggle 
+              pressed={isYouTubeShortsEnabled}
+              onPressedChange={setIsYouTubeShortsEnabled}
+              className="data-[state=on]:bg-red-600"
+            >
+              YouTube Shorts
+            </Toggle>
+            <div className="ml-auto">
+              <PlatformConfigDialog />
+            </div>
+          </div>
         </div>
         
         <div className="relative">

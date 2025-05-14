@@ -1,12 +1,11 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Settings, Twitter, Check } from "lucide-react";
+import { Settings, Twitter, Check, Facebook, Instagram, Youtube } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/providers/AuthProvider";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -23,11 +22,21 @@ export const PlatformConfigDialog = () => {
   const handleTwitterConfigTest = async () => {
     try {
       setTestingConnection(true);
-      toast.info("Testing Twitter configuration...");
+      toast({
+        title: "Testing Connection",
+        description: "Testing Twitter configuration..."
+      });
       // Note: In a real app, we'd validate the credentials here
-      toast.success("Twitter credentials format looks valid. Real validation happens when posting.");
+      toast({
+        title: "Test Successful",
+        description: "Twitter credentials format looks valid. Real validation happens when posting."
+      });
     } catch (error: any) {
-      toast.error(`Error: ${error.message || "Failed to validate Twitter credentials"}`);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to validate Twitter credentials",
+        variant: "destructive"
+      });
     } finally {
       setTestingConnection(false);
     }
@@ -36,10 +45,20 @@ export const PlatformConfigDialog = () => {
   const handleFarcasterConfigTest = async () => {
     try {
       setTestingConnection(true);
-      toast.info("Testing Farcaster configuration...");
-      toast.success("Farcaster integration test successful (simulated)");
+      toast({
+        title: "Testing Connection",
+        description: "Testing Farcaster configuration..."
+      });
+      toast({
+        title: "Test Successful",
+        description: "Farcaster integration test successful (simulated)"
+      });
     } catch (error: any) {
-      toast.error(`Error: ${error.message || "Failed to test Farcaster integration"}`);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to test Farcaster integration",
+        variant: "destructive"
+      });
     } finally {
       setTestingConnection(false);
     }
@@ -48,10 +67,84 @@ export const PlatformConfigDialog = () => {
   const handleLensConfigTest = async () => {
     try {
       setTestingConnection(true);
-      toast.info("Testing Lens Protocol configuration...");
-      toast.success("Lens Protocol integration test successful (simulated)");
+      toast({
+        title: "Testing Connection",
+        description: "Testing Lens Protocol configuration..."
+      });
+      toast({
+        title: "Test Successful",
+        description: "Lens Protocol integration test successful (simulated)"
+      });
     } catch (error: any) {
-      toast.error(`Error: ${error.message || "Failed to test Lens Protocol integration"}`);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to test Lens Protocol integration",
+        variant: "destructive"
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  const handleFacebookConfigTest = async () => {
+    try {
+      setTestingConnection(true);
+      toast({
+        title: "Testing Connection",
+        description: "Testing Facebook configuration..."
+      });
+      toast({
+        title: "Test Successful",
+        description: "Facebook integration test successful (simulated)"
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  const handleInstagramConfigTest = async () => {
+    try {
+      setTestingConnection(true);
+      toast({
+        title: "Testing Connection",
+        description: "Testing Instagram configuration..."
+      });
+      toast({
+        title: "Test Successful",
+        description: "Instagram integration test successful (simulated)"
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  const handleTikTokConfigTest = async () => {
+    try {
+      setTestingConnection(true);
+      toast({
+        title: "Testing Connection",
+        description: "Testing TikTok configuration..."
+      });
+      toast({
+        title: "Test Successful",
+        description: "TikTok integration test successful (simulated)"
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  const handleYouTubeShortsConfigTest = async () => {
+    try {
+      setTestingConnection(true);
+      toast({
+        title: "Testing Connection",
+        description: "Testing YouTube Shorts configuration..."
+      });
+      toast({
+        title: "Test Successful",
+        description: "YouTube Shorts integration test successful (simulated)"
+      });
     } finally {
       setTestingConnection(false);
     }
@@ -75,10 +168,14 @@ export const PlatformConfigDialog = () => {
         </DialogHeader>
         
         <Tabs defaultValue="twitter" value={currentTab} onValueChange={setCurrentTab}>
-          <TabsList className="grid grid-cols-3">
-            <TabsTrigger value="twitter">Twitter</TabsTrigger>
-            <TabsTrigger value="lens">Lens</TabsTrigger>
-            <TabsTrigger value="farcaster">Farcaster</TabsTrigger>
+          <TabsList className="grid grid-cols-7 h-auto py-1">
+            <TabsTrigger value="twitter" className="text-xs p-1">Twitter</TabsTrigger>
+            <TabsTrigger value="lens" className="text-xs p-1">Lens</TabsTrigger>
+            <TabsTrigger value="farcaster" className="text-xs p-1">Farcaster</TabsTrigger>
+            <TabsTrigger value="facebook" className="text-xs p-1">Facebook</TabsTrigger>
+            <TabsTrigger value="instagram" className="text-xs p-1">Instagram</TabsTrigger>
+            <TabsTrigger value="tiktok" className="text-xs p-1">TikTok</TabsTrigger>
+            <TabsTrigger value="youtube" className="text-xs p-1">YouTube</TabsTrigger>
           </TabsList>
           
           <TabsContent value="twitter" className="space-y-4 mt-4">
@@ -175,6 +272,139 @@ export const PlatformConfigDialog = () => {
             
             <div className="flex justify-end space-x-2">
               <Button variant="outline" onClick={handleFarcasterConfigTest} disabled={testingConnection}>
+                {testingConnection ? "Testing..." : "Test Connection"}
+              </Button>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="facebook" className="space-y-4 mt-4">
+            <div>
+              <p className="text-sm mb-4">
+                To enable Facebook integration, you need to set up your API keys in Supabase Edge Function Secrets.
+              </p>
+              
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Facebook className="h-5 w-5 text-blue-600" />
+                  <span>Your Facebook account will be used for posting</span>
+                </div>
+                
+                <div className="bg-blue-600/10 p-3 rounded-md text-sm">
+                  <p>Required secrets need to be set in Supabase:</p>
+                  <ul className="list-disc pl-5 mt-2 space-y-1">
+                    <li>FACEBOOK_APP_ID</li>
+                    <li>FACEBOOK_APP_SECRET</li>
+                    <li>FACEBOOK_ACCESS_TOKEN</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={handleFacebookConfigTest} disabled={testingConnection}>
+                {testingConnection ? "Testing..." : "Test Connection"}
+              </Button>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="instagram" className="space-y-4 mt-4">
+            <div>
+              <p className="text-sm mb-4">
+                To enable Instagram integration, you need to set up your API keys in Supabase Edge Function Secrets.
+              </p>
+              
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Instagram className="h-5 w-5 text-pink-500" />
+                  <span>Your Instagram account will be used for posting</span>
+                </div>
+                
+                <div className="bg-pink-500/10 p-3 rounded-md text-sm">
+                  <p>Required secrets need to be set in Supabase:</p>
+                  <ul className="list-disc pl-5 mt-2 space-y-1">
+                    <li>INSTAGRAM_APP_ID</li>
+                    <li>INSTAGRAM_APP_SECRET</li>
+                    <li>INSTAGRAM_ACCESS_TOKEN</li>
+                  </ul>
+                </div>
+                
+                <p className="text-sm text-gray-400">
+                  Instagram requires an image or video to post content.
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={handleInstagramConfigTest} disabled={testingConnection}>
+                {testingConnection ? "Testing..." : "Test Connection"}
+              </Button>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="tiktok" className="space-y-4 mt-4">
+            <div>
+              <p className="text-sm mb-4">
+                To enable TikTok integration, you need to set up your API keys in Supabase Edge Function Secrets.
+              </p>
+              
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <div className="h-5 w-5 rounded-full bg-black flex items-center justify-center text-white font-bold text-xs">T</div>
+                  <span>Your TikTok account will be used for posting</span>
+                </div>
+                
+                <div className="bg-black/10 p-3 rounded-md text-sm">
+                  <p>Required secrets need to be set in Supabase:</p>
+                  <ul className="list-disc pl-5 mt-2 space-y-1">
+                    <li>TIKTOK_APP_ID</li>
+                    <li>TIKTOK_APP_SECRET</li>
+                    <li>TIKTOK_ACCESS_TOKEN</li>
+                  </ul>
+                </div>
+                
+                <p className="text-sm text-gray-400">
+                  TikTok requires a video to post content.
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={handleTikTokConfigTest} disabled={testingConnection}>
+                {testingConnection ? "Testing..." : "Test Connection"}
+              </Button>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="youtube" className="space-y-4 mt-4">
+            <div>
+              <p className="text-sm mb-4">
+                To enable YouTube Shorts integration, you need to set up your API keys in Supabase Edge Function Secrets.
+              </p>
+              
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Youtube className="h-5 w-5 text-red-600" />
+                  <span>Your YouTube account will be used for posting Shorts</span>
+                </div>
+                
+                <div className="bg-red-600/10 p-3 rounded-md text-sm">
+                  <p>Required secrets need to be set in Supabase:</p>
+                  <ul className="list-disc pl-5 mt-2 space-y-1">
+                    <li>YOUTUBE_API_KEY</li>
+                    <li>YOUTUBE_CLIENT_ID</li>
+                    <li>YOUTUBE_CLIENT_SECRET</li>
+                    <li>YOUTUBE_REFRESH_TOKEN</li>
+                  </ul>
+                </div>
+                
+                <p className="text-sm text-gray-400">
+                  YouTube Shorts requires a video to post content. The video should be in vertical format and typically 15-60 seconds in length.
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={handleYouTubeShortsConfigTest} disabled={testingConnection}>
                 {testingConnection ? "Testing..." : "Test Connection"}
               </Button>
             </div>
