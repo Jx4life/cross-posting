@@ -1,9 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
-import { CropIcon, ZoomOut, RotateCcw, RotateCw } from 'lucide-react';
+import { CropIcon, ZoomOut } from 'lucide-react';
 import { toast } from 'sonner';
+import { ImageCompression } from './editor/ImageCompression';
+import { ImageResize } from './editor/ImageResize';
+import { RotationControls } from './editor/RotationControls';
+import { processImage } from './editor/ImageProcessing';
 
 interface ImageEditorProps {
   selectedFile: File;
@@ -38,7 +41,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ selectedFile, previewU
   }, [selectedFile]);
 
   // Handle rotation of image
-  const rotateImage = (direction: 'clockwise' | 'counterclockwise') => {
+  const handleRotate = (direction: 'clockwise' | 'counterclockwise') => {
     const degrees = direction === 'clockwise' ? 90 : -90;
     setRotation((prev) => (prev + degrees) % 360);
     setProcessingOption('rotate');
@@ -52,102 +55,20 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ selectedFile, previewU
     setProcessingOption(prev => prev === 'resize' ? 'none' : 'resize');
   };
 
-  const processImage = async () => {
-    if (!selectedFile || !selectedFile.type.startsWith('image/') || processingOption === 'none') {
-      onProcessedImage(selectedFile);
-      return;
-    }
-
+  const handleProcessImage = async () => {
     setIsProcessing(true);
-    try {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = document.createElement('img');
-      
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => {
-          let targetWidth = img.width;
-          let targetHeight = img.height;
-          
-          // Apply resize if selected
-          if (processingOption === 'resize' && width && height) {
-            targetWidth = width;
-            targetHeight = height;
-          }
-          
-          // Swap dimensions if rotation is 90 or 270 degrees
-          if (Math.abs(rotation % 180) === 90) {
-            canvas.width = targetHeight;
-            canvas.height = targetWidth;
-          } else {
-            canvas.width = targetWidth;
-            canvas.height = targetHeight;
-          }
-          
-          // Apply rotation
-          ctx?.save();
-          ctx?.translate(canvas.width / 2, canvas.height / 2);
-          ctx?.rotate((rotation * Math.PI) / 180);
-          
-          // Draw rotated image (adjust position based on rotation)
-          if (Math.abs(rotation % 180) === 90) {
-            ctx?.drawImage(
-              img, 
-              -targetHeight / 2, 
-              -targetWidth / 2, 
-              targetHeight, 
-              targetWidth
-            );
-          } else {
-            ctx?.drawImage(
-              img, 
-              -targetWidth / 2, 
-              -targetHeight / 2, 
-              targetWidth, 
-              targetHeight
-            );
-          }
-          ctx?.restore();
-          
-          resolve();
-        };
-        img.onerror = () => reject(new Error("Failed to load image"));
-        img.src = URL.createObjectURL(selectedFile);
-      });
-      
-      // Get format from original file or use jpg as default
-      const format = selectedFile.type.includes('png') ? 'image/png' : 'image/jpeg';
-      
-      // Convert to blob with specified quality
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(
-          (b) => {
-            if (b) {
-              resolve(b);
-            } else {
-              reject(new Error("Failed to create blob"));
-            }
-          }, 
-          format, 
-          quality / 100
-        );
-      });
-      
-      // Create new file from blob
-      const processedFile = new File(
-        [blob], 
-        selectedFile.name.split('.')[0] + (format === 'image/png' ? '.png' : '.jpg'),
-        { type: format }
-      );
-      
-      onProcessedImage(processedFile);
-    } catch (error) {
-      console.error("Error processing image:", error);
-      toast.error('Error processing image');
-      onProcessedImage(selectedFile);
-    } finally {
-      setIsProcessing(false);
-    }
+    
+    await processImage({
+      selectedFile,
+      width,
+      height,
+      rotation,
+      quality,
+      processingOption,
+      onProcessed: onProcessedImage
+    });
+    
+    setIsProcessing(false);
   };
 
   return (
@@ -184,69 +105,20 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ selectedFile, previewU
           Resize
         </Button>
         
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => rotateImage('counterclockwise')}
-          className="flex items-center gap-1"
-          title="Rotate counterclockwise"
-        >
-          <RotateCcw className="h-4 w-4" />
-          Rotate
-        </Button>
-        
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => rotateImage('clockwise')}
-          className="flex items-center gap-1"
-          title="Rotate clockwise"
-        >
-          <RotateCw className="h-4 w-4" />
-        </Button>
+        <RotationControls onRotate={handleRotate} />
       </div>
       
       {processingOption === 'compress' && (
-        <div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Quality: {quality}%</span>
-          </div>
-          <Slider 
-            value={[quality]} 
-            min={10} 
-            max={100} 
-            step={5}
-            onValueChange={(value) => setQuality(value[0])} 
-            className="my-2"
-          />
-        </div>
+        <ImageCompression quality={quality} setQuality={setQuality} />
       )}
       
       {processingOption === 'resize' && (
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <span className="text-sm block mb-1">Width (px)</span>
-            <input
-              type="number"
-              value={width || ''}
-              onChange={(e) => setWidth(parseInt(e.target.value) || null)}
-              className="w-full p-2 text-sm rounded border"
-              placeholder="Width"
-            />
-          </div>
-          <div>
-            <span className="text-sm block mb-1">Height (px)</span>
-            <input
-              type="number"
-              value={height || ''}
-              onChange={(e) => setHeight(parseInt(e.target.value) || null)}
-              className="w-full p-2 text-sm rounded border"
-              placeholder="Height"
-            />
-          </div>
-        </div>
+        <ImageResize 
+          width={width} 
+          height={height} 
+          setWidth={setWidth} 
+          setHeight={setHeight} 
+        />
       )}
       
       <Button
@@ -254,7 +126,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ selectedFile, previewU
         variant="default"
         size="sm"
         className="w-full"
-        onClick={processImage}
+        onClick={handleProcessImage}
         disabled={isProcessing}
       >
         {isProcessing ? 'Processing...' : 'Apply Changes'}
