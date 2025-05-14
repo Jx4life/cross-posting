@@ -5,6 +5,7 @@ import { MediaUploadButton } from './media/MediaUploadButton';
 import { MediaPreview } from './media/MediaPreview';
 import { ImageEditor } from './media/ImageEditor';
 import { uploadMediaToStorage } from './media/MediaUploaderService';
+import { Button } from '@/components/ui/button'; // Added missing Button import
 
 interface MediaUploaderProps {
   onMediaUpload: (mediaUrl: string, mediaType: 'image' | 'video') => void;
