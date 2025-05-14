@@ -1,3 +1,4 @@
+
 import * as React from "react"
 
 import type {
@@ -167,6 +168,23 @@ function toast({ ...props }: Toast) {
     update,
   }
 }
+
+// Add helper functions to match Sonner API for ease of transition
+toast.success = (description: string) => {
+  return toast({ title: "Success", description, variant: "default" });
+};
+
+toast.error = (description: string) => {
+  return toast({ title: "Error", description, variant: "destructive" });
+};
+
+toast.warning = (description: string) => {
+  return toast({ title: "Warning", description, className: "bg-yellow-500 text-white" });
+};
+
+toast.info = (description: string) => {
+  return toast({ title: "Info", description, className: "bg-blue-500 text-white" });
+};
 
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
