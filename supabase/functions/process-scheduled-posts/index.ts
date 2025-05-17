@@ -7,6 +7,75 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Process a single platform post
+async function processPostForPlatform(
+  supabaseAdmin,
+  postId,
+  platform,
+  content,
+  mediaUrl,
+  mediaType
+) {
+  console.log(`Processing ${platform} post for post ${postId}`);
+  
+  try {
+    let success = false;
+    let error = null;
+    let data = null;
+    
+    // Invoke the appropriate function based on platform
+    if (platform === 'twitter' || platform === 'farcaster' || platform === 'lens') {
+      const functionName = `post-to-${platform}`;
+      const { data: responseData, error: responseError } = await supabaseAdmin.functions.invoke(functionName, {
+        body: { 
+          content,
+          mediaUrl,
+          mediaType
+        }
+      });
+      
+      success = !responseError;
+      error = responseError?.message;
+      data = responseData;
+    } 
+    // Handle simulated platforms (these would be real API calls in production)
+    else if (['facebook', 'instagram', 'tiktok', 'youtubeShorts'].includes(platform)) {
+      console.log(`Simulating ${platform} post: ${content}`);
+      
+      // Platform-specific validation
+      if (platform === 'instagram' && !mediaUrl) {
+        return { 
+          platform, 
+          success: false,
+          error: "Instagram requires media"
+        };
+      }
+      
+      if ((platform === 'tiktok' || platform === 'youtubeShorts') && 
+          (!mediaUrl || mediaType !== 'video')) {
+        return { 
+          platform, 
+          success: false,
+          error: `${platform === 'tiktok' ? 'TikTok' : 'YouTube Shorts'} requires video content`
+        };
+      }
+      
+      // Simulate successful response for supported content
+      success = true;
+      data = { id: `${platform.substring(0, 2)}-${Date.now()}` };
+    }
+    
+    return { platform, success, error, data };
+  } catch (err) {
+    console.error(`Error processing ${platform} post:`, err);
+    return { 
+      platform, 
+      success: false, 
+      error: err.message || `Failed to process ${platform} post` 
+    };
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -64,102 +133,27 @@ serve(async (req) => {
           JSON.parse(post.platforms) : post.platforms;
         
         const processingResult = { post_id: post.id, platforms_results: [] };
+        const processingPromises = [];
         
-        // Post to each enabled platform
-        if (platforms.twitter) {
-          const { data, error } = await supabaseAdmin.functions.invoke('post-to-twitter', {
-            body: { 
-              content: post.content,
-              mediaUrl: post.media_url,
-              mediaType: post.media_type
-            }
-          });
-          
-          const result = { platform: 'twitter', success: !error, error: error?.message };
-          processingResult.platforms_results.push(result);
+        // Process each enabled platform in parallel
+        for (const platform of Object.keys(platforms)) {
+          if (platforms[platform]) {
+            processingPromises.push(
+              processPostForPlatform(
+                supabaseAdmin, 
+                post.id, 
+                platform, 
+                post.content, 
+                post.media_url, 
+                post.media_type
+              )
+            );
+          }
         }
         
-        if (platforms.farcaster) {
-          const { data, error } = await supabaseAdmin.functions.invoke('post-to-farcaster', {
-            body: { 
-              content: post.content,
-              mediaUrl: post.media_url,
-              mediaType: post.media_type
-            }
-          });
-          
-          const result = { platform: 'farcaster', success: !error, error: error?.message };
-          processingResult.platforms_results.push(result);
-        }
-        
-        if (platforms.lens) {
-          // For Lens, we would need to get the user's wallet and handle
-          const { data, error } = await supabaseAdmin.functions.invoke('post-to-lens', {
-            body: { 
-              content: post.content, 
-              mediaUrl: post.media_url,
-              mediaType: post.media_type
-            }
-          });
-          
-          const result = { platform: 'lens', success: !error, error: error?.message };
-          processingResult.platforms_results.push(result);
-        }
-        
-        // Handle new platforms
-        
-        if (platforms.facebook) {
-          // Simulate Facebook posting
-          console.log("Simulating Facebook post:", post.content);
-          const result = { 
-            platform: 'facebook', 
-            success: true,
-            data: { id: 'fb-' + Date.now() } 
-          };
-          processingResult.platforms_results.push(result);
-        }
-        
-        if (platforms.instagram) {
-          // Simulate Instagram posting (requires media)
-          console.log("Simulating Instagram post:", post.content);
-          
-          const success = !!post.media_url;
-          const result = { 
-            platform: 'instagram', 
-            success: success,
-            error: success ? undefined : "Instagram requires media",
-            data: success ? { id: 'ig-' + Date.now() } : undefined 
-          };
-          processingResult.platforms_results.push(result);
-        }
-        
-        if (platforms.tiktok) {
-          // Simulate TikTok posting (requires video)
-          console.log("Simulating TikTok post:", post.content);
-          
-          const success = post.media_url && post.media_type === 'video';
-          const result = { 
-            platform: 'tiktok', 
-            success: success,
-            error: success ? undefined : "TikTok requires video content",
-            data: success ? { id: 'tt-' + Date.now() } : undefined 
-          };
-          processingResult.platforms_results.push(result);
-        }
-        
-        if (platforms.youtubeShorts) {
-          // Simulate YouTube Shorts posting (requires video)
-          console.log("Simulating YouTube Shorts post:", post.content);
-          
-          const success = post.media_url && post.media_type === 'video';
-          const result = { 
-            platform: 'youtubeShorts', 
-            success: success,
-            error: success ? undefined : "YouTube Shorts requires video content",
-            data: success ? { id: 'yt-' + Date.now() } : undefined 
-          };
-          processingResult.platforms_results.push(result);
-        }
+        // Wait for all platform operations to complete
+        const platformResults = await Promise.all(processingPromises);
+        processingResult.platforms_results = platformResults;
         
         // Update post status to 'completed'
         const { error: updateError } = await supabaseAdmin
