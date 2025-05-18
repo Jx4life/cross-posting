@@ -3,10 +3,11 @@ import React from "react";
 import { Toggle } from "../ui/toggle";
 import { cn } from "@/lib/utils";
 import { 
-  Twitter, 
   Facebook, 
-  Instagram, 
-  Youtube 
+  Instagram,
+  Youtube,
+  X,
+  TiktokIcon
 } from "lucide-react";
 
 interface PlatformToggleButtonsProps {
@@ -25,6 +26,15 @@ interface PlatformToggleButtonsProps {
   isYouTubeShortsEnabled: boolean;
   setIsYouTubeShortsEnabled: (enabled: boolean) => void;
 }
+
+const TiktokIcon = (props: any) => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" {...props}>
+    <path
+      d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.9 2.9 0 01.88.13V9.4a6.18 6.18 0 00-1-.08A6.26 6.26 0 002 15.58a6.26 6.26 0 009.39 5.43 6.12 6.12 0 002.27-4.8V7.83a8.24 8.24 0 005.83 2.29V6.69a4.67 4.67 0 01-.9-.08z"
+      fill="currentColor"
+    />
+  </svg>
+);
 
 export const PlatformToggleButtons: React.FC<PlatformToggleButtonsProps> = ({
   isTwitterEnabled,
@@ -50,11 +60,11 @@ export const PlatformToggleButtons: React.FC<PlatformToggleButtonsProps> = ({
           onPressedChange={setIsTwitterEnabled}
           className={cn(
             "border-[1px] border-gray-300 dark:border-gray-700 flex items-center gap-1.5",
-            "data-[state=on]:bg-[#1DA1F2] data-[state=on]:text-white data-[state=on]:border-[#1DA1F2]"
+            "data-[state=on]:bg-black data-[state=on]:text-white data-[state=on]:border-black"
           )}
         >
-          <Twitter className="h-4 w-4" />
-          <span>Twitter</span>
+          <X className="h-4 w-4" />
+          <span>X</span>
         </Toggle>
         
         <Toggle 
@@ -110,7 +120,7 @@ export const PlatformToggleButtons: React.FC<PlatformToggleButtonsProps> = ({
           onPressedChange={setIsInstagramEnabled}
           className={cn(
             "border-[1px] border-gray-300 dark:border-gray-700 flex items-center gap-1.5",
-            "data-[state=on]:bg-gradient-to-r data-[state=on]:from-[#833AB4] data-[state=on]:via-[#FD1D1D] data-[state=on]:to-[#FCAF45] data-[state=on]:text-white data-[state=on]:border-[#833AB4]"
+            "data-[state=on]:bg-gradient-to-r data-[state=on]:from-[#833AB4] data-[state=on]:via-[#FD1D1D] data-[state=on]:to-[#FCAF45] data-[state=on]:text-white data-[state=on]:border-transparent"
           )}
         >
           <Instagram className="h-4 w-4" />
@@ -125,12 +135,7 @@ export const PlatformToggleButtons: React.FC<PlatformToggleButtonsProps> = ({
             "data-[state=on]:bg-black data-[state=on]:text-white data-[state=on]:border-black"
           )}
         >
-          <svg viewBox="0 0 24 24" className="h-4 w-4">
-            <path
-              d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.9 2.9 0 01.88.13V9.4a6.18 6.18 0 00-1-.08A6.26 6.26 0 002 15.58a6.26 6.26 0 009.39 5.43 6.12 6.12 0 002.27-4.8V7.83a8.24 8.24 0 005.83 2.29V6.69a4.67 4.67 0 01-.9-.08z"
-              fill="currentColor"
-            />
-          </svg>
+          <TiktokIcon />
           <span>TikTok</span>
         </Toggle>
         
