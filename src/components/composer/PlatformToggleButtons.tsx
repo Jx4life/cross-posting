@@ -6,8 +6,7 @@ import {
   Facebook, 
   Instagram,
   Youtube,
-  X,
-  TiktokIcon
+  X
 } from "lucide-react";
 
 interface PlatformToggleButtonsProps {
