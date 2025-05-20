@@ -26,6 +26,8 @@ async function processPostForPlatform(
     // Invoke the appropriate function based on platform
     if (platform === 'twitter' || platform === 'farcaster' || platform === 'lens') {
       const functionName = `post-to-${platform}`;
+      console.log(`Invoking edge function: ${functionName}`);
+      
       const { data: responseData, error: responseError } = await supabaseAdmin.functions.invoke(functionName, {
         body: { 
           content,
@@ -37,6 +39,8 @@ async function processPostForPlatform(
       success = !responseError;
       error = responseError?.message;
       data = responseData;
+      
+      console.log(`${platform} posting ${success ? 'succeeded' : 'failed'}:`, success ? data : error);
     } 
     // Handle simulated platforms (these would be real API calls in production)
     else if (['facebook', 'instagram', 'tiktok', 'youtubeShorts'].includes(platform)) {
@@ -63,6 +67,7 @@ async function processPostForPlatform(
       // Simulate successful response for supported content
       success = true;
       data = { id: `${platform.substring(0, 2)}-${Date.now()}` };
+      console.log(`${platform} posting simulated successfully`);
     }
     
     return { platform, success, error, data };
@@ -83,6 +88,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Starting scheduled posts processing");
+    
     // Get the supabase client with admin privileges for database operations
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") || "",
@@ -96,6 +103,7 @@ serve(async (req) => {
     
     // Get current time
     const now = new Date().toISOString();
+    console.log(`Current timestamp: ${now}`);
     
     // Fetch scheduled posts that are due
     const { data: posts, error: fetchError } = await supabaseAdmin
@@ -126,11 +134,13 @@ serve(async (req) => {
     const results = [];
     for (const post of posts) {
       try {
-        console.log(`Processing post ${post.id}`);
+        console.log(`Processing post ${post.id} scheduled for ${post.scheduled_at}`);
         
         // Parse platforms
         const platforms = typeof post.platforms === 'string' ? 
           JSON.parse(post.platforms) : post.platforms;
+        
+        console.log(`Post platforms:`, platforms);
         
         const processingResult = { post_id: post.id, platforms_results: [] };
         const processingPromises = [];
@@ -138,6 +148,7 @@ serve(async (req) => {
         // Process each enabled platform in parallel
         for (const platform of Object.keys(platforms)) {
           if (platforms[platform]) {
+            console.log(`Preparing to post to ${platform}`);
             processingPromises.push(
               processPostForPlatform(
                 supabaseAdmin, 
@@ -152,16 +163,20 @@ serve(async (req) => {
         }
         
         // Wait for all platform operations to complete
+        console.log(`Waiting for all platform processing to complete`);
         const platformResults = await Promise.all(processingPromises);
         processingResult.platforms_results = platformResults;
         
+        console.log(`All platforms processed for post ${post.id}:`, platformResults);
+        
         // Update post status to 'completed'
+        console.log(`Updating post ${post.id} status to completed`);
         const { error: updateError } = await supabaseAdmin
           .from('scheduled_posts')
           .update({ 
             status: 'completed',
             processed_at: new Date().toISOString(),
-            processing_results: processingResult.platforms_results
+            processing_results: platformResults
           })
           .eq('id', post.id);
         
@@ -171,6 +186,7 @@ serve(async (req) => {
         }
         
         results.push(processingResult);
+        console.log(`Post ${post.id} successfully processed`);
         
       } catch (postError) {
         console.error(`Error processing post ${post.id}:`, postError);
@@ -181,7 +197,7 @@ serve(async (req) => {
           .update({ 
             status: 'failed',
             processed_at: new Date().toISOString(),
-            processing_results: { error: postError.message }
+            processing_results: [{ error: postError.message }]
           })
           .eq('id', post.id);
         
@@ -191,6 +207,8 @@ serve(async (req) => {
         });
       }
     }
+    
+    console.log(`Processing complete. Processed ${posts.length} scheduled posts`);
     
     return new Response(
       JSON.stringify({ 
