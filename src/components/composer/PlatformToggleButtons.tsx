@@ -10,20 +10,16 @@ import {
 } from "lucide-react";
 
 interface PlatformToggleButtonsProps {
-  isTwitterEnabled: boolean;
-  setIsTwitterEnabled: (enabled: boolean) => void;
-  isLensEnabled: boolean;
-  setIsLensEnabled: (enabled: boolean) => void;
-  isFarcasterEnabled: boolean;
-  setIsFarcasterEnabled: (enabled: boolean) => void;
-  isFacebookEnabled: boolean;
-  setIsFacebookEnabled: (enabled: boolean) => void;
-  isInstagramEnabled: boolean;
-  setIsInstagramEnabled: (enabled: boolean) => void;
-  isTikTokEnabled: boolean;
-  setIsTikTokEnabled: (enabled: boolean) => void;
-  isYouTubeShortsEnabled: boolean;
-  setIsYouTubeShortsEnabled: (enabled: boolean) => void;
+  platforms: {
+    twitter?: boolean;
+    lens?: boolean;
+    farcaster?: boolean;
+    facebook?: boolean;
+    instagram?: boolean;
+    tiktok?: boolean;
+    youtubeShorts?: boolean;
+  };
+  onChange: (platforms: any) => void;
 }
 
 const TiktokIcon = (props: any) => (
@@ -36,27 +32,23 @@ const TiktokIcon = (props: any) => (
 );
 
 export const PlatformToggleButtons: React.FC<PlatformToggleButtonsProps> = ({
-  isTwitterEnabled,
-  setIsTwitterEnabled,
-  isLensEnabled,
-  setIsLensEnabled,
-  isFarcasterEnabled,
-  setIsFarcasterEnabled,
-  isFacebookEnabled,
-  setIsFacebookEnabled,
-  isInstagramEnabled,
-  setIsInstagramEnabled,
-  isTikTokEnabled,
-  setIsTikTokEnabled,
-  isYouTubeShortsEnabled,
-  setIsYouTubeShortsEnabled
+  platforms,
+  onChange
 }) => {
+  // Create local handlers that update the platforms object
+  const handlePlatformToggle = (platform: string, enabled: boolean) => {
+    onChange({
+      ...platforms,
+      [platform]: enabled
+    });
+  };
+
   return (
     <div className="flex flex-col space-y-2">
       <div className="flex flex-wrap gap-2">
         <Toggle 
-          pressed={isTwitterEnabled}
-          onPressedChange={setIsTwitterEnabled}
+          pressed={platforms.twitter}
+          onPressedChange={(enabled) => handlePlatformToggle('twitter', enabled)}
           className={cn(
             "border-[1px] border-gray-300 dark:border-gray-700 flex items-center gap-1.5",
             "data-[state=on]:bg-black data-[state=on]:text-white data-[state=on]:border-black"
@@ -67,8 +59,8 @@ export const PlatformToggleButtons: React.FC<PlatformToggleButtonsProps> = ({
         </Toggle>
         
         <Toggle 
-          pressed={isLensEnabled}
-          onPressedChange={setIsLensEnabled}
+          pressed={platforms.lens}
+          onPressedChange={(enabled) => handlePlatformToggle('lens', enabled)}
           className={cn(
             "border-[1px] border-gray-300 dark:border-gray-700 flex items-center gap-1.5",
             "data-[state=on]:bg-[#00501E] data-[state=on]:text-white data-[state=on]:border-[#00501E]"
@@ -84,8 +76,8 @@ export const PlatformToggleButtons: React.FC<PlatformToggleButtonsProps> = ({
         </Toggle>
         
         <Toggle 
-          pressed={isFarcasterEnabled}
-          onPressedChange={setIsFarcasterEnabled}
+          pressed={platforms.farcaster}
+          onPressedChange={(enabled) => handlePlatformToggle('farcaster', enabled)}
           className={cn(
             "border-[1px] border-gray-300 dark:border-gray-700 flex items-center gap-1.5",
             "data-[state=on]:bg-[#8B5CF6] data-[state=on]:text-white data-[state=on]:border-[#8B5CF6]"
@@ -101,8 +93,8 @@ export const PlatformToggleButtons: React.FC<PlatformToggleButtonsProps> = ({
         </Toggle>
         
         <Toggle 
-          pressed={isFacebookEnabled}
-          onPressedChange={setIsFacebookEnabled}
+          pressed={platforms.facebook}
+          onPressedChange={(enabled) => handlePlatformToggle('facebook', enabled)}
           className={cn(
             "border-[1px] border-gray-300 dark:border-gray-700 flex items-center gap-1.5",
             "data-[state=on]:bg-[#1877F2] data-[state=on]:text-white data-[state=on]:border-[#1877F2]"
@@ -115,8 +107,8 @@ export const PlatformToggleButtons: React.FC<PlatformToggleButtonsProps> = ({
       
       <div className="flex flex-wrap gap-2">
         <Toggle 
-          pressed={isInstagramEnabled}
-          onPressedChange={setIsInstagramEnabled}
+          pressed={platforms.instagram}
+          onPressedChange={(enabled) => handlePlatformToggle('instagram', enabled)}
           className={cn(
             "border-[1px] border-gray-300 dark:border-gray-700 flex items-center gap-1.5",
             "data-[state=on]:bg-gradient-to-r data-[state=on]:from-[#833AB4] data-[state=on]:via-[#FD1D1D] data-[state=on]:to-[#FCAF45] data-[state=on]:text-white data-[state=on]:border-transparent"
@@ -127,8 +119,8 @@ export const PlatformToggleButtons: React.FC<PlatformToggleButtonsProps> = ({
         </Toggle>
         
         <Toggle 
-          pressed={isTikTokEnabled}
-          onPressedChange={setIsTikTokEnabled}
+          pressed={platforms.tiktok}
+          onPressedChange={(enabled) => handlePlatformToggle('tiktok', enabled)}
           className={cn(
             "border-[1px] border-gray-300 dark:border-gray-700 flex items-center gap-1.5",
             "data-[state=on]:bg-black data-[state=on]:text-white data-[state=on]:border-black"
@@ -139,8 +131,8 @@ export const PlatformToggleButtons: React.FC<PlatformToggleButtonsProps> = ({
         </Toggle>
         
         <Toggle 
-          pressed={isYouTubeShortsEnabled}
-          onPressedChange={setIsYouTubeShortsEnabled}
+          pressed={platforms.youtubeShorts}
+          onPressedChange={(enabled) => handlePlatformToggle('youtubeShorts', enabled)}
           className={cn(
             "border-[1px] border-gray-300 dark:border-gray-700 flex items-center gap-1.5",
             "data-[state=on]:bg-[#FF0000] data-[state=on]:text-white data-[state=on]:border-[#FF0000]"

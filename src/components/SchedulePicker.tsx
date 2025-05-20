@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -11,15 +11,35 @@ import { Separator } from "./ui/separator";
 
 interface SchedulePickerProps {
   onScheduleChange: (scheduledAt: Date | null) => void;
+  initialDate?: Date | null;
 }
 
-export const SchedulePicker = ({ onScheduleChange }: SchedulePickerProps) => {
-  const [date, setDate] = useState<Date | null>(null);
+export const SchedulePicker = ({ onScheduleChange, initialDate }: SchedulePickerProps) => {
+  const [date, setDate] = useState<Date | null>(initialDate || null);
   const [hour, setHour] = useState<string>("12");
   const [minute, setMinute] = useState<string>("00");
   const [period, setPeriod] = useState<"AM" | "PM">("PM");
-  const [isScheduled, setIsScheduled] = useState(false);
+  const [isScheduled, setIsScheduled] = useState(!!initialDate);
   const [isOpen, setIsOpen] = useState(false);
+
+  // Initialize time state from initialDate if provided
+  useEffect(() => {
+    if (initialDate) {
+      setDate(initialDate);
+      setIsScheduled(true);
+      
+      // Set hour, minute and period based on initialDate
+      const hours = initialDate.getHours();
+      const minutes = initialDate.getMinutes();
+      
+      const isPM = hours >= 12;
+      const hour12 = hours % 12 || 12; // Convert 0 to 12 for 12-hour format
+      
+      setHour(hour12.toString().padStart(2, '0'));
+      setMinute(minutes.toString().padStart(2, '0'));
+      setPeriod(isPM ? "PM" : "AM");
+    }
+  }, [initialDate]);
 
   const handleDateSelect = (selectedDate: Date | null) => {
     setDate(selectedDate);
