@@ -1,8 +1,9 @@
+
 import React, { useState } from 'react';
 import { Card } from './ui/card';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, History, Calendar, Image, Video } from 'lucide-react';
+import { Loader2, History, Calendar, Image, Video, Pencil, Trash2, X } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { format } from 'date-fns';
 import { 
@@ -13,11 +14,35 @@ import {
   PaginationNext, 
   PaginationPrevious 
 } from './ui/pagination';
+import { Button } from './ui/button';
+import { toast } from './ui/use-toast';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import { Textarea } from './ui/textarea';
+import { PlatformToggleButtons } from './composer/PlatformToggleButtons';
+import { SchedulePicker } from './SchedulePicker';
+import { MediaUploader } from './MediaUploader';
 
 interface ScheduledPost {
   id: string;
   content: string;
-  platforms: { twitter?: boolean; lens?: boolean; farcaster?: boolean };
+  platforms: { twitter?: boolean; lens?: boolean; farcaster?: boolean; facebook?: boolean; instagram?: boolean; tiktok?: boolean; youtubeShorts?: boolean };
   scheduled_at: string;
   status: string;
   created_at: string;
@@ -29,6 +54,16 @@ const POSTS_PER_PAGE = 5;
 
 export const PostsHistory = () => {
   const [currentPage, setCurrentPage] = useState(1);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<ScheduledPost | null>(null);
+  const [editedContent, setEditedContent] = useState('');
+  const [editedPlatforms, setEditedPlatforms] = useState<any>({});
+  const [editedScheduleAt, setEditedScheduleAt] = useState<Date | null>(null);
+  const [editedMediaUrl, setEditedMediaUrl] = useState<string | null>(null);
+  const [editedMediaType, setEditedMediaType] = useState<'image' | 'video' | null>(null);
+
+  const queryClient = useQueryClient();
   
   const { data: postsData, isLoading } = useQuery({
     queryKey: ['scheduled-posts'],
@@ -42,6 +77,147 @@ export const PostsHistory = () => {
       return data as ScheduledPost[];
     }
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      const { error } = await supabase
+        .from('scheduled_posts')
+        .delete()
+        .eq('id', postId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Post deleted",
+        description: "The scheduled post has been deleted successfully."
+      });
+      queryClient.invalidateQueries({ queryKey: ['scheduled-posts'] });
+      setDeleteDialogOpen(false);
+      setSelectedPost(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Delete failed",
+        description: `Failed to delete post: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({
+      id,
+      content,
+      platforms,
+      scheduledAt,
+      mediaUrl,
+      mediaType
+    }: {
+      id: string;
+      content: string;
+      platforms: any;
+      scheduledAt: Date | null;
+      mediaUrl: string | null;
+      mediaType: 'image' | 'video' | null;
+    }) => {
+      if (!scheduledAt) {
+        throw new Error("Schedule date is required");
+      }
+
+      const { error } = await supabase
+        .from('scheduled_posts')
+        .update({
+          content,
+          platforms,
+          scheduled_at: scheduledAt.toISOString(),
+          media_url: mediaUrl,
+          media_type: mediaType,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Post updated",
+        description: "The scheduled post has been updated successfully."
+      });
+      queryClient.invalidateQueries({ queryKey: ['scheduled-posts'] });
+      setEditDialogOpen(false);
+      setSelectedPost(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Update failed",
+        description: `Failed to update post: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleDeleteClick = (post: ScheduledPost) => {
+    if (post.status !== 'pending') {
+      toast({
+        title: "Cannot delete",
+        description: "Only pending posts can be deleted.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setSelectedPost(post);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleEditClick = (post: ScheduledPost) => {
+    if (post.status !== 'pending') {
+      toast({
+        title: "Cannot edit",
+        description: "Only pending posts can be edited.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setSelectedPost(post);
+    setEditedContent(post.content);
+    setEditedPlatforms(post.platforms);
+    setEditedScheduleAt(new Date(post.scheduled_at));
+    setEditedMediaUrl(post.media_url);
+    setEditedMediaType(post.media_type as 'image' | 'video' | null);
+    setEditDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedPost) {
+      deleteMutation.mutate(selectedPost.id);
+    }
+  };
+
+  const handleConfirmEdit = () => {
+    if (selectedPost && editedContent) {
+      updateMutation.mutate({
+        id: selectedPost.id,
+        content: editedContent,
+        platforms: editedPlatforms,
+        scheduledAt: editedScheduleAt,
+        mediaUrl: editedMediaUrl,
+        mediaType: editedMediaType
+      });
+    }
+  };
+
+  const handleMediaUpload = (url: string, type: 'image' | 'video') => {
+    setEditedMediaUrl(url);
+    setEditedMediaType(type);
+  };
+
+  const removeMedia = () => {
+    setEditedMediaUrl(null);
+    setEditedMediaType(null);
+  };
 
   const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -117,9 +293,29 @@ export const PostsHistory = () => {
                     </p>
                     <p className="text-base">{post.content}</p>
                   </div>
-                  <Badge variant={getStatusBadgeVariant(post.status)}>
-                    {post.status}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={getStatusBadgeVariant(post.status)}>
+                      {post.status}
+                    </Badge>
+                    {post.status === 'pending' && (
+                      <>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleEditClick(post)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleDeleteClick(post)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
                 
                 {renderMedia(post.media_url, post.media_type)}
@@ -169,6 +365,123 @@ export const PostsHistory = () => {
           )}
         </>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Scheduled Post</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this scheduled post? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Post Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Scheduled Post</DialogTitle>
+            <DialogDescription>
+              Make changes to your scheduled post below.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Post Content</label>
+              <Textarea 
+                value={editedContent}
+                onChange={(e) => setEditedContent(e.target.value)}
+                className="min-h-[100px]"
+                placeholder="What's on your mind?"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Platforms</label>
+              <PlatformToggleButtons 
+                platforms={editedPlatforms} 
+                onChange={setEditedPlatforms} 
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Schedule</label>
+              <SchedulePicker 
+                onScheduleChange={setEditedScheduleAt} 
+                initialDate={editedScheduleAt}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Media</label>
+              {editedMediaUrl ? (
+                <div className="relative">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1"
+                    onClick={removeMedia}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  {editedMediaType === 'image' ? (
+                    <img 
+                      src={editedMediaUrl} 
+                      alt="Post media" 
+                      className="w-full max-h-64 object-cover rounded-md"
+                    />
+                  ) : (
+                    <video 
+                      src={editedMediaUrl} 
+                      controls 
+                      className="w-full max-h-64 rounded-md"
+                    />
+                  )}
+                </div>
+              ) : (
+                <MediaUploader onMediaUpload={handleMediaUpload} />
+              )}
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setEditDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConfirmEdit}
+              disabled={!editedContent.trim() || !editedScheduleAt || updateMutation.isPending}
+            >
+              {updateMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
