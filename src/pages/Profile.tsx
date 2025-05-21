@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { ProfileImageUploader } from "@/components/media/ProfileImageUploader";
 
 export default function Profile() {
   const { user } = useAuth();
@@ -69,6 +70,10 @@ export default function Profile() {
     }
   }
 
+  const handleAvatarUploaded = (url: string) => {
+    setAvatarUrl(url);
+  };
+
   if (!user) return null;
 
   return (
@@ -90,10 +95,11 @@ export default function Profile() {
           
           <div className="space-y-6 bg-white/5 backdrop-blur-sm p-6 rounded-lg">
             <div className="flex justify-center mb-6">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src={avatarUrl} />
-                <AvatarFallback>{username?.[0]?.toUpperCase() || "U"}</AvatarFallback>
-              </Avatar>
+              <ProfileImageUploader 
+                currentAvatarUrl={avatarUrl} 
+                onImageUploaded={handleAvatarUploaded} 
+                username={username}
+              />
             </div>
 
             <div className="space-y-4">
@@ -106,19 +112,6 @@ export default function Profile() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="bg-white/10 border-purple-500/20"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2" htmlFor="avatarUrl">
-                  Avatar URL
-                </label>
-                <Input
-                  id="avatarUrl"
-                  type="text"
-                  value={avatarUrl}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
                   className="bg-white/10 border-purple-500/20"
                 />
               </div>
