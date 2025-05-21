@@ -8,18 +8,21 @@ import { PlatformToggleButtons } from "./composer/PlatformToggleButtons";
 import { ContentEditor } from "./composer/ContentEditor";
 import { MediaPreview } from "./composer/MediaPreview";
 import { ComposerActions } from "./composer/ComposerActions";
+import { PlatformSettings } from "@/types/platform";
 
 export const PostComposer = () => {
   const [content, setContent] = useState("");
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
-  const [isTwitterEnabled, setIsTwitterEnabled] = useState(true);
-  const [isLensEnabled, setIsLensEnabled] = useState(true);
-  const [isFarcasterEnabled, setIsFarcasterEnabled] = useState(true);
-  const [isFacebookEnabled, setIsFacebookEnabled] = useState(false);
-  const [isInstagramEnabled, setIsInstagramEnabled] = useState(false);
-  const [isTikTokEnabled, setIsTikTokEnabled] = useState(false);
-  const [isYouTubeShortsEnabled, setIsYouTubeShortsEnabled] = useState(false);
+  const [platforms, setPlatforms] = useState<PlatformSettings>({
+    twitter: true,
+    lens: true,
+    farcaster: true,
+    facebook: false,
+    instagram: false,
+    tiktok: false,
+    youtubeShorts: false
+  });
   const [scheduledAt, setScheduledAt] = useState<Date | null>(null);
   const { data: configurations } = usePostConfigurations();
   const { isPosting, crossPost, schedulePost } = usePostIntegrations();
@@ -41,15 +44,7 @@ export const PostComposer = () => {
 
     // If scheduled, use schedulePost instead of crossPost
     if (scheduledAt) {
-      const results = await schedulePost(content, {
-        twitter: isTwitterEnabled,
-        lens: isLensEnabled,
-        farcaster: isFarcasterEnabled,
-        facebook: isFacebookEnabled,
-        instagram: isInstagramEnabled,
-        tiktok: isTikTokEnabled,
-        youtubeShorts: isYouTubeShortsEnabled
-      }, scheduledAt, mediaUrl, mediaType);
+      const results = await schedulePost(content, platforms, scheduledAt, mediaUrl, mediaType);
       
       if (results.success) {
         toast({
@@ -59,15 +54,7 @@ export const PostComposer = () => {
         resetForm();
       }
     } else {
-      const results = await crossPost(content, {
-        twitter: isTwitterEnabled,
-        lens: isLensEnabled,
-        farcaster: isFarcasterEnabled,
-        facebook: isFacebookEnabled,
-        instagram: isInstagramEnabled,
-        tiktok: isTikTokEnabled,
-        youtubeShorts: isYouTubeShortsEnabled
-      }, mediaUrl, mediaType);
+      const results = await crossPost(content, platforms, mediaUrl, mediaType);
       
       if (results.some(result => result.success)) {
         resetForm();
@@ -88,20 +75,8 @@ export const PostComposer = () => {
     <Card className="w-full max-w-2xl p-6 bg-white/5 backdrop-blur-sm border-purple-500/20">
       <div className="space-y-4">
         <PlatformToggleButtons 
-          isTwitterEnabled={isTwitterEnabled}
-          setIsTwitterEnabled={setIsTwitterEnabled}
-          isLensEnabled={isLensEnabled}
-          setIsLensEnabled={setIsLensEnabled}
-          isFarcasterEnabled={isFarcasterEnabled}
-          setIsFarcasterEnabled={setIsFarcasterEnabled}
-          isFacebookEnabled={isFacebookEnabled}
-          setIsFacebookEnabled={setIsFacebookEnabled}
-          isInstagramEnabled={isInstagramEnabled}
-          setIsInstagramEnabled={setIsInstagramEnabled}
-          isTikTokEnabled={isTikTokEnabled}
-          setIsTikTokEnabled={setIsTikTokEnabled}
-          isYouTubeShortsEnabled={isYouTubeShortsEnabled}
-          setIsYouTubeShortsEnabled={setIsYouTubeShortsEnabled}
+          platforms={platforms}
+          onChange={setPlatforms}
         />
         
         <ContentEditor 

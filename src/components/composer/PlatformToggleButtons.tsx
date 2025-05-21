@@ -8,18 +8,11 @@ import {
   Youtube,
   X
 } from "lucide-react";
+import { PlatformSettings } from "@/types/platform";
 
 interface PlatformToggleButtonsProps {
-  platforms: {
-    twitter?: boolean;
-    lens?: boolean;
-    farcaster?: boolean;
-    facebook?: boolean;
-    instagram?: boolean;
-    tiktok?: boolean;
-    youtubeShorts?: boolean;
-  };
-  onChange: (platforms: any) => void;
+  platforms: PlatformSettings;
+  onChange: (platforms: PlatformSettings) => void;
 }
 
 const TiktokIcon = (props: any) => (
@@ -36,7 +29,7 @@ export const PlatformToggleButtons: React.FC<PlatformToggleButtonsProps> = ({
   onChange
 }) => {
   // Create local handlers that update the platforms object
-  const handlePlatformToggle = (platform: string, enabled: boolean) => {
+  const handlePlatformToggle = (platform: keyof PlatformSettings, enabled: boolean) => {
     onChange({
       ...platforms,
       [platform]: enabled
