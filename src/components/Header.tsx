@@ -1,9 +1,14 @@
 
 import React from 'react';
+import NavigationMenu from './NavigationMenu';
 
 const Header = () => {
   return (
     <header className="mb-8">
+      <div className="flex justify-between items-center mb-6">
+        <div></div> {/* Empty div for flex alignment */}
+        <NavigationMenu />
+      </div>
       <div className="text-center">
         <h1 className="text-4xl md:text-5xl font-bold text-purple-600 mb-3 font-heading tracking-tight">
           In<span className="text-purple-800">Sync</span>
