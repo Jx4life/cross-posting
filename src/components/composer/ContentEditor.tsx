@@ -1,5 +1,7 @@
+
 import React, { useEffect, useState } from "react";
 import { Textarea } from "../ui/textarea";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ContentEditorProps {
   content: string;
@@ -11,6 +13,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
   setContent
 }) => {
   const [highlightedContent, setHighlightedContent] = useState<React.ReactNode>(null);
+  const isMobile = useIsMobile();
   
   // Highlight hashtags in content
   useEffect(() => {
@@ -54,7 +57,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
         placeholder="What's on your mind?"
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        className={`min-h-[150px] bg-white/10 border-purple-500/20 ${isOverLimit ? 'border-red-500' : ''}`}
+        className={`min-h-[120px] md:min-h-[150px] bg-white/10 border-purple-500/20 ${isOverLimit ? 'border-red-500' : ''}`}
       />
       
       {highlightedContent && (
@@ -63,7 +66,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
         </div>
       )}
       
-      <div className={`text-sm mt-1 ${
+      <div className={`text-xs md:text-sm mt-1 ${
         isOverLimit ? 'text-red-400' : 
         remainingChars <= 20 ? 'text-yellow-400' : 
         'text-gray-400'

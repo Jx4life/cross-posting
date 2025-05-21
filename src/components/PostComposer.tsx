@@ -9,6 +9,7 @@ import { ContentEditor } from "./composer/ContentEditor";
 import { MediaPreview } from "./composer/MediaPreview";
 import { ComposerActions } from "./composer/ComposerActions";
 import { PlatformSettings } from "@/types/platform";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export const PostComposer = () => {
   const [content, setContent] = useState("");
@@ -26,6 +27,7 @@ export const PostComposer = () => {
   const [scheduledAt, setScheduledAt] = useState<Date | null>(null);
   const { data: configurations } = usePostConfigurations();
   const { isPosting, crossPost, schedulePost } = usePostIntegrations();
+  const isMobile = useIsMobile();
 
   const handleMediaUpload = (url: string, type: 'image' | 'video') => {
     setMediaUrl(url);
@@ -72,7 +74,7 @@ export const PostComposer = () => {
   const isContentValid = Boolean((content.trim() || mediaUrl) && content.length <= 280);
 
   return (
-    <Card className="w-full max-w-2xl p-6 bg-white/5 backdrop-blur-sm border-purple-500/20">
+    <Card className="w-full max-w-2xl p-4 md:p-6 bg-white/5 backdrop-blur-sm border-purple-500/20">
       <div className="space-y-4">
         <PlatformToggleButtons 
           platforms={platforms}
@@ -84,10 +86,13 @@ export const PostComposer = () => {
           setContent={setContent}
         />
         
-        <MediaPreview 
-          mediaUrl={mediaUrl}
-          mediaType={mediaType}
-        />
+        {mediaUrl && (
+          <MediaPreview 
+            mediaUrl={mediaUrl}
+            mediaType={mediaType}
+            size={isMobile ? 'sm' : 'md'}
+          />
+        )}
         
         <ComposerActions 
           isPosting={isPosting}
