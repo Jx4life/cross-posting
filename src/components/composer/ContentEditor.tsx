@@ -57,11 +57,14 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
         placeholder="What's on your mind?"
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        className={`min-h-[120px] md:min-h-[150px] bg-white/10 border-purple-500/20 ${isOverLimit ? 'border-red-500' : ''}`}
+        className={`min-h-[120px] md:min-h-[150px] bg-white/10 border-purple-500/20 ${
+          isOverLimit ? 'border-red-500' : ''
+        } ${highlightedContent ? 'text-transparent caret-white' : ''}`}
+        style={highlightedContent ? { caretColor: 'white' } : {}}
       />
       
       {highlightedContent && (
-        <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none p-3 overflow-auto">
+        <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none p-3 overflow-auto text-white whitespace-pre-wrap break-words">
           {highlightedContent}
         </div>
       )}
