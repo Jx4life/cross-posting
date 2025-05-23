@@ -59,12 +59,15 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
         onChange={(e) => setContent(e.target.value)}
         className={`min-h-[120px] md:min-h-[150px] bg-white/10 border-purple-500/20 ${
           isOverLimit ? 'border-red-500' : ''
-        } ${highlightedContent ? 'text-transparent caret-white' : ''}`}
-        style={highlightedContent ? { caretColor: 'white' } : {}}
+        } ${highlightedContent ? 'text-transparent' : 'text-white'}`}
+        style={{ 
+          caretColor: 'white',
+          color: highlightedContent ? 'transparent' : 'white'
+        }}
       />
       
       {highlightedContent && (
-        <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none p-3 overflow-auto text-white whitespace-pre-wrap break-words">
+        <div className="absolute top-3 left-3 right-3 bottom-3 pointer-events-none overflow-hidden text-white whitespace-pre-wrap break-words leading-5">
           {highlightedContent}
         </div>
       )}
