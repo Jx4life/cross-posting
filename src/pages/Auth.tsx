@@ -1,6 +1,6 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,10 +11,46 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [isResetMode, setIsResetMode] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    // Check URL parameters and hash for reset mode
+    const urlParams = new URLSearchParams(location.search);
+    const hashParams = new URLSearchParams(location.hash.substring(1));
+    
+    const isResetFromQuery = urlParams.get('mode') === 'reset';
+    const hasAccessToken = hashParams.get('access_token');
+    const hasRefreshToken = hashParams.get('refresh_token');
+    const type = hashParams.get('type');
+    
+    console.log('URL params:', urlParams.toString());
+    console.log('Hash params:', hashParams.toString());
+    console.log('Type:', type);
+    
+    if (isResetFromQuery || (type === 'recovery' && hasAccessToken && hasRefreshToken)) {
+      setIsResetMode(true);
+      console.log('Password reset mode activated');
+      
+      // If we have tokens in the hash, set the session
+      if (hasAccessToken && hasRefreshToken) {
+        supabase.auth.setSession({
+          access_token: hashParams.get('access_token')!,
+          refresh_token: hashParams.get('refresh_token')!,
+        }).then(({ error }) => {
+          if (error) {
+            console.error('Error setting session:', error);
+            toast.error('Invalid or expired reset link');
+            setIsResetMode(false);
+          }
+        });
+      }
+    }
+  }, [location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,15 +111,12 @@ export default function Auth() {
       toast.success("Password updated successfully!");
       navigate("/");
     } catch (error: any) {
-      toast.error(error.message);
+      console.error('Password reset error:', error);
+      toast.error(error.message || "Failed to update password");
     } finally {
       setIsLoading(false);
     }
   };
-
-  // Check if we're in password reset mode
-  const urlParams = new URLSearchParams(window.location.search);
-  const isResetMode = urlParams.get('mode') === 'reset';
 
   if (isResetMode) {
     return (
@@ -101,7 +134,7 @@ export default function Auth() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="bg-white/10 border-purple-500/20 text-white"
+                className="bg-white/10 border-purple-500/20 text-white placeholder:text-gray-400"
               />
             </div>
             <div>
@@ -112,7 +145,7 @@ export default function Auth() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 minLength={6}
-                className="bg-white/10 border-purple-500/20 text-white"
+                className="bg-white/10 border-purple-500/20 text-white placeholder:text-gray-400"
               />
             </div>
             <Button
@@ -123,6 +156,17 @@ export default function Auth() {
               {isLoading ? "Updating..." : "Update Password"}
             </Button>
           </form>
+          <p className="text-center mt-4 text-sm text-gray-400">
+            <button
+              onClick={() => {
+                setIsResetMode(false);
+                navigate('/auth');
+              }}
+              className="text-purple-400 hover:text-purple-300"
+            >
+              Back to Sign In
+            </button>
+          </p>
         </Card>
       </div>
     );
@@ -146,7 +190,7 @@ export default function Auth() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="bg-white/10 border-purple-500/20 text-white"
+              className="bg-white/10 border-purple-500/20 text-white placeholder:text-gray-400"
             />
           </div>
           {!isForgotPassword && (
@@ -157,7 +201,7 @@ export default function Auth() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="bg-white/10 border-purple-500/20 text-white"
+                className="bg-white/10 border-purple-500/20 text-white placeholder:text-gray-400"
               />
             </div>
           )}
