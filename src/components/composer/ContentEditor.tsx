@@ -21,11 +21,11 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
         placeholder="What's on your mind?"
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        className={`min-h-[120px] md:min-h-[150px] bg-white/10 border-purple-500/20 text-white ${
+        className={`min-h-[120px] md:min-h-[150px] bg-white/10 border-purple-500/20 text-gray-900 placeholder:text-gray-500 ${
           isOverLimit ? 'border-red-500' : ''
         }`}
         style={{ 
-          caretColor: 'white'
+          caretColor: 'black'
         }}
       />
       
