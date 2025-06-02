@@ -19,6 +19,8 @@ export default function Auth() {
   const location = useLocation();
 
   useEffect(() => {
+    console.log('Auth component mounted, location:', location);
+    
     // Check URL parameters and hash for reset mode
     const urlParams = new URLSearchParams(location.search);
     const hashParams = new URLSearchParams(location.hash.substring(1));
@@ -28,24 +30,29 @@ export default function Auth() {
     const hasRefreshToken = hashParams.get('refresh_token');
     const type = hashParams.get('type');
     
-    console.log('URL params:', urlParams.toString());
-    console.log('Hash params:', hashParams.toString());
-    console.log('Type:', type);
+    console.log('Auth Debug - URL params:', urlParams.toString());
+    console.log('Auth Debug - Hash params:', hashParams.toString());
+    console.log('Auth Debug - Type:', type);
+    console.log('Auth Debug - Reset from query:', isResetFromQuery);
+    console.log('Auth Debug - Has tokens:', { hasAccessToken: !!hasAccessToken, hasRefreshToken: !!hasRefreshToken });
     
     if (isResetFromQuery || (type === 'recovery' && hasAccessToken && hasRefreshToken)) {
+      console.log('Auth Debug - Activating password reset mode');
       setIsResetMode(true);
-      console.log('Password reset mode activated');
       
       // If we have tokens in the hash, set the session
       if (hasAccessToken && hasRefreshToken) {
+        console.log('Auth Debug - Setting session with tokens');
         supabase.auth.setSession({
           access_token: hashParams.get('access_token')!,
           refresh_token: hashParams.get('refresh_token')!,
         }).then(({ error }) => {
           if (error) {
-            console.error('Error setting session:', error);
+            console.error('Auth Debug - Error setting session:', error);
             toast.error('Invalid or expired reset link');
             setIsResetMode(false);
+          } else {
+            console.log('Auth Debug - Session set successfully');
           }
         });
       }
@@ -54,33 +61,67 @@ export default function Auth() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Auth Debug - Form submitted, mode:', { isLogin, isForgotPassword });
     setIsLoading(true);
 
     try {
       if (isForgotPassword) {
+        console.log('Auth Debug - Sending password reset email to:', email);
+        const redirectUrl = `${window.location.origin}/auth?mode=reset`;
+        console.log('Auth Debug - Redirect URL:', redirectUrl);
+        
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth?mode=reset`,
+          redirectTo: redirectUrl,
         });
-        if (error) throw error;
+        
+        if (error) {
+          console.error('Auth Debug - Password reset error:', error);
+          throw error;
+        }
+        
+        console.log('Auth Debug - Password reset email sent successfully');
         toast.success("Password reset email sent! Check your inbox.");
         setIsForgotPassword(false);
       } else if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        console.log('Auth Debug - Attempting sign in for:', email);
+        const { error, data } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
-        if (error) throw error;
+        
+        if (error) {
+          console.error('Auth Debug - Sign in error:', error);
+          throw error;
+        }
+        
+        console.log('Auth Debug - Sign in successful, user:', data.user?.id);
         navigate("/");
       } else {
-        const { error } = await supabase.auth.signUp({
+        console.log('Auth Debug - Attempting sign up for:', email);
+        const { error, data } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`
+          }
         });
-        if (error) throw error;
-        toast.success("Check your email to confirm your account!");
+        
+        if (error) {
+          console.error('Auth Debug - Sign up error:', error);
+          throw error;
+        }
+        
+        console.log('Auth Debug - Sign up response:', data);
+        if (data.user && !data.session) {
+          toast.success("Check your email to confirm your account!");
+        } else if (data.session) {
+          toast.success("Account created successfully!");
+          navigate("/");
+        }
       }
     } catch (error: any) {
-      toast.error(error.message);
+      console.error('Auth Debug - Catch block error:', error);
+      toast.error(error.message || "An error occurred");
     } finally {
       setIsLoading(false);
     }
@@ -88,35 +129,52 @@ export default function Auth() {
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Auth Debug - Password reset form submitted');
     
     if (password !== confirmPassword) {
+      console.log('Auth Debug - Password mismatch');
       toast.error("Passwords don't match");
       return;
     }
 
     if (password.length < 6) {
+      console.log('Auth Debug - Password too short');
       toast.error("Password must be at least 6 characters");
       return;
     }
 
     setIsLoading(true);
+    console.log('Auth Debug - Updating password');
 
     try {
       const { error } = await supabase.auth.updateUser({
         password: password
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Auth Debug - Password update error:', error);
+        throw error;
+      }
       
+      console.log('Auth Debug - Password updated successfully');
       toast.success("Password updated successfully!");
       navigate("/");
     } catch (error: any) {
-      console.error('Password reset error:', error);
+      console.error('Auth Debug - Password reset catch error:', error);
       toast.error(error.message || "Failed to update password");
     } finally {
       setIsLoading(false);
     }
   };
+
+  console.log('Auth Debug - Current state:', {
+    isResetMode,
+    isLogin,
+    isForgotPassword,
+    isLoading,
+    hasEmail: !!email,
+    hasPassword: !!password
+  });
 
   if (isResetMode) {
     return (
@@ -159,6 +217,7 @@ export default function Auth() {
           <p className="text-center mt-4 text-sm text-gray-400">
             <button
               onClick={() => {
+                console.log('Auth Debug - Back to sign in clicked');
                 setIsResetMode(false);
                 navigate('/auth');
               }}
@@ -225,7 +284,10 @@ export default function Auth() {
             {isLogin && (
               <div className="text-center mt-4">
                 <button
-                  onClick={() => setIsForgotPassword(true)}
+                  onClick={() => {
+                    console.log('Auth Debug - Forgot password clicked');
+                    setIsForgotPassword(true);
+                  }}
                   className="text-sm text-purple-400 hover:text-purple-300"
                 >
                   Forgot your password?
@@ -235,7 +297,10 @@ export default function Auth() {
             <p className="text-center mt-4 text-sm text-gray-400">
               {isLogin ? "Don't have an account? " : "Already have an account? "}
               <button
-                onClick={() => setIsLogin(!isLogin)}
+                onClick={() => {
+                  console.log('Auth Debug - Toggle login/signup:', !isLogin);
+                  setIsLogin(!isLogin);
+                }}
                 className="text-purple-400 hover:text-purple-300"
               >
                 {isLogin ? "Sign Up" : "Sign In"}
@@ -248,7 +313,10 @@ export default function Auth() {
           <p className="text-center mt-4 text-sm text-gray-400">
             Remember your password?{" "}
             <button
-              onClick={() => setIsForgotPassword(false)}
+              onClick={() => {
+                console.log('Auth Debug - Back to sign in from forgot password');
+                setIsForgotPassword(false);
+              }}
               className="text-purple-400 hover:text-purple-300"
             >
               Back to Sign In
