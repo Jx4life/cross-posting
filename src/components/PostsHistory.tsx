@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from './ui/card';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -228,12 +227,36 @@ export const PostsHistory = () => {
     }
   };
 
-  const renderPlatforms = (platforms: ScheduledPost['platforms']) => {
-    const activePlatforms = Object.entries(platforms)
+  const renderPlatforms = (platforms: ScheduledPost['platforms'] | string) => {
+    // Parse platforms if it's a string
+    let platformsObj;
+    if (typeof platforms === 'string') {
+      try {
+        platformsObj = JSON.parse(platforms);
+      } catch (error) {
+        console.error('Error parsing platforms:', error);
+        return 'Invalid platform data';
+      }
+    } else {
+      platformsObj = platforms;
+    }
+
+    // Get platform display names
+    const platformNames: { [key: string]: string } = {
+      twitter: 'X',
+      lens: 'Lens',
+      farcaster: 'Farcaster',
+      facebook: 'Facebook',
+      instagram: 'Instagram',
+      tiktok: 'TikTok',
+      youtubeShorts: 'YouTube'
+    };
+
+    const activePlatforms = Object.entries(platformsObj)
       .filter(([_, enabled]) => enabled)
-      .map(([platform]) => platform);
+      .map(([platform]) => platformNames[platform] || platform);
     
-    return activePlatforms.join(', ');
+    return activePlatforms.join(', ') || 'No platforms selected';
   };
 
   const renderMedia = (mediaUrl: string | null, mediaType: string | null) => {
