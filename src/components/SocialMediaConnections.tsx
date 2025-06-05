@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -12,14 +12,17 @@ import {
   Youtube, 
   CheckCircle, 
   AlertCircle,
-  Settings
+  Settings,
+  ExternalLink
 } from 'lucide-react';
+import { oauthManager } from '@/services/oauth/OAuthManager';
 
 interface ConnectionStatus {
   isConnected: boolean;
   isEnabled: boolean;
   lastConnected?: string;
   username?: string;
+  isConnecting?: boolean;
 }
 
 interface SocialMediaConnectionsProps {
@@ -56,7 +59,6 @@ const FarcasterIcon = (props: any) => (
 export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
   onOpenPlatformConfig
 }) => {
-  // Mock connection states - in a real app, this would come from an API/database
   const [connections, setConnections] = useState<Record<string, ConnectionStatus>>({
     twitter: { isConnected: false, isEnabled: true },
     lens: { isConnected: false, isEnabled: true },
@@ -73,86 +75,191 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
       name: 'X (Twitter)',
       icon: Twitter,
       color: 'text-blue-400',
-      bgColor: 'bg-blue-500/10'
+      bgColor: 'bg-blue-500/10',
+      supportsOAuth: true
     },
     {
       id: 'lens',
       name: 'Lens Protocol',
       icon: LensIcon,
       color: 'text-green-400',
-      bgColor: 'bg-green-500/10'
+      bgColor: 'bg-green-500/10',
+      supportsOAuth: true
     },
     {
       id: 'farcaster',
       name: 'Farcaster',
       icon: FarcasterIcon,
       color: 'text-purple-400',
-      bgColor: 'bg-purple-500/10'
+      bgColor: 'bg-purple-500/10',
+      supportsOAuth: false
     },
     {
       id: 'facebook',
       name: 'Facebook',
       icon: Facebook,
       color: 'text-blue-600',
-      bgColor: 'bg-blue-600/10'
+      bgColor: 'bg-blue-600/10',
+      supportsOAuth: true
     },
     {
       id: 'instagram',
       name: 'Instagram',
       icon: Instagram,
       color: 'text-pink-500',
-      bgColor: 'bg-pink-500/10'
+      bgColor: 'bg-pink-500/10',
+      supportsOAuth: false
     },
     {
       id: 'tiktok',
       name: 'TikTok',
       icon: TiktokIcon,
       color: 'text-white',
-      bgColor: 'bg-black/10'
+      bgColor: 'bg-black/10',
+      supportsOAuth: false
     },
     {
       id: 'youtubeShorts',
       name: 'YouTube Shorts',
       icon: Youtube,
       color: 'text-red-600',
-      bgColor: 'bg-red-600/10'
+      bgColor: 'bg-red-600/10',
+      supportsOAuth: false
     }
   ];
 
+  // Check connection status on component mount
+  useEffect(() => {
+    const checkConnections = () => {
+      setConnections(prev => {
+        const updated = { ...prev };
+        
+        platforms.forEach(platform => {
+          const isConnected = oauthManager.isConnected(platform.id);
+          
+          if (isConnected && platform.id === 'lens') {
+            const handle = localStorage.getItem('lensHandle');
+            updated[platform.id] = {
+              ...prev[platform.id],
+              isConnected: true,
+              username: handle || 'lens.user',
+              lastConnected: new Date().toISOString()
+            };
+          } else if (isConnected) {
+            const credentials = oauthManager.getCredentials(platform.id);
+            updated[platform.id] = {
+              ...prev[platform.id],
+              isConnected: true,
+              username: credentials?.username || 'connected.user',
+              lastConnected: new Date().toISOString()
+            };
+          }
+        });
+        
+        return updated;
+      });
+    };
+    
+    checkConnections();
+  }, []);
+
   const handleConnect = async (platformId: string) => {
+    const platform = platforms.find(p => p.id === platformId);
+    if (!platform) return;
+    
+    // Set connecting state
+    setConnections(prev => ({
+      ...prev,
+      [platformId]: { ...prev[platformId], isConnecting: true }
+    }));
+
     try {
-      toast({
-        title: "Connecting...",
-        description: `Connecting to ${platforms.find(p => p.id === platformId)?.name}`,
-      });
-
-      // Simulate connection process
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      setConnections(prev => ({
-        ...prev,
-        [platformId]: {
-          ...prev[platformId],
-          isConnected: true,
-          lastConnected: new Date().toISOString(),
-          username: `user_${platformId}`
+      if (platform.supportsOAuth) {
+        if (platformId === 'twitter') {
+          const authUrl = await oauthManager.initiateTwitterAuth();
+          window.open(authUrl, '_blank', 'width=600,height=700');
+          
+          toast({
+            title: "Authentication Started",
+            description: "Complete the authentication in the popup window.",
+          });
+          
+        } else if (platformId === 'facebook') {
+          const authUrl = await oauthManager.initiateFacebookAuth();
+          window.open(authUrl, '_blank', 'width=600,height=700');
+          
+          toast({
+            title: "Authentication Started",
+            description: "Complete the authentication in the popup window.",
+          });
+          
+        } else if (platformId === 'lens') {
+          const { handle, address } = await oauthManager.initiateLensAuth();
+          
+          setConnections(prev => ({
+            ...prev,
+            [platformId]: {
+              ...prev[platformId],
+              isConnected: true,
+              username: handle,
+              lastConnected: new Date().toISOString(),
+              isConnecting: false
+            }
+          }));
+          
+          toast({
+            title: "Connected Successfully",
+            description: `Connected to Lens Protocol as ${handle}`,
+          });
+          
+          return; // Early return for Lens since it's handled immediately
         }
-      }));
-
-      toast({
-        title: "Connected Successfully",
-        description: `Successfully connected to ${platforms.find(p => p.id === platformId)?.name}`,
-      });
-    } catch (error) {
+      } else {
+        // Simulate connection for platforms without OAuth
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        setConnections(prev => ({
+          ...prev,
+          [platformId]: {
+            ...prev[platformId],
+            isConnected: true,
+            lastConnected: new Date().toISOString(),
+            username: `user_${platformId}`
+          }
+        }));
+        
+        toast({
+          title: "Connected Successfully",
+          description: `Successfully connected to ${platform.name} (Demo)`,
+        });
+      }
+      
+    } catch (error: any) {
+      console.error(`Error connecting to ${platformId}:`, error);
       toast({
         title: "Connection Failed",
-        description: `Failed to connect to ${platforms.find(p => p.id === platformId)?.name}`,
+        description: error.message || `Failed to connect to ${platform.name}`,
         variant: "destructive"
       });
+    } finally {
+      setConnections(prev => ({
+        ...prev,
+        [platformId]: { ...prev[platformId], isConnecting: false }
+      }));
     }
   };
 
   const handleDisconnect = (platformId: string) => {
+    // Clear OAuth credentials
+    oauthManager.clearCredentials(platformId);
+    
+    if (platformId === 'lens') {
+      localStorage.removeItem('walletAddress');
+      localStorage.removeItem('lensHandle');
+      localStorage.removeItem('lensProfileId');
+      localStorage.removeItem('walletSignature');
+    }
+    
     setConnections(prev => ({
       ...prev,
       [platformId]: {
@@ -208,7 +315,12 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
                   <div className="flex items-center space-x-3">
                     <PlatformIcon className={`h-6 w-6 ${platform.color}`} />
                     <div>
-                      <h3 className="font-medium">{platform.name}</h3>
+                      <div className="flex items-center space-x-2">
+                        <h3 className="font-medium">{platform.name}</h3>
+                        {platform.supportsOAuth && (
+                          <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                        )}
+                      </div>
                       {connection.isConnected && connection.username && (
                         <p className="text-sm text-muted-foreground">
                           @{connection.username}
@@ -248,6 +360,7 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
                       variant="outline"
                       size="sm"
                       onClick={() => handleDisconnect(platform.id)}
+                      disabled={connection.isConnecting}
                     >
                       Disconnect
                     </Button>
@@ -256,11 +369,18 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
                       variant="default"
                       size="sm"
                       onClick={() => handleConnect(platform.id)}
+                      disabled={connection.isConnecting}
                     >
-                      Connect
+                      {connection.isConnecting ? "Connecting..." : "Connect"}
                     </Button>
                   )}
                 </div>
+                
+                {!platform.supportsOAuth && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Demo connection - OAuth integration pending
+                  </p>
+                )}
                 
                 {connection.lastConnected && (
                   <p className="text-xs text-muted-foreground mt-2">
