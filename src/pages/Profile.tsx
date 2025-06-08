@@ -6,10 +6,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, User, Link } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ProfileImageUploader } from "@/components/media/ProfileImageUploader";
+import { SocialMediaConnections } from "@/components/SocialMediaConnections";
 
 export default function Profile() {
   const { user } = useAuth();
@@ -79,7 +81,7 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] to-[#2C1A2F] text-white">
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div className="flex items-center mb-6">
             <Button 
               variant="ghost" 
@@ -93,50 +95,71 @@ export default function Profile() {
           
           <h1 className="text-3xl font-bold mb-8 text-center">Profile Settings</h1>
           
-          <div className="space-y-6 bg-white/5 backdrop-blur-sm p-6 rounded-lg">
-            <div className="flex justify-center mb-6">
-              <ProfileImageUploader 
-                currentAvatarUrl={avatarUrl} 
-                onImageUploaded={handleAvatarUploaded} 
-                username={username}
-              />
-            </div>
+          <div className="bg-white/5 backdrop-blur-sm rounded-lg overflow-hidden">
+            <Tabs defaultValue="profile" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 bg-white/10">
+                <TabsTrigger value="profile" className="data-[state=active]:bg-purple-600">
+                  <User className="mr-2 h-4 w-4" />
+                  Profile
+                </TabsTrigger>
+                <TabsTrigger value="connections" className="data-[state=active]:bg-purple-600">
+                  <Link className="mr-2 h-4 w-4" />
+                  Social Connections
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="profile" className="p-6">
+                <div className="space-y-6">
+                  <div className="flex justify-center mb-6">
+                    <ProfileImageUploader 
+                      currentAvatarUrl={avatarUrl} 
+                      onImageUploaded={handleAvatarUploaded} 
+                      username={username}
+                    />
+                  </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2" htmlFor="username">
-                  Username
-                </label>
-                <Input
-                  id="username"
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="bg-white/10 border-purple-500/20"
-                />
-              </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2" htmlFor="username">
+                        Username
+                      </label>
+                      <Input
+                        id="username"
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="bg-white/10 border-purple-500/20"
+                      />
+                    </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2" htmlFor="bio">
-                  Bio
-                </label>
-                <Textarea
-                  id="bio"
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  className="bg-white/10 border-purple-500/20"
-                  rows={4}
-                />
-              </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2" htmlFor="bio">
+                        Bio
+                      </label>
+                      <Textarea
+                        id="bio"
+                        value={bio}
+                        onChange={(e) => setBio(e.target.value)}
+                        className="bg-white/10 border-purple-500/20"
+                        rows={4}
+                      />
+                    </div>
 
-              <Button
-                onClick={updateProfile}
-                disabled={loading}
-                className="w-full bg-purple-600 hover:bg-purple-700"
-              >
-                {loading ? "Saving..." : "Update Profile"}
-              </Button>
-            </div>
+                    <Button
+                      onClick={updateProfile}
+                      disabled={loading}
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                    >
+                      {loading ? "Saving..." : "Update Profile"}
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="connections" className="p-6">
+                <SocialMediaConnections />
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </div>
