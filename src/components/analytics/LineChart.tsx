@@ -17,6 +17,7 @@ export const AnalyticsLineChart: React.FC<LineChartProps> = ({ data }) => {
         <Line type="monotone" dataKey="likes" stroke="#8884d8" name="Likes" />
         <Line type="monotone" dataKey="shares" stroke="#82ca9d" name="Shares" />
         <Line type="monotone" dataKey="comments" stroke="#ffc658" name="Comments" />
+        <Line type="monotone" dataKey="earnings" stroke="#00C49F" name="Earnings ($)" strokeWidth={2} />
       </RechartsLineChart>
     </ResponsiveContainer>
   );

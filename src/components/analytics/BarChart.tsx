@@ -23,10 +23,13 @@ export const AnalyticsBarChart: React.FC<BarChartProps> = ({ data }) => {
                   <div className="space-y-2">
                     <p><strong>Date:</strong> {data.formattedDate}</p>
                     <p><strong>Platform:</strong> {data.platform}</p>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <Badge variant="secondary">Likes: {data.likes}</Badge>
                       <Badge variant="secondary">Shares: {data.shares}</Badge>
                       <Badge variant="secondary">Comments: {data.comments}</Badge>
+                      <Badge variant="outline" className="border-green-500 text-green-600">
+                        Earnings: ${data.earnings?.toFixed(2) || '0.00'}
+                      </Badge>
                     </div>
                   </div>
                 </Card>
@@ -38,6 +41,7 @@ export const AnalyticsBarChart: React.FC<BarChartProps> = ({ data }) => {
         <Bar dataKey="likes" fill="#8884d8" name="Likes" />
         <Bar dataKey="shares" fill="#82ca9d" name="Shares" />
         <Bar dataKey="comments" fill="#ffc658" name="Comments" />
+        <Bar dataKey="earnings" fill="#00C49F" name="Earnings ($)" />
         <Legend />
       </RechartsBarChart>
     </ResponsiveContainer>

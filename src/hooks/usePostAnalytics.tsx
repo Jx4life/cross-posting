@@ -53,32 +53,34 @@ export const usePostAnalytics = () => {
     }
   });
 
-  // Add calculation for aggregated metrics
+  // Add calculation for aggregated metrics including earnings
   const aggregatedMetrics = {
     totalLikes: analytics?.reduce((sum, item) => sum + (item.likes || 0), 0) || 0,
     totalShares: analytics?.reduce((sum, item) => sum + (item.shares || 0), 0) || 0,
     totalComments: analytics?.reduce((sum, item) => sum + (item.comments || 0), 0) || 0,
     totalImpressions: analytics?.reduce((sum, item) => sum + (item.impressions || 0), 0) || 0,
+    totalEarnings: analytics?.reduce((sum, item) => sum + (Number(item.earnings) || 0), 0) || 0,
     averageEngagement: analytics?.length 
       ? (analytics.reduce((sum, item) => sum + (item.engagement_rate || 0), 0) / analytics.length).toFixed(2)
       : '0',
     postCount: analytics?.length || 0
   };
 
-  // Add platform breakdowns
+  // Add platform breakdowns including earnings
   const platformBreakdown = analytics?.reduce((acc, item) => {
     const platform = item.platform;
     if (!acc[platform]) {
-      acc[platform] = { count: 0, likes: 0, shares: 0, comments: 0, impressions: 0 };
+      acc[platform] = { count: 0, likes: 0, shares: 0, comments: 0, impressions: 0, earnings: 0 };
     }
     acc[platform].count += 1;
     acc[platform].likes += item.likes || 0;
     acc[platform].shares += item.shares || 0;
     acc[platform].comments += item.comments || 0;
     acc[platform].impressions += item.impressions || 0;
+    acc[platform].earnings += Number(item.earnings) || 0;
     
     return acc;
-  }, {} as Record<string, { count: number, likes: number, shares: number, comments: number, impressions: number }>);
+  }, {} as Record<string, { count: number, likes: number, shares: number, comments: number, impressions: number, earnings: number }>);
 
   return {
     analytics,

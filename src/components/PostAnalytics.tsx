@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
   Card, 
@@ -8,7 +9,7 @@ import {
   CardDescription 
 } from './ui/card';
 import { usePostAnalytics } from '@/hooks/usePostAnalytics';
-import { Loader2, TrendingUp, Download } from 'lucide-react';
+import { Loader2, TrendingUp, Download, DollarSign } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { format } from 'date-fns';
@@ -43,7 +44,8 @@ const PostAnalytics = () => {
   const processedAnalytics = analytics?.map(item => ({
     ...item,
     formattedDate: format(new Date(item.created_at), 'MMM d'),
-    engagementScore: item.likes + item.shares + item.comments
+    engagementScore: item.likes + item.shares + item.comments,
+    earnings: Number(item.earnings) || 0
   })) || [];
   
   const platformOptions = ['twitter', 'lens', 'farcaster'];
@@ -57,13 +59,15 @@ const PostAnalytics = () => {
       existing.likes += item.likes || 0;
       existing.shares += item.shares || 0;
       existing.comments += item.comments || 0;
+      existing.earnings += item.earnings;
     } else {
       acc.push({
         date,
         engagementScore: item.engagementScore,
         likes: item.likes || 0,
         shares: item.shares || 0,
-        comments: item.comments || 0
+        comments: item.comments || 0,
+        earnings: item.earnings
       });
     }
     
@@ -72,15 +76,16 @@ const PostAnalytics = () => {
   
   const platformData = platformBreakdown ? Object.keys(platformBreakdown).map(key => ({
     name: key.charAt(0).toUpperCase() + key.slice(1),
-    value: platformBreakdown[key].count
+    value: platformBreakdown[key].count,
+    earnings: platformBreakdown[key].earnings
   })) : [];
   
   const exportToCSV = () => {
     if (!analytics || analytics.length === 0) return;
     
-    const headers = "Date,Platform,Likes,Shares,Comments,Impressions,Engagement Rate\n";
+    const headers = "Date,Platform,Likes,Shares,Comments,Impressions,Engagement Rate,Earnings\n";
     const csvContent = analytics.map(item => 
-      `${format(new Date(item.created_at), 'yyyy-MM-dd')},${item.platform},${item.likes || 0},${item.shares || 0},${item.comments || 0},${item.impressions || 0},${item.engagement_rate || 0}`
+      `${format(new Date(item.created_at), 'yyyy-MM-dd')},${item.platform},${item.likes || 0},${item.shares || 0},${item.comments || 0},${item.impressions || 0},${item.engagement_rate || 0},${Number(item.earnings) || 0}`
     ).join("\n");
     
     const blob = new Blob([headers + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -102,7 +107,7 @@ const PostAnalytics = () => {
             <div>
               <CardTitle>Post Performance Analytics</CardTitle>
               <CardDescription>
-                Analyze your post performance across platforms
+                Analyze your post performance and earnings across platforms
               </CardDescription>
             </div>
           </div>
@@ -139,7 +144,7 @@ const PostAnalytics = () => {
         </CardHeader>
         
         <CardContent>
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
             <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-lg">
               <div className="text-sm text-slate-500 dark:text-slate-400">Posts</div>
               <div className="text-2xl font-bold">{aggregatedMetrics.postCount}</div>
@@ -163,6 +168,15 @@ const PostAnalytics = () => {
             <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-lg">
               <div className="text-sm text-slate-500 dark:text-slate-400">Avg. Engagement</div>
               <div className="text-2xl font-bold">{aggregatedMetrics.averageEngagement}%</div>
+            </div>
+            <div className="bg-green-100 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+              <div className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
+                <DollarSign className="h-4 w-4" />
+                Total Earnings
+              </div>
+              <div className="text-2xl font-bold text-green-700 dark:text-green-300">
+                ${aggregatedMetrics.totalEarnings.toFixed(2)}
+              </div>
             </div>
           </div>
           

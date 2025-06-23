@@ -13,6 +13,7 @@ export type Database = {
         Row: {
           comments: number | null
           created_at: string | null
+          earnings: number | null
           engagement_rate: number | null
           id: string
           impressions: number | null
@@ -25,6 +26,7 @@ export type Database = {
         Insert: {
           comments?: number | null
           created_at?: string | null
+          earnings?: number | null
           engagement_rate?: number | null
           id?: string
           impressions?: number | null
@@ -37,6 +39,7 @@ export type Database = {
         Update: {
           comments?: number | null
           created_at?: string | null
+          earnings?: number | null
           engagement_rate?: number | null
           id?: string
           impressions?: number | null
