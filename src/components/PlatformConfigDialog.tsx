@@ -49,14 +49,22 @@ export const PlatformConfigDialog = () => {
         title: "Testing Connection",
         description: "Testing Farcaster configuration..."
       });
+      
+      // Test the actual Farcaster integration
+      const { data, error } = await supabase.functions.invoke('post-to-farcaster', {
+        body: { content: "Test connection from social media manager" }
+      });
+      
+      if (error) throw error;
+      
       toast({
         title: "Test Successful",
-        description: "Farcaster integration test successful (simulated)"
+        description: "Farcaster integration is working correctly!"
       });
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.message || "Failed to test Farcaster integration",
+        title: "Test Failed",
+        description: error.message || "Failed to test Farcaster integration. Please check your API key.",
         variant: "destructive"
       });
     } finally {
@@ -246,26 +254,27 @@ export const PlatformConfigDialog = () => {
           <TabsContent value="farcaster" className="space-y-4 mt-4">
             <div>
               <p className="text-sm mb-4">
-                To enable Farcaster integration, you need to set up your API keys in Supabase Edge Function Secrets.
+                To enable Farcaster integration, you need to set up your Warpcast API key in Supabase Edge Function Secrets.
               </p>
               
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
                   <div className="h-5 w-5 rounded-full bg-purple-400 flex items-center justify-center text-black font-bold text-xs">F</div>
-                  <span>Your Farcaster account will be used for posting</span>
+                  <span>Your Farcaster account will be used for posting casts</span>
                 </div>
                 
                 <div className="bg-purple-500/10 p-3 rounded-md text-sm">
-                  <p>Required secrets need to be set in Supabase:</p>
+                  <p>Required secret needs to be set in Supabase:</p>
                   <ul className="list-disc pl-5 mt-2 space-y-1">
-                    <li>FARCASTER_API_KEY</li>
-                    <li>FARCASTER_API_SECRET</li>
+                    <li>WARPCAST_API_KEY</li>
                   </ul>
+                  <p className="mt-2 text-gray-400">
+                    Get your API key from Warpcast developer settings
+                  </p>
                 </div>
                 
                 <p className="text-sm text-gray-400">
-                  Full Farcaster integration requires authentication with a wallet. 
-                  This is a simplified implementation for demonstration purposes.
+                  Farcaster uses the Warpcast API for posting casts. Make sure you have proper permissions in your Warpcast developer account.
                 </p>
               </div>
             </div>

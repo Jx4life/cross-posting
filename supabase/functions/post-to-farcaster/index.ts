@@ -15,12 +15,11 @@ serve(async (req) => {
 
   try {
     // Get secret environment variables
-    const FARCASTER_API_KEY = Deno.env.get("FARCASTER_API_KEY");
-    const FARCASTER_API_SECRET = Deno.env.get("FARCASTER_API_SECRET");
+    const WARPCAST_API_KEY = Deno.env.get("WARPCAST_API_KEY");
     
-    if (!FARCASTER_API_KEY || !FARCASTER_API_SECRET) {
+    if (!WARPCAST_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "Farcaster API credentials not configured" }),
+        JSON.stringify({ error: "Warpcast API key not configured" }),
         { 
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -29,29 +28,63 @@ serve(async (req) => {
     }
 
     // Parse the request body
-    const { content } = await req.json();
+    const { content, mediaUrl, mediaType } = await req.json();
     
-    if (!content) {
+    if (!content && !mediaUrl) {
       return new Response(
-        JSON.stringify({ error: "No content provided" }),
+        JSON.stringify({ error: "No content or media provided" }),
         { 
           status: 400, 
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         }
       );
     }
-    
-    // For now, this is a mock implementation since Farcaster doesn't have a simple REST API
-    // In a real implementation, you would use their SDK or API
-    console.log(`Posting to Farcaster: ${content}`);
 
-    // This would be replaced with the actual Farcaster API call
-    // For now, return a successful response to simulate the integration
+    // Prepare the cast data
+    const castData: any = {
+      text: content || "",
+    };
+
+    // Add media if provided
+    if (mediaUrl) {
+      castData.embeds = [{ url: mediaUrl }];
+    }
+
+    console.log(`Posting to Farcaster: ${JSON.stringify(castData)}`);
+
+    // Make the actual API call to Warpcast
+    const response = await fetch('https://api.warpcast.com/v2/casts', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${WARPCAST_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(castData)
+    });
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      console.error("Warpcast API error:", responseData);
+      return new Response(
+        JSON.stringify({ 
+          error: "Failed to post to Farcaster", 
+          details: responseData.errors || responseData.message || "Unknown error"
+        }),
+        { 
+          status: response.status, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
+
+    console.log("Farcaster post successful:", responseData);
+
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "Content posted to Farcaster (simulated)",
-        cast_id: `cast_${Date.now()}`,
+        message: "Content posted to Farcaster successfully",
+        cast: responseData.result?.cast || responseData.cast,
         timestamp: new Date().toISOString()
       }),
       { 
