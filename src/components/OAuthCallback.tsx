@@ -16,9 +16,10 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ platform }) => {
   const navigate = useNavigate();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [message, setMessage] = useState('Processing authentication...');
+  const [debugInfo, setDebugInfo] = useState<any>({});
 
   useEffect(() => {
-    console.log('=== OAUTH CALLBACK DEBUG ===');
+    console.log('=== OAUTH CALLBACK COMPONENT ===');
     console.log('Platform:', platform);
     console.log('Current URL:', window.location.href);
     console.log('Search params:', Object.fromEntries(searchParams.entries()));
@@ -30,22 +31,36 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ platform }) => {
         const errorDescription = searchParams.get('error_description');
         const state = searchParams.get('state');
 
-        console.log('OAuth callback params:', { code, error, errorDescription, state });
+        const currentDebugInfo = {
+          platform,
+          url: window.location.href,
+          params: Object.fromEntries(searchParams.entries()),
+          code: code ? `${code.substring(0, 10)}...` : null,
+          error,
+          errorDescription,
+          state
+        };
+        
+        setDebugInfo(currentDebugInfo);
+        console.log('OAuth callback debug info:', currentDebugInfo);
 
         if (error) {
-          throw new Error(errorDescription || `Authentication failed: ${error}`);
+          const errorMsg = errorDescription || `Authentication failed: ${error}`;
+          console.error('OAuth error from provider:', errorMsg);
+          throw new Error(errorMsg);
         }
 
         if (!code) {
-          throw new Error('No authorization code received');
+          throw new Error('No authorization code received from the provider');
         }
 
-        console.log('Attempting to exchange code for credentials...');
+        console.log(`Attempting to exchange code for ${platform} credentials...`);
+        setMessage(`Exchanging authorization code for ${platform} credentials...`);
         
         // Exchange code for credentials
         const credentials = await oauthManager.handleCallback(platform, code);
         
-        console.log('Credentials received:', credentials);
+        console.log(`${platform} credentials received:`, credentials);
         
         // Store credentials
         oauthManager.storeCredentials(platform, credentials);
@@ -54,7 +69,16 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ platform }) => {
         oauthManager.clearAuthState(platform);
 
         setStatus('success');
-        setMessage(`Successfully connected to ${platform}!`);
+        
+        let successMessage = `Successfully connected to ${platform}!`;
+        if (credentials.username) {
+          successMessage += ` Welcome, ${credentials.username}!`;
+        }
+        if (credentials.fid) {
+          successMessage += ` (FID: ${credentials.fid})`;
+        }
+        
+        setMessage(successMessage);
         
         toast({
           title: "Connection Successful",
@@ -76,6 +100,13 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ platform }) => {
           description: error.message || 'Failed to complete authentication',
           variant: "destructive"
         });
+        
+        // Update debug info with error
+        setDebugInfo(prev => ({
+          ...prev,
+          error: error.message,
+          errorStack: error.stack
+        }));
       }
     };
 
@@ -100,27 +131,41 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ platform }) => {
         <CardContent className="text-center space-y-4">
           <p className="text-muted-foreground">{message}</p>
           
-          <div className="text-xs text-muted-foreground">
-            <p>Platform: {platform}</p>
-            <p>URL: {window.location.href}</p>
-          </div>
+          {status === 'processing' && (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Please wait while we complete the connection...
+              </p>
+              <div className="text-xs text-muted-foreground">
+                <p>Platform: {platform}</p>
+                <p>Code: {debugInfo.code || 'Not received'}</p>
+              </div>
+            </div>
+          )}
           
           {status === 'success' && (
-            <p className="text-sm text-muted-foreground">
-              Redirecting you back to the app...
-            </p>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Redirecting you back to the app...
+              </p>
+              <Button onClick={() => navigate('/')} className="w-full">
+                Continue to App
+              </Button>
+            </div>
           )}
           
           {status === 'error' && (
-            <Button onClick={() => navigate('/')} className="w-full">
-              Return to App
-            </Button>
-          )}
-          
-          {status === 'processing' && (
-            <p className="text-sm text-muted-foreground">
-              Please wait while we complete the connection...
-            </p>
+            <div className="space-y-2">
+              <Button onClick={() => navigate('/')} className="w-full">
+                Return to App
+              </Button>
+              <details className="text-xs text-muted-foreground">
+                <summary>Debug Information</summary>
+                <pre className="mt-2 p-2 bg-gray-100 rounded text-left overflow-auto">
+                  {JSON.stringify(debugInfo, null, 2)}
+                </pre>
+              </details>
+            </div>
           )}
         </CardContent>
       </Card>

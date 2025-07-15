@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -148,6 +149,8 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
             };
           } else if (isConnected && platform.id === 'farcaster') {
             const credentials = oauthManager.getCredentials(platform.id);
+            console.log('Farcaster credentials check:', credentials);
+            
             updated[platform.id] = {
               ...prev[platform.id],
               isConnected: true,
@@ -205,13 +208,67 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
           });
           
         } else if (platformId === 'farcaster') {
-          const authUrl = await oauthManager.initiateFarcasterAuth();
-          window.open(authUrl, '_blank', 'width=600,height=700');
+          console.log('=== INITIATING FARCASTER CONNECTION ===');
           
-          toast({
-            title: "Authentication Started",
-            description: "Complete the Farcaster authentication in the popup window.",
-          });
+          try {
+            const authUrl = await oauthManager.initiateFarcasterAuth();
+            console.log('Opening Farcaster auth URL:', authUrl);
+            
+            // Open in popup window
+            const popup = window.open(authUrl, '_blank', 'width=600,height=700');
+            
+            if (!popup) {
+              throw new Error('Popup blocked - please allow popups and try again');
+            }
+            
+            toast({
+              title: "Farcaster Authentication Started",
+              description: "Complete the Farcaster authentication in the popup window.",
+            });
+            
+            // Listen for the popup to close (indicating completion)
+            const checkClosed = setInterval(() => {
+              if (popup.closed) {
+                clearInterval(checkClosed);
+                
+                // Check if connection was successful after a brief delay
+                setTimeout(() => {
+                  const isConnected = oauthManager.isConnected('farcaster');
+                  if (isConnected) {
+                    const credentials = oauthManager.getCredentials('farcaster');
+                    setConnections(prev => ({
+                      ...prev,
+                      farcaster: {
+                        ...prev.farcaster,
+                        isConnected: true,
+                        username: credentials?.username,
+                        fid: credentials?.fid,
+                        displayName: credentials?.displayName,
+                        lastConnected: new Date().toISOString(),
+                        isConnecting: false
+                      }
+                    }));
+                    
+                    toast({
+                      title: "Connected Successfully",
+                      description: `Connected to Farcaster as ${credentials?.username || 'user'}`,
+                    });
+                  } else {
+                    setConnections(prev => ({
+                      ...prev,
+                      farcaster: { ...prev.farcaster, isConnecting: false }
+                    }));
+                  }
+                }, 1000);
+              }
+            }, 1000);
+            
+            return; // Early return since we handle the connecting state differently
+            
+          } catch (error: any) {
+            console.error('Farcaster connection error:', error);
+            throw error;
+          }
           
         } else if (platformId === 'lens') {
           const { handle, address } = await oauthManager.initiateLensAuth();
@@ -256,16 +313,31 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
       
     } catch (error: any) {
       console.error(`Error connecting to ${platformId}:`, error);
+      
+      let errorMessage = error.message || `Failed to connect to ${platform.name}`;
+      
+      // Provide more specific error messages for common issues
+      if (platformId === 'farcaster') {
+        if (error.message.includes('popup blocked')) {
+          errorMessage = 'Popup blocked. Please allow popups and try again.';
+        } else if (error.message.includes('redirect_uri')) {
+          errorMessage = 'Configuration error. Please check your Neynar app settings.';
+        }
+      }
+      
       toast({
         title: "Connection Failed",
-        description: error.message || `Failed to connect to ${platform.name}`,
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
-      setConnections(prev => ({
-        ...prev,
-        [platformId]: { ...prev[platformId], isConnecting: false }
-      }));
+      // Only clear connecting state if not Farcaster (handled separately)
+      if (platformId !== 'farcaster') {
+        setConnections(prev => ({
+          ...prev,
+          [platformId]: { ...prev[platformId], isConnecting: false }
+        }));
+      }
     }
   };
 

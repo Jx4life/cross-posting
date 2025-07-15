@@ -35,9 +35,14 @@ export class OAuthManager {
       scopes: ['pages_manage_posts', 'pages_read_engagement']
     });
     
+    // Use the correct redirect URI for Farcaster
+    const farcasterRedirectUri = `${window.location.origin}/auth/callback/farcaster`;
+    console.log('=== OAUTH MANAGER INIT ===');
+    console.log('Farcaster redirect URI:', farcasterRedirectUri);
+    
     this.neynar = new NeynarOAuth({
       clientId: 'c8655842-2b6b-4763-bcc2-50119d871c23',
-      redirectUri: `${window.location.origin}/auth/callback/farcaster`,
+      redirectUri: farcasterRedirectUri,
       scopes: ['read', 'write']
     });
     
@@ -57,9 +62,22 @@ export class OAuthManager {
   }
   
   async initiateFarcasterAuth(): Promise<string> {
-    const authUrl = this.neynar.generateAuthUrl();
-    this.storeAuthState('farcaster', { timestamp: Date.now() });
-    return authUrl;
+    console.log('=== INITIATING FARCASTER AUTH ===');
+    
+    try {
+      const authUrl = this.neynar.generateAuthUrl();
+      this.storeAuthState('farcaster', { 
+        timestamp: Date.now(),
+        redirectUri: this.neynar['config'].redirectUri
+      });
+      
+      console.log('Farcaster auth URL generated:', authUrl);
+      return authUrl;
+      
+    } catch (error: any) {
+      console.error('Error initiating Farcaster auth:', error);
+      throw new Error(`Failed to initiate Farcaster auth: ${error.message}`);
+    }
   }
   
   async initiateLensAuth(): Promise<{ handle: string; address: string }> {
@@ -100,37 +118,70 @@ export class OAuthManager {
   }
   
   async handleCallback(platform: string, code: string): Promise<OAuthCredentials> {
+    console.log('=== OAUTH MANAGER: HANDLING CALLBACK ===');
+    console.log('Platform:', platform);
+    console.log('Code:', code);
+    
     const authState = this.getAuthState(platform);
+    console.log('Auth state:', authState);
+    
     if (!authState) {
-      throw new Error('Invalid auth state');
+      throw new Error('Invalid auth state - no authentication session found');
+    }
+    
+    // Check if auth state is too old (5 minutes)
+    if (Date.now() - authState.timestamp > 5 * 60 * 1000) {
+      this.clearAuthState(platform);
+      throw new Error('Authentication session expired');
     }
     
     switch (platform) {
       case 'twitter':
-        const twitterTokens = await this.twitter.exchangeCodeForToken(code);
-        return {
-          accessToken: twitterTokens.access_token,
-          refreshToken: twitterTokens.refresh_token
-        };
+        try {
+          const twitterTokens = await this.twitter.exchangeCodeForToken(code);
+          return {
+            accessToken: twitterTokens.access_token,
+            refreshToken: twitterTokens.refresh_token
+          };
+        } catch (error: any) {
+          console.error('Twitter callback error:', error);
+          throw new Error(`Twitter authentication failed: ${error.message}`);
+        }
         
       case 'facebook':
-        const facebookTokens = await this.facebook.exchangeCodeForToken(code);
-        return {
-          accessToken: facebookTokens.access_token,
-          expiresAt: facebookTokens.expires_in ? Date.now() + (facebookTokens.expires_in * 1000) : undefined
-        };
+        try {
+          const facebookTokens = await this.facebook.exchangeCodeForToken(code);
+          return {
+            accessToken: facebookTokens.access_token,
+            expiresAt: facebookTokens.expires_in ? Date.now() + (facebookTokens.expires_in * 1000) : undefined
+          };
+        } catch (error: any) {
+          console.error('Facebook callback error:', error);
+          throw new Error(`Facebook authentication failed: ${error.message}`);
+        }
         
       case 'farcaster':
-        const farcasterTokens = await this.neynar.exchangeCodeForToken(code);
-        return {
-          accessToken: farcasterTokens.access_token,
-          refreshToken: farcasterTokens.refresh_token,
-          expiresAt: farcasterTokens.expires_in ? Date.now() + (farcasterTokens.expires_in * 1000) : undefined,
-          username: farcasterTokens.user?.username,
-          fid: farcasterTokens.user?.fid,
-          displayName: farcasterTokens.user?.display_name,
-          pfpUrl: farcasterTokens.user?.pfp_url
-        };
+        try {
+          console.log('Processing Farcaster token exchange...');
+          const farcasterTokens = await this.neynar.exchangeCodeForToken(code);
+          
+          const credentials: OAuthCredentials = {
+            accessToken: farcasterTokens.access_token,
+            refreshToken: farcasterTokens.refresh_token,
+            expiresAt: farcasterTokens.expires_in ? Date.now() + (farcasterTokens.expires_in * 1000) : undefined,
+            username: farcasterTokens.user?.username,
+            fid: farcasterTokens.user?.fid,
+            displayName: farcasterTokens.user?.display_name,
+            pfpUrl: farcasterTokens.user?.pfp_url
+          };
+          
+          console.log('Farcaster credentials processed:', credentials);
+          return credentials;
+          
+        } catch (error: any) {
+          console.error('Farcaster callback error:', error);
+          throw new Error(`Farcaster authentication failed: ${error.message}`);
+        }
         
       default:
         throw new Error(`Unsupported platform: ${platform}`);
@@ -138,6 +189,7 @@ export class OAuthManager {
   }
   
   private storeAuthState(platform: string, state: any): void {
+    console.log(`Storing auth state for ${platform}:`, state);
     localStorage.setItem(`oauth_state_${platform}`, JSON.stringify(state));
   }
   
@@ -147,11 +199,13 @@ export class OAuthManager {
   }
   
   clearAuthState(platform: string): void {
+    console.log(`Clearing auth state for ${platform}`);
     localStorage.removeItem(`oauth_state_${platform}`);
   }
   
   // Store and retrieve credentials securely
   storeCredentials(platform: string, credentials: OAuthCredentials): void {
+    console.log(`Storing credentials for ${platform}:`, credentials);
     localStorage.setItem(`oauth_credentials_${platform}`, JSON.stringify({
       ...credentials,
       timestamp: Date.now()
@@ -174,6 +228,7 @@ export class OAuthManager {
   }
   
   clearCredentials(platform: string): void {
+    console.log(`Clearing credentials for ${platform}`);
     localStorage.removeItem(`oauth_credentials_${platform}`);
   }
   
