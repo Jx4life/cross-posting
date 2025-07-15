@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -209,16 +208,21 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
           
         } else if (platformId === 'farcaster') {
           console.log('=== INITIATING FARCASTER CONNECTION ===');
+          console.log('Current URL:', window.location.href);
+          console.log('Origin:', window.location.origin);
           
           try {
             const authUrl = await oauthManager.initiateFarcasterAuth();
             console.log('Opening Farcaster auth URL:', authUrl);
             
-            // Open in popup window
-            const popup = window.open(authUrl, '_blank', 'width=600,height=700');
+            // Try to open in popup window
+            const popup = window.open(authUrl, 'farcaster_auth', 'width=600,height=700,scrollbars=yes,resizable=yes');
             
             if (!popup) {
-              throw new Error('Popup blocked - please allow popups and try again');
+              // Fallback: redirect in the same window
+              console.log('Popup blocked, redirecting in same window');
+              window.location.href = authUrl;
+              return;
             }
             
             toast({
@@ -226,12 +230,59 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
               description: "Complete the Farcaster authentication in the popup window.",
             });
             
-            // Listen for the popup to close (indicating completion)
+            // Monitor popup for completion
             const checkClosed = setInterval(() => {
-              if (popup.closed) {
+              try {
+                if (popup.closed) {
+                  clearInterval(checkClosed);
+                  console.log('Popup closed, checking connection status...');
+                  
+                  // Check if connection was successful after a brief delay
+                  setTimeout(() => {
+                    const isConnected = oauthManager.isConnected('farcaster');
+                    console.log('Farcaster connection check result:', isConnected);
+                    
+                    if (isConnected) {
+                      const credentials = oauthManager.getCredentials('farcaster');
+                      console.log('Farcaster credentials found:', credentials);
+                      
+                      setConnections(prev => ({
+                        ...prev,
+                        farcaster: {
+                          ...prev.farcaster,
+                          isConnected: true,
+                          username: credentials?.username,
+                          fid: credentials?.fid,
+                          displayName: credentials?.displayName,
+                          lastConnected: new Date().toISOString(),
+                          isConnecting: false
+                        }
+                      }));
+                      
+                      toast({
+                        title: "Connected Successfully",
+                        description: `Connected to Farcaster as ${credentials?.username || 'user'}`,
+                      });
+                    } else {
+                      console.log('No Farcaster credentials found after popup closed');
+                      setConnections(prev => ({
+                        ...prev,
+                        farcaster: { ...prev.farcaster, isConnecting: false }
+                      }));
+                      
+                      toast({
+                        title: "Connection Incomplete",
+                        description: "Farcaster connection was not completed. Please try again.",
+                        variant: "destructive"
+                      });
+                    }
+                  }, 1000);
+                }
+              } catch (error) {
+                // Handle cross-origin errors when checking popup.closed
+                console.log('Error checking popup status, assuming closed:', error);
                 clearInterval(checkClosed);
                 
-                // Check if connection was successful after a brief delay
                 setTimeout(() => {
                   const isConnected = oauthManager.isConnected('farcaster');
                   if (isConnected) {
@@ -267,7 +318,23 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
             
           } catch (error: any) {
             console.error('Farcaster connection error:', error);
-            throw error;
+            
+            // Provide specific guidance based on error type
+            if (error.message.includes('redirect_uri_mismatch')) {
+              toast({
+                title: "Configuration Error",
+                description: "Redirect URI mismatch. Your Neynar app may need to be configured for this domain. Please check the console for details.",
+                variant: "destructive"
+              });
+            } else if (error.message.includes('invalid_client')) {
+              toast({
+                title: "Client Configuration Error",
+                description: "Invalid client ID. Please verify your Neynar app configuration.",
+                variant: "destructive"
+              });
+            } else {
+              throw error;
+            }
           }
           
         } else if (platformId === 'lens') {
@@ -321,7 +388,9 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
         if (error.message.includes('popup blocked')) {
           errorMessage = 'Popup blocked. Please allow popups and try again.';
         } else if (error.message.includes('redirect_uri')) {
-          errorMessage = 'Configuration error. Please check your Neynar app settings.';
+          errorMessage = 'Configuration error. Please check your Neynar app settings or contact support.';
+        } else if (error.message.includes('invalid_client')) {
+          errorMessage = 'Invalid client ID. Please verify your Neynar app configuration.';
         }
       }
       

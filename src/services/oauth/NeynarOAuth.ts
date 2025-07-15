@@ -33,10 +33,11 @@ export class NeynarOAuth {
     });
     
     const authUrl = `https://app.neynar.com/oauth/authorize?${params.toString()}`;
-    console.log('=== NEYNAR AUTH URL ===');
+    console.log('=== NEYNAR AUTH URL GENERATION ===');
     console.log('Generated auth URL:', authUrl);
     console.log('Client ID:', this.config.clientId);
     console.log('Redirect URI:', this.config.redirectUri);
+    console.log('Full params:', Object.fromEntries(params.entries()));
     
     return authUrl;
   }
@@ -81,7 +82,18 @@ export class NeynarOAuth {
         
         try {
           const errorData = JSON.parse(responseText);
-          errorMessage = errorData.message || errorData.error || errorMessage;
+          console.log('Parsed error data:', errorData);
+          
+          // Check for specific Neynar error patterns
+          if (errorData.error === 'invalid_client') {
+            errorMessage = 'Invalid client ID. Please check your Neynar app configuration.';
+          } else if (errorData.error === 'invalid_grant') {
+            errorMessage = 'Invalid authorization code. The code may have expired or been used already.';
+          } else if (errorData.error === 'redirect_uri_mismatch') {
+            errorMessage = 'Redirect URI mismatch. Please check your Neynar app settings or contact support.';
+          } else {
+            errorMessage = errorData.message || errorData.error_description || errorData.error || errorMessage;
+          }
         } catch (parseError) {
           console.error('Failed to parse error response:', parseError);
         }
@@ -108,7 +120,37 @@ export class NeynarOAuth {
       
     } catch (error: any) {
       console.error('Token exchange error:', error);
+      
+      // Add specific guidance for common issues
+      if (error.message.includes('redirect_uri_mismatch')) {
+        throw new Error(`Redirect URI mismatch. Your Neynar app may not be configured for this redirect URI: ${this.config.redirectUri}. Please check your Neynar app settings.`);
+      } else if (error.message.includes('invalid_client')) {
+        throw new Error(`Invalid client ID: ${this.config.clientId}. Please verify your Neynar app configuration.`);
+      }
+      
       throw new Error(`Token exchange failed: ${error.message}`);
     }
+  }
+  
+  // Helper method to validate configuration
+  validateConfig(): { isValid: boolean; errors: string[] } {
+    const errors: string[] = [];
+    
+    if (!this.config.clientId) {
+      errors.push('Client ID is required');
+    }
+    
+    if (!this.config.redirectUri) {
+      errors.push('Redirect URI is required');
+    }
+    
+    if (this.config.redirectUri && !this.config.redirectUri.startsWith('http')) {
+      errors.push('Redirect URI must be a valid HTTP/HTTPS URL');
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
   }
 }
