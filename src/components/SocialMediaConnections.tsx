@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -296,9 +295,14 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
         console.warn('Could not clear existing TikTok config:', deleteError);
       }
       
+      // Use the exact same redirect URI format as the connector
       const currentUrl = window.location.origin;
+      const redirectUri = `${currentUrl}/oauth/tiktok/callback`;
+      
+      console.log('Using redirect URI:', redirectUri);
+      
       const { data, error } = await supabase.functions.invoke('tiktok-auth-url', {
-        body: { redirectUri: `${currentUrl}/oauth/tiktok/callback` }
+        body: { redirectUri }
       });
 
       if (error) {

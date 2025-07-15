@@ -8,12 +8,15 @@ export const TikTokConnector = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
 
+  // Use the exact current URL for redirect URI to ensure it matches TikTok app settings
   const currentUrl = window.location.origin;
+  const redirectUri = `${currentUrl}/oauth/tiktok/callback`;
 
   const handleConnectTikTok = async () => {
     setIsConnecting(true);
     try {
       console.log('Starting TikTok connection process...');
+      console.log('Using redirect URI:', redirectUri);
       
       // Clear any existing TikTok credentials to ensure fresh connection
       const { error: deleteError } = await supabase
@@ -26,7 +29,7 @@ export const TikTokConnector = () => {
       }
       
       const { data, error } = await supabase.functions.invoke('tiktok-auth-url', {
-        body: { redirectUri: `${currentUrl}/oauth/tiktok/callback` }
+        body: { redirectUri }
       });
 
       if (error) {
@@ -103,13 +106,18 @@ export const TikTokConnector = () => {
       </div>
       
       <div className="bg-blue-500/10 p-3 rounded-md text-sm mt-3">
-        <p className="font-medium text-blue-400">Domain Verification Steps:</p>
+        <p className="font-medium text-blue-400">Important Setup Instructions:</p>
         <ol className="list-decimal pl-5 mt-2 space-y-1 text-blue-300">
           <li>Your verification meta tag is already added to your website</li>
           <li>Visit the TikTok Developer Portal (button above)</li>
           <li>Go to your app's settings and verify your domain</li>
-          <li>Once verified, you can connect your TikTok account</li>
+          <li><strong>Add this exact redirect URI to your TikTok app:</strong></li>
         </ol>
+        
+        <div className="mt-3 p-2 bg-black/20 rounded-md font-mono text-xs break-all">
+          <p className="text-blue-400">Required Redirect URI:</p>
+          <p className="text-green-400 mt-1 font-semibold">{redirectUri}</p>
+        </div>
         
         <div className="mt-3 p-2 bg-black/20 rounded-md font-mono text-xs break-all">
           <p className="text-blue-400">Verification tag (already added):</p>
@@ -118,6 +126,14 @@ export const TikTokConnector = () => {
         
         <div className="mt-2 text-xs text-blue-300">
           <p><strong>Your domain:</strong> {currentUrl}</p>
+        </div>
+        
+        <div className="mt-3 p-2 bg-red-500/20 rounded-md text-xs">
+          <p className="text-red-400 font-medium">⚠️ Critical:</p>
+          <p className="text-red-300 mt-1">
+            The redirect URI must match EXACTLY in your TikTok app settings. 
+            Copy the redirect URI above and add it to your TikTok app's redirect URIs list.
+          </p>
         </div>
       </div>
     </div>
