@@ -110,44 +110,64 @@ export const TikTokConnector = () => {
         </Button>
       </div>
       
-      <div className="bg-blue-500/10 p-3 rounded-md text-sm mt-3">
-        <p className="font-medium text-blue-400">Critical Setup Requirements:</p>
+      <div className="bg-red-500/20 p-4 rounded-md">
+        <h3 className="text-red-400 font-bold text-lg mb-3">🚨 CRITICAL: TikTok App Setup Required!</h3>
         
-        <div className="mt-3 p-2 bg-red-500/20 rounded-md text-xs">
-          <p className="text-red-400 font-medium">🚨 REQUIRED REDIRECT URI:</p>
-          <p className="text-green-400 mt-1 font-mono break-all text-xs bg-black/30 p-2 rounded">
+        <div className="bg-red-600/30 p-3 rounded-md mb-4">
+          <p className="text-red-300 font-semibold mb-2">❌ Your TikTok app is missing this redirect URI:</p>
+          <div className="bg-black/40 p-3 rounded font-mono text-sm text-green-400 break-all">
             {redirectUri}
-          </p>
-          <p className="text-red-300 mt-2">
-            ⚠️ This EXACT URI must be added to your TikTok app's "Login Kit" redirect URIs list.
+          </div>
+        </div>
+        
+        <div className="space-y-3 text-sm">
+          <h4 className="text-red-300 font-semibold">📋 REQUIRED STEPS TO FIX:</h4>
+          <ol className="list-decimal pl-5 space-y-2 text-red-200">
+            <li>
+              <strong>Visit TikTok Developer Portal:</strong>
+              <br />
+              <a 
+                href="https://developers.tiktok.com/apps" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-300 underline hover:text-blue-200"
+              >
+                https://developers.tiktok.com/apps
+              </a>
+            </li>
+            <li>
+              <strong>Find your app with Client ID:</strong> sbawjmn8p4yrizyuis
+            </li>
+            <li>
+              <strong>Go to:</strong> Login Kit → Settings → Redirect domain
+            </li>
+            <li>
+              <strong>Add this EXACT redirect URI:</strong>
+              <div className="bg-black/40 p-2 rounded font-mono text-xs text-green-400 mt-1 break-all">
+                {redirectUri}
+              </div>
+            </li>
+            <li>
+              <strong>Verify your domain</strong> using the meta tag (already added to your site)
+            </li>
+            <li>
+              <strong>Save settings</strong> and wait a few minutes for changes to propagate
+            </li>
+            <li>
+              <strong>Return here and try "Connect TikTok" again</strong>
+            </li>
+          </ol>
+        </div>
+        
+        <div className="mt-4 p-3 bg-yellow-500/20 rounded-md">
+          <p className="text-yellow-400 font-medium text-xs">
+            💡 <strong>Important:</strong> The redirect URI must match EXACTLY. Even a small difference (like missing 'https://' or extra characters) will cause this error.
           </p>
         </div>
         
         <div className="mt-3 p-2 bg-black/20 rounded-md font-mono text-xs">
-          <p className="text-blue-400">Verification meta tag (already added):</p>
+          <p className="text-blue-400">Domain verification meta tag (already added):</p>
           <p className="text-green-400 mt-1 break-all">&lt;meta name="tiktok-developers-site-verification" content="DdXHQR44CVq49tXdjR7GwN3eMFYaKfYN" /&gt;</p>
-        </div>
-        
-        <div className="mt-3 space-y-2 text-xs">
-          <p className="text-blue-300"><strong>Step-by-step setup:</strong></p>
-          <ol className="list-decimal pl-4 space-y-1 text-blue-300">
-            <li>Visit the TikTok Developer Portal (button above)</li>
-            <li>Go to your app → <strong>Login Kit</strong> → <strong>Settings</strong></li>
-            <li>Add the redirect URI above to the <strong>"Redirect domain"</strong> field</li>
-            <li>Verify your domain using the meta tag (already added)</li>
-            <li>Save your app settings</li>
-            <li>Return here and click "Connect TikTok"</li>
-          </ol>
-        </div>
-        
-        <div className="mt-3 p-2 bg-yellow-500/20 rounded-md text-xs">
-          <p className="text-yellow-400 font-medium">💡 Troubleshooting Tips:</p>
-          <ul className="text-yellow-300 mt-1 space-y-1 list-disc pl-4">
-            <li>Ensure you're using the correct environment (sandbox vs production)</li>
-            <li>Check that your TikTok app has "Login Kit" enabled</li>
-            <li>Verify the domain before adding redirect URIs</li>
-            <li>Make sure scopes include: user.info.basic, video.publish</li>
-          </ul>
         </div>
       </div>
     </div>
