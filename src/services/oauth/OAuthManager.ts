@@ -56,9 +56,9 @@ export class OAuthManager {
     return authUrl;
   }
   
-  async initiateNeynarAuth(): Promise<string> {
+  async initiateFarcasterAuth(): Promise<string> {
     const authUrl = this.neynar.generateAuthUrl();
-    this.storeAuthState('neynar', { timestamp: Date.now() });
+    this.storeAuthState('farcaster', { timestamp: Date.now() });
     return authUrl;
   }
   
@@ -102,16 +102,16 @@ export class OAuthManager {
           expiresAt: facebookTokens.expires_in ? Date.now() + (facebookTokens.expires_in * 1000) : undefined
         };
         
-      case 'neynar':
-        const neynarTokens = await this.neynar.exchangeCodeForToken(code);
+      case 'farcaster':
+        const farcasterTokens = await this.neynar.exchangeCodeForToken(code);
         return {
-          accessToken: neynarTokens.access_token,
-          refreshToken: neynarTokens.refresh_token,
-          expiresAt: neynarTokens.expires_in ? Date.now() + (neynarTokens.expires_in * 1000) : undefined,
-          username: neynarTokens.user?.username,
-          fid: neynarTokens.user?.fid,
-          displayName: neynarTokens.user?.display_name,
-          pfpUrl: neynarTokens.user?.pfp_url
+          accessToken: farcasterTokens.access_token,
+          refreshToken: farcasterTokens.refresh_token,
+          expiresAt: farcasterTokens.expires_in ? Date.now() + (farcasterTokens.expires_in * 1000) : undefined,
+          username: farcasterTokens.user?.username,
+          fid: farcasterTokens.user?.fid,
+          displayName: farcasterTokens.user?.display_name,
+          pfpUrl: farcasterTokens.user?.pfp_url
         };
         
       default:
@@ -162,9 +162,6 @@ export class OAuthManager {
   isConnected(platform: string): boolean {
     if (platform === 'lens') {
       return !!(localStorage.getItem('walletAddress') && localStorage.getItem('lensHandle'));
-    }
-    if (platform === 'neynar') {
-      return !!this.getCredentials('neynar');
     }
     return !!this.getCredentials(platform);
   }

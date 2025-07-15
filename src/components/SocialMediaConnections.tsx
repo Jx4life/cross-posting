@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -22,6 +21,8 @@ interface ConnectionStatus {
   isEnabled: boolean;
   lastConnected?: string;
   username?: string;
+  fid?: number;
+  displayName?: string;
   isConnecting?: boolean;
 }
 
@@ -92,7 +93,7 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
       icon: FarcasterIcon,
       color: 'text-purple-400',
       bgColor: 'bg-purple-500/10',
-      supportsOAuth: false
+      supportsOAuth: true
     },
     {
       id: 'facebook',
@@ -145,6 +146,16 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
               username: handle || 'lens.user',
               lastConnected: new Date().toISOString()
             };
+          } else if (isConnected && platform.id === 'farcaster') {
+            const credentials = oauthManager.getCredentials(platform.id);
+            updated[platform.id] = {
+              ...prev[platform.id],
+              isConnected: true,
+              username: credentials?.username || 'farcaster.user',
+              fid: credentials?.fid,
+              displayName: credentials?.displayName,
+              lastConnected: new Date().toISOString()
+            };
           } else if (isConnected) {
             const credentials = oauthManager.getCredentials(platform.id);
             updated[platform.id] = {
@@ -191,6 +202,15 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
           toast({
             title: "Authentication Started",
             description: "Complete the authentication in the popup window.",
+          });
+          
+        } else if (platformId === 'farcaster') {
+          const authUrl = await oauthManager.initiateFarcasterAuth();
+          window.open(authUrl, '_blank', 'width=600,height=700');
+          
+          toast({
+            title: "Authentication Started",
+            description: "Complete the Farcaster authentication in the popup window.",
           });
           
         } else if (platformId === 'lens') {
@@ -266,6 +286,8 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
         ...prev[platformId],
         isConnected: false,
         username: undefined,
+        fid: undefined,
+        displayName: undefined,
         lastConnected: undefined
       }
     }));
@@ -321,10 +343,12 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
                           <ExternalLink className="h-3 w-3 text-muted-foreground" />
                         )}
                       </div>
-                      {connection.isConnected && connection.username && (
-                        <p className="text-sm text-muted-foreground">
-                          @{connection.username}
-                        </p>
+                      {connection.isConnected && (
+                        <div className="text-sm text-muted-foreground">
+                          {connection.username && <p>@{connection.username}</p>}
+                          {connection.fid && <p>FID: {connection.fid}</p>}
+                          {connection.displayName && <p>{connection.displayName}</p>}
+                        </div>
                       )}
                     </div>
                   </div>

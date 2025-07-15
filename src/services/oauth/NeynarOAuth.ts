@@ -36,10 +36,9 @@ export class NeynarOAuth {
   }
   
   async exchangeCodeForToken(code: string): Promise<NeynarTokenResponse> {
-    console.log('=== NEYNAR TOKEN EXCHANGE WITHOUT CLIENT SECRET ===');
-    console.log('Using client ID only flow');
+    console.log('=== NEYNAR TOKEN EXCHANGE ===');
+    console.log('Exchanging code for token:', code);
     
-    // Try the public client flow first (no client secret required)
     const tokenPayload = {
       client_id: this.config.clientId,
       code,
@@ -64,12 +63,6 @@ export class NeynarOAuth {
     console.log('Token exchange response:', responseText);
     
     if (!response.ok) {
-      // If the public flow fails, it might be because Neynar requires a different approach
-      // Let's try an alternative approach using the authorization code directly
-      console.log('Standard token exchange failed, trying alternative approach');
-      
-      // For some OAuth providers, the authorization code can be used directly
-      // or there might be a different endpoint for public clients
       throw new Error(`Neynar token exchange failed (${response.status}): ${responseText}`);
     }
     
