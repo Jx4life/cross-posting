@@ -1,3 +1,4 @@
+
 export interface TikTokConfig {
   clientId: string;
   clientSecret: string;

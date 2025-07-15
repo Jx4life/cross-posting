@@ -47,6 +47,8 @@ serve(async (req) => {
     
     console.log('Generated TikTok auth URL:', authUrl);
     console.log('Client ID being used:', clientId);
+    console.log('Scopes:', scopes.join(','));
+    console.log('Redirect URI:', redirectUri);
     
     return new Response(
       JSON.stringify({ authUrl, state }),

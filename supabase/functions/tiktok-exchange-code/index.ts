@@ -32,6 +32,7 @@ serve(async (req) => {
     }
     
     console.log('Using client ID:', clientId);
+    console.log('Using redirect URI:', redirectUri);
     
     // Exchange code for access token using the correct endpoint
     const tokenUrl = 'https://open.tiktokapis.com/v2/oauth/token/';
@@ -45,7 +46,12 @@ serve(async (req) => {
     
     console.log('Making token exchange request to TikTok...');
     console.log('Token URL:', tokenUrl);
-    console.log('Request params:', params.toString());
+    console.log('Request params (without secret):', {
+      client_key: clientId,
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri: redirectUri
+    });
     
     const response = await fetch(tokenUrl, {
       method: 'POST',
@@ -73,6 +79,9 @@ serve(async (req) => {
     }
     
     console.log('TikTok token exchange successful');
+    console.log('Access token received:', data.access_token ? 'Yes' : 'No');
+    console.log('Open ID:', data.open_id);
+    console.log('Scope:', data.scope);
     
     return new Response(
       JSON.stringify({
