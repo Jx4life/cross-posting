@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { toast } from './ui/use-toast';
-import { Loader2, RefreshCw, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
+import { Loader2, RefreshCw, CheckCircle, AlertCircle, ExternalLink, Clock } from 'lucide-react';
 import { FarcasterAuthService } from '@/services/oauth/FarcasterAuthService';
 import { FarcasterSignerResponse } from '@/services/oauth/FarcasterQRAuth';
 
@@ -24,14 +24,20 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
   const [qrCodeError, setQrCodeError] = useState(false);
+  const [pollAttempts, setPollAttempts] = useState(0);
+  const [timeoutReached, setTimeoutReached] = useState(false);
   
   const farcasterService = new FarcasterAuthService();
+  const MAX_POLL_ATTEMPTS = 150; // 5 minutes at 2-second intervals
+  const INITIAL_WAIT_TIME = 30; // 30 seconds to wait for initial approval URL
 
   const initializeSigner = async () => {
     try {
       setIsLoading(true);
       setError(null);
       setQrCodeError(false);
+      setTimeoutReached(false);
+      setPollAttempts(0);
       
       console.log('=== INITIALIZING FARCASTER SIGNER ===');
       const signerResponse = await farcasterService.createSigner();
@@ -39,22 +45,24 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
       
       setSigner(signerResponse);
       
-      // Check if we have an approval URL or need to poll for it
-      if (signerResponse.signer_approval_url) {
-        console.log('Approval URL available, starting polling');
-        startPolling(signerResponse.signer_uuid);
-      } else if (signerResponse.status === 'generated') {
-        console.log('Signer generated but no approval URL yet, will poll for updates');
-        startPolling(signerResponse.signer_uuid);
-      } else {
-        console.log('Starting polling for signer approval');
-        startPolling(signerResponse.signer_uuid);
-      }
+      // Always start polling regardless of initial state
+      console.log('Starting polling for signer approval');
+      startPolling(signerResponse.signer_uuid);
       
     } catch (error: any) {
       console.error('Failed to initialize Farcaster signer:', error);
-      setError(error.message || 'Failed to initialize authentication');
-      onError(error.message || 'Failed to initialize authentication');
+      
+      let errorMessage = error.message || 'Failed to initialize authentication';
+      
+      // Provide more specific error messages
+      if (error.message?.includes('API key')) {
+        errorMessage = 'Invalid API key. Please check your Neynar API configuration.';
+      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      }
+      
+      setError(errorMessage);
+      onError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -62,15 +70,17 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
 
   const startPolling = (signerUuid: string) => {
     setIsPolling(true);
+    setPollAttempts(0);
     
     const interval = setInterval(async () => {
       try {
-        console.log('=== POLLING SIGNER STATUS ===');
+        console.log(`=== POLLING SIGNER STATUS (Attempt ${pollAttempts + 1}/${MAX_POLL_ATTEMPTS}) ===`);
         const signerStatus = await farcasterService.getSigner(signerUuid);
         console.log('Polling result:', signerStatus);
         
         // Update the signer state with the latest data
         setSigner(signerStatus);
+        setPollAttempts(prev => prev + 1);
         
         if (signerStatus.status === 'approved') {
           clearInterval(interval);
@@ -110,26 +120,36 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
             description: "The authentication request was revoked. Please try again.",
             variant: "destructive"
           });
+        } else if (pollAttempts >= MAX_POLL_ATTEMPTS) {
+          // Timeout reached
+          clearInterval(interval);
+          setPollInterval(null);
+          setIsPolling(false);
+          setTimeoutReached(true);
+          setError('Authentication timed out. The approval URL may not have been generated properly.');
+          
+          toast({
+            title: "Authentication Timeout",
+            description: "The authentication process took too long. Please try again.",
+            variant: "destructive"
+          });
         }
         
       } catch (error: any) {
         console.error('Polling error:', error);
-        // Don't stop polling on temporary errors, just log them
-        console.log('Continuing to poll despite error...');
+        setPollAttempts(prev => prev + 1);
+        
+        // If we've had too many consecutive errors, stop polling
+        if (pollAttempts >= 5) {
+          clearInterval(interval);
+          setPollInterval(null);
+          setIsPolling(false);
+          setError('Too many errors while checking authentication status. Please try again.');
+        }
       }
     }, 2000); // Poll every 2 seconds
     
     setPollInterval(interval);
-    
-    // Auto-stop polling after 10 minutes
-    setTimeout(() => {
-      if (interval) {
-        clearInterval(interval);
-        setPollInterval(null);
-        setIsPolling(false);
-        setError('Authentication timed out. Please try again.');
-      }
-    }, 10 * 60 * 1000);
   };
 
   const handleRefresh = () => {
@@ -138,6 +158,7 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
       setPollInterval(null);
     }
     setIsPolling(false);
+    setTimeoutReached(false);
     initializeSigner();
   };
 
@@ -231,6 +252,19 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
         <CardContent className="text-center space-y-4">
           <p className="text-muted-foreground">{error}</p>
           
+          {timeoutReached && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <p className="text-sm text-yellow-800">
+                This might be due to:
+              </p>
+              <ul className="text-xs text-yellow-700 mt-1 text-left">
+                <li>• Neynar API is experiencing delays</li>
+                <li>• API key limitations</li>
+                <li>• Network connectivity issues</li>
+              </ul>
+            </div>
+          )}
+          
           <div className="flex space-x-2">
             <Button onClick={handleRefresh} variant="outline" className="flex-1">
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -273,13 +307,24 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
                 ) : (
                   <div className="w-48 h-48 bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center rounded-lg">
                     <div className="text-center">
-                      <AlertCircle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500">
-                        {signer.status === 'generated' ? 'Waiting for approval URL...' : 'QR Code unavailable'}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {signer.status === 'generated' ? 'Polling for updates...' : 'Use the button below'}
-                      </p>
+                      {isPolling ? (
+                        <>
+                          <Clock className="h-8 w-8 text-blue-500 mx-auto mb-2" />
+                          <p className="text-sm text-gray-600 font-medium">
+                            Generating QR Code...
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Attempt {pollAttempts}/{MAX_POLL_ATTEMPTS}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500">
+                            QR Code unavailable
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -290,9 +335,9 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
               <p className="text-sm text-muted-foreground">
                 {signer.signer_approval_url && !qrCodeError
                   ? "Scan this QR code with your Farcaster app to approve the connection"
-                  : signer.status === 'generated'
-                  ? "Setting up your authentication link..."
-                  : "Click the button below to open the Farcaster app and approve the connection"
+                  : isPolling
+                  ? "Waiting for Neynar to generate your authentication link..."
+                  : "Authentication link could not be generated. Please try refreshing."
                 }
               </p>
               
@@ -306,10 +351,12 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
                 Open in Farcaster App
               </Button>
               
-              {!signer?.signer_approval_url && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  {signer.status === 'generated' ? 'Waiting for approval URL...' : 'No authentication URL available'}
-                </p>
+              {!signer?.signer_approval_url && isPolling && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs text-blue-800">
+                    This usually takes 5-30 seconds. If it takes longer, there might be an issue with the Neynar API.
+                  </p>
+                </div>
               )}
             </div>
             
@@ -317,7 +364,7 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
               <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span>
-                  {signer.status === 'generated' ? 'Setting up authentication...' : 'Waiting for approval...'}
+                  Checking for approval URL... ({pollAttempts}/{MAX_POLL_ATTEMPTS})
                 </span>
               </div>
             )}
@@ -337,8 +384,9 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
               <p className="break-all">URL: {signer.signer_approval_url || 'Not available yet'}</p>
               <p>UUID: {signer.signer_uuid}</p>
               <p>Status: {signer.status}</p>
+              <p>Polling: {isPolling ? 'Yes' : 'No'}</p>
+              <p>Attempts: {pollAttempts}/{MAX_POLL_ATTEMPTS}</p>
               <p>QR Error: {qrCodeError ? 'Yes' : 'No'}</p>
-              <p>Has Approval URL: {signer.signer_approval_url ? 'Yes' : 'No'}</p>
             </div>
           </>
         )}
