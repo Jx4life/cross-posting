@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { toast } from './ui/use-toast';
-import { Loader2, RefreshCw, CheckCircle, AlertCircle, ExternalLink, Clock } from 'lucide-react';
+import { Loader2, RefreshCw, CheckCircle, AlertCircle, ExternalLink, Clock, Wifi, WifiOff } from 'lucide-react';
 import { FarcasterAuthService } from '@/services/oauth/FarcasterAuthService';
 import { FarcasterSignerResponse } from '@/services/oauth/FarcasterQRAuth';
 
@@ -26,10 +26,49 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
   const [qrCodeError, setQrCodeError] = useState(false);
   const [pollAttempts, setPollAttempts] = useState(0);
   const [timeoutReached, setTimeoutReached] = useState(false);
+  const [currentStep, setCurrentStep] = useState<'initializing' | 'generating' | 'waiting' | 'success' | 'error'>('initializing');
+  const [progressPercentage, setProgressPercentage] = useState(0);
+  const [estimatedTimeLeft, setEstimatedTimeLeft] = useState<string | null>(null);
   
   const farcasterService = new FarcasterAuthService();
   const MAX_POLL_ATTEMPTS = 150; // 5 minutes at 2-second intervals
   const INITIAL_WAIT_TIME = 30; // 30 seconds to wait for initial approval URL
+
+  const updateProgress = (step: typeof currentStep, percentage: number) => {
+    setCurrentStep(step);
+    setProgressPercentage(percentage);
+  };
+
+  const calculateEstimatedTime = (attempts: number) => {
+    if (attempts === 0) return null;
+    
+    const remainingAttempts = MAX_POLL_ATTEMPTS - attempts;
+    const estimatedSeconds = remainingAttempts * 2; // 2 seconds per attempt
+    
+    if (estimatedSeconds < 60) {
+      return `${estimatedSeconds}s`;
+    } else {
+      const minutes = Math.ceil(estimatedSeconds / 60);
+      return `${minutes}m`;
+    }
+  };
+
+  const getStepMessage = () => {
+    switch (currentStep) {
+      case 'initializing':
+        return 'Setting up authentication...';
+      case 'generating':
+        return 'Generating your authentication link...';
+      case 'waiting':
+        return 'Waiting for you to approve the connection';
+      case 'success':
+        return 'Authentication successful!';
+      case 'error':
+        return 'Authentication failed';
+      default:
+        return 'Processing...';
+    }
+  };
 
   const initializeSigner = async () => {
     try {
@@ -38,12 +77,16 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
       setQrCodeError(false);
       setTimeoutReached(false);
       setPollAttempts(0);
+      updateProgress('initializing', 10);
       
       console.log('=== INITIALIZING FARCASTER SIGNER ===');
+      
+      updateProgress('generating', 30);
       const signerResponse = await farcasterService.createSigner();
       console.log('Signer response received:', signerResponse);
       
       setSigner(signerResponse);
+      updateProgress('generating', 50);
       
       // Always start polling regardless of initial state
       console.log('Starting polling for signer approval');
@@ -62,6 +105,7 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
       }
       
       setError(errorMessage);
+      updateProgress('error', 0);
       onError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -71,21 +115,30 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
   const startPolling = (signerUuid: string) => {
     setIsPolling(true);
     setPollAttempts(0);
+    updateProgress('waiting', 60);
     
     const interval = setInterval(async () => {
       try {
-        console.log(`=== POLLING SIGNER STATUS (Attempt ${pollAttempts + 1}/${MAX_POLL_ATTEMPTS}) ===`);
+        const currentAttempt = pollAttempts + 1;
+        console.log(`=== POLLING SIGNER STATUS (Attempt ${currentAttempt}/${MAX_POLL_ATTEMPTS}) ===`);
+        
         const signerStatus = await farcasterService.getSigner(signerUuid);
         console.log('Polling result:', signerStatus);
         
         // Update the signer state with the latest data
         setSigner(signerStatus);
-        setPollAttempts(prev => prev + 1);
+        setPollAttempts(currentAttempt);
+        setEstimatedTimeLeft(calculateEstimatedTime(currentAttempt));
+        
+        // Update progress based on polling attempts
+        const progressPercent = Math.min(60 + (currentAttempt / MAX_POLL_ATTEMPTS) * 30, 90);
+        updateProgress('waiting', progressPercent);
         
         if (signerStatus.status === 'approved') {
           clearInterval(interval);
           setPollInterval(null);
           setIsPolling(false);
+          updateProgress('success', 100);
           
           // Get user data
           let userData = signerStatus.user;
@@ -113,6 +166,7 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
           clearInterval(interval);
           setPollInterval(null);
           setIsPolling(false);
+          updateProgress('error', 0);
           setError('Authentication was revoked. Please try again.');
           
           toast({
@@ -120,12 +174,13 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
             description: "The authentication request was revoked. Please try again.",
             variant: "destructive"
           });
-        } else if (pollAttempts >= MAX_POLL_ATTEMPTS) {
+        } else if (currentAttempt >= MAX_POLL_ATTEMPTS) {
           // Timeout reached
           clearInterval(interval);
           setPollInterval(null);
           setIsPolling(false);
           setTimeoutReached(true);
+          updateProgress('error', 0);
           setError('Authentication timed out. The approval URL may not have been generated properly.');
           
           toast({
@@ -137,13 +192,15 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
         
       } catch (error: any) {
         console.error('Polling error:', error);
-        setPollAttempts(prev => prev + 1);
+        const currentAttempt = pollAttempts + 1;
+        setPollAttempts(currentAttempt);
         
         // If we've had too many consecutive errors, stop polling
-        if (pollAttempts >= 5) {
+        if (currentAttempt >= 5) {
           clearInterval(interval);
           setPollInterval(null);
           setIsPolling(false);
+          updateProgress('error', 0);
           setError('Too many errors while checking authentication status. Please try again.');
         }
       }
@@ -159,6 +216,9 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
     }
     setIsPolling(false);
     setTimeoutReached(false);
+    setEstimatedTimeLeft(null);
+    setPollAttempts(0);
+    updateProgress('initializing', 0);
     initializeSigner();
   };
 
@@ -230,11 +290,17 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
         <CardHeader>
           <CardTitle className="flex items-center justify-center space-x-2">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Initializing Farcaster Authentication</span>
+            <span>Setting Up Authentication</span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-center">
-          <p className="text-muted-foreground">Setting up signer...</p>
+        <CardContent className="text-center space-y-4">
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
+          <p className="text-sm text-muted-foreground">{getStepMessage()}</p>
         </CardContent>
       </Card>
     );
@@ -250,17 +316,21 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="text-center space-y-4">
-          <p className="text-muted-foreground">{error}</p>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-sm text-red-800 font-medium mb-2">What went wrong:</p>
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
           
           {timeoutReached && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-              <p className="text-sm text-yellow-800">
-                This might be due to:
+              <p className="text-sm text-yellow-800 font-medium mb-2">
+                Common causes for timeouts:
               </p>
-              <ul className="text-xs text-yellow-700 mt-1 text-left">
-                <li>• Neynar API is experiencing delays</li>
-                <li>• API key limitations</li>
+              <ul className="text-xs text-yellow-700 text-left space-y-1">
+                <li>• Neynar API experiencing delays</li>
                 <li>• Network connectivity issues</li>
+                <li>• API key rate limiting</li>
+                <li>• Server maintenance</li>
               </ul>
             </div>
           )}
@@ -283,7 +353,9 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
         <CardTitle className="flex items-center justify-center space-x-2">
-          {isPolling ? (
+          {currentStep === 'success' ? (
+            <CheckCircle className="h-5 w-5 text-green-500" />
+          ) : isPolling ? (
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
             <div className="h-5 w-5 rounded-full bg-purple-400 flex items-center justify-center text-black font-bold text-xs">F</div>
@@ -294,6 +366,30 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
       <CardContent className="text-center space-y-4">
         {signer && (
           <>
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${progressPercentage}%` }}
+              />
+            </div>
+            
+            {/* Status Message */}
+            <div className="flex items-center justify-center space-x-2 text-sm">
+              {currentStep === 'waiting' && <Wifi className="h-4 w-4 text-blue-500" />}
+              {currentStep === 'error' && <WifiOff className="h-4 w-4 text-red-500" />}
+              {currentStep === 'success' && <CheckCircle className="h-4 w-4 text-green-500" />}
+              <span className="text-muted-foreground">{getStepMessage()}</span>
+            </div>
+            
+            {/* Estimated Time */}
+            {estimatedTimeLeft && isPolling && (
+              <div className="text-xs text-muted-foreground">
+                Estimated time remaining: {estimatedTimeLeft}
+              </div>
+            )}
+            
+            {/* QR Code Section */}
             <div className="bg-white p-4 rounded-lg border">
               <div className="flex items-center justify-center">
                 {signer.signer_approval_url && !qrCodeError ? (
@@ -307,14 +403,14 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
                 ) : (
                   <div className="w-48 h-48 bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center rounded-lg">
                     <div className="text-center">
-                      {isPolling ? (
+                      {currentStep === 'generating' || currentStep === 'waiting' ? (
                         <>
                           <Clock className="h-8 w-8 text-blue-500 mx-auto mb-2" />
                           <p className="text-sm text-gray-600 font-medium">
-                            Generating QR Code...
+                            {currentStep === 'generating' ? 'Generating QR Code...' : 'Waiting for approval...'}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
-                            Attempt {pollAttempts}/{MAX_POLL_ATTEMPTS}
+                            Step {pollAttempts + 1} of {MAX_POLL_ATTEMPTS}
                           </p>
                         </>
                       ) : (
@@ -331,15 +427,17 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
               </div>
             </div>
             
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                {signer.signer_approval_url && !qrCodeError
-                  ? "Scan this QR code with your Farcaster app to approve the connection"
-                  : isPolling
-                  ? "Waiting for Neynar to generate your authentication link..."
-                  : "Authentication link could not be generated. Please try refreshing."
-                }
-              </p>
+            {/* Instructions */}
+            <div className="space-y-3">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800 font-medium mb-1">How to connect:</p>
+                <ol className="text-xs text-blue-700 text-left space-y-1">
+                  <li>1. Open the Farcaster app on your phone</li>
+                  <li>2. {signer.signer_approval_url ? 'Scan the QR code above or tap "Open in App"' : 'Wait for the QR code to load'}</li>
+                  <li>3. Approve the connection in your app</li>
+                  <li>4. You'll be automatically signed in</li>
+                </ol>
+              </div>
               
               <Button 
                 onClick={handleOpenInApp}
@@ -351,24 +449,27 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
                 Open in Farcaster App
               </Button>
               
-              {!signer?.signer_approval_url && isPolling && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <p className="text-xs text-blue-800">
+              {!signer?.signer_approval_url && currentStep === 'waiting' && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <p className="text-xs text-amber-800">
+                    <strong>Still generating your authentication link...</strong><br />
                     This usually takes 5-30 seconds. If it takes longer, there might be an issue with the Neynar API.
                   </p>
                 </div>
               )}
             </div>
             
+            {/* Polling Status */}
             {isPolling && (
               <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span>
-                  Checking for approval URL... ({pollAttempts}/{MAX_POLL_ATTEMPTS})
+                  Checking for approval... ({pollAttempts}/{MAX_POLL_ATTEMPTS})
                 </span>
               </div>
             )}
             
+            {/* Action Buttons */}
             <div className="flex space-x-2">
               <Button onClick={handleRefresh} variant="outline" className="flex-1">
                 <RefreshCw className="h-4 w-4 mr-2" />
@@ -379,15 +480,20 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
               </Button>
             </div>
             
-            <div className="mt-4 p-2 bg-gray-50 rounded text-xs text-gray-600">
-              <p className="font-medium mb-1">Debug Info:</p>
-              <p className="break-all">URL: {signer.signer_approval_url || 'Not available yet'}</p>
-              <p>UUID: {signer.signer_uuid}</p>
-              <p>Status: {signer.status}</p>
-              <p>Polling: {isPolling ? 'Yes' : 'No'}</p>
-              <p>Attempts: {pollAttempts}/{MAX_POLL_ATTEMPTS}</p>
-              <p>QR Error: {qrCodeError ? 'Yes' : 'No'}</p>
-            </div>
+            {/* Debug Info (Collapsible) */}
+            <details className="mt-4 p-2 bg-gray-50 rounded text-xs text-gray-600">
+              <summary className="cursor-pointer font-medium mb-1">Debug Information</summary>
+              <div className="space-y-1 text-left">
+                <p><strong>Status:</strong> {signer.status}</p>
+                <p><strong>Step:</strong> {currentStep}</p>
+                <p><strong>Progress:</strong> {progressPercentage}%</p>
+                <p><strong>Polling:</strong> {isPolling ? 'Yes' : 'No'}</p>
+                <p><strong>Attempts:</strong> {pollAttempts}/{MAX_POLL_ATTEMPTS}</p>
+                <p><strong>UUID:</strong> {signer.signer_uuid}</p>
+                <p><strong>QR Error:</strong> {qrCodeError ? 'Yes' : 'No'}</p>
+                <p><strong>URL:</strong> {signer.signer_approval_url || 'Not available yet'}</p>
+              </div>
+            </details>
           </>
         )}
       </CardContent>
