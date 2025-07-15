@@ -38,15 +38,46 @@ export const usePlatformPoster = () => {
       console.log('=== FRONTEND FARCASTER POST START ===');
       console.log('Attempting to post to Farcaster:', { content, mediaUrl, mediaType });
       
-      const { data, error } = await supabase.functions.invoke('post-to-farcaster', {
-        body: { content, mediaUrl, mediaType }
-      });
+      // Make the edge function call with detailed error catching
+      let response;
+      try {
+        response = await supabase.functions.invoke('post-to-farcaster', {
+          body: { content, mediaUrl, mediaType }
+        });
+        console.log('Raw Supabase function response:', response);
+      } catch (invokeError: any) {
+        console.error('Supabase invoke error details:', {
+          name: invokeError.name,
+          message: invokeError.message,
+          status: invokeError.status,
+          statusText: invokeError.statusText,
+          details: invokeError.details,
+          hint: invokeError.hint,
+          code: invokeError.code,
+          context: invokeError.context
+        });
+        
+        // Try to extract more meaningful error information
+        let errorMessage = 'Unknown error occurred while calling Farcaster function';
+        
+        if (invokeError.message) {
+          errorMessage = invokeError.message;
+        }
+        
+        if (invokeError.details) {
+          errorMessage += ` - Details: ${JSON.stringify(invokeError.details)}`;
+        }
+        
+        throw new Error(errorMessage);
+      }
       
-      console.log('Farcaster function response:', { data, error });
+      const { data, error } = response;
+      console.log('Farcaster function response data:', data);
+      console.log('Farcaster function response error:', error);
       
       if (error) {
-        console.error('Supabase function error:', error);
-        throw new Error(`Farcaster API Error: ${error.message || 'Unknown error'}`);
+        console.error('Supabase function returned error:', error);
+        throw new Error(`Farcaster API Error: ${error.message || JSON.stringify(error)}`);
       }
       
       if (!data) {
@@ -54,8 +85,8 @@ export const usePlatformPoster = () => {
       }
       
       if (!data.success) {
-        console.error('Farcaster function returned error:', data);
-        throw new Error(data.error || data.details || 'Farcaster posting failed');
+        console.error('Farcaster function returned unsuccessful result:', data);
+        throw new Error(data.error || data.details || data.message || 'Farcaster posting failed - no specific error message');
       }
       
       console.log('=== FRONTEND FARCASTER POST SUCCESS ===');
