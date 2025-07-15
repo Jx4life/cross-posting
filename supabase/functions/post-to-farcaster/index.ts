@@ -49,20 +49,7 @@ serve(async (req) => {
       );
     }
 
-    if (!accessToken) {
-      return new Response(
-        JSON.stringify({ 
-          error: "Access token required for SIWN authentication",
-          success: false 
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        }
-      );
-    }
-
-    // Construct the payload for authenticated posting via SIWN
+    // Construct the payload for posting
     const castPayload: any = {
       text: content || "",
     };
@@ -72,20 +59,38 @@ serve(async (req) => {
       castPayload.embeds = [{ url: mediaUrl }];
     }
 
-    console.log('=== POSTING TO NEYNAR WITH SIWN ===');
+    console.log('=== POSTING TO NEYNAR ===');
     console.log('Cast payload:', JSON.stringify(castPayload, null, 2));
+    console.log('Using access token:', !!accessToken);
 
-    // Make the API call to Neynar using the user's access token
-    const neynarResponse = await fetch('https://api.neynar.com/v2/farcaster/cast', {
-      method: 'POST',
-      headers: {
-        'accept': 'application/json',
-        'api_key': NEYNAR_API_KEY,
-        'authorization': `Bearer ${accessToken}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify(castPayload)
-    });
+    // Try posting with the access token if available
+    let neynarResponse;
+    
+    if (accessToken) {
+      console.log('Attempting post with user access token');
+      neynarResponse = await fetch('https://api.neynar.com/v2/farcaster/cast', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api_key': NEYNAR_API_KEY,
+          'authorization': `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(castPayload)
+      });
+    } else {
+      console.log('No access token provided, attempting with API key only');
+      // Fallback to API key only (if Neynar supports this)
+      neynarResponse = await fetch('https://api.neynar.com/v2/farcaster/cast', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api_key': NEYNAR_API_KEY,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(castPayload)
+      });
+    }
 
     console.log('Neynar response status:', neynarResponse.status);
     console.log('Neynar response headers:', Object.fromEntries(neynarResponse.headers.entries()));
@@ -128,7 +133,8 @@ serve(async (req) => {
           success: false,
           details: {
             status: neynarResponse.status,
-            neynarError: responseData
+            neynarError: responseData,
+            suggestion: !accessToken ? "Try connecting your Neynar account first" : "Check your Neynar authentication"
           }
         }),
         { 
@@ -154,12 +160,14 @@ serve(async (req) => {
       `https://warpcast.com/${author.username}/${castHash}` : null;
     
     console.log('Generated cast URL:', castUrl);
-    console.log('=== FARCASTER POST WITH NEYNAR END ===');
+    console.log('=== FARCASTER POST SUCCESS ===');
     
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "Content posted to Farcaster successfully via SIWN",
+        message: accessToken ? 
+          "Content posted to Farcaster successfully via SIWN" : 
+          "Content posted to Farcaster successfully",
         cast: responseData.cast,
         details: {
           castHash: castHash,
@@ -167,7 +175,7 @@ serve(async (req) => {
           authorUsername: author?.username,
           authorFid: author?.fid,
           text: castInfo?.text,
-          authMethod: 'SIWN',
+          authMethod: accessToken ? 'SIWN' : 'API_KEY',
         }
       }),
       { 
