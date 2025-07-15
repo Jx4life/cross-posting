@@ -1,7 +1,7 @@
-
 import { TwitterOAuth, TwitterOAuthConfig } from './TwitterOAuth';
 import { FacebookOAuth, FacebookOAuthConfig } from './FacebookOAuth';
 import { NeynarOAuth } from './NeynarOAuth';
+import { FarcasterQRAuth } from './FarcasterQRAuth';
 import { LensOAuth } from './LensOAuth';
 
 export interface OAuthCredentials {
@@ -19,6 +19,7 @@ export class OAuthManager {
   private twitter: TwitterOAuth;
   private facebook: FacebookOAuth;
   private neynar: NeynarOAuth;
+  private farcasterQR: FarcasterQRAuth;
   private lens: LensOAuth;
   
   constructor() {
@@ -35,7 +36,7 @@ export class OAuthManager {
       scopes: ['pages_manage_posts', 'pages_read_engagement']
     });
     
-    // Use the correct redirect URI for Farcaster
+    // Keep the old OAuth flow for backward compatibility
     const farcasterRedirectUri = `${window.location.origin}/auth/callback/farcaster`;
     console.log('=== OAUTH MANAGER INIT ===');
     console.log('Farcaster redirect URI:', farcasterRedirectUri);
@@ -44,6 +45,12 @@ export class OAuthManager {
       clientId: 'c8655842-2b6b-4763-bcc2-50119d871c23',
       redirectUri: farcasterRedirectUri,
       scopes: ['read', 'write']
+    });
+    
+    // Initialize the new QR-based auth
+    this.farcasterQR = new FarcasterQRAuth({
+      clientId: 'c8655842-2b6b-4763-bcc2-50119d871c23',
+      redirectUri: farcasterRedirectUri
     });
     
     this.lens = new LensOAuth();
@@ -77,6 +84,28 @@ export class OAuthManager {
     } catch (error: any) {
       console.error('Error initiating Farcaster auth:', error);
       throw new Error(`Failed to initiate Farcaster auth: ${error.message}`);
+    }
+  }
+
+  // New method for QR-based Farcaster authentication
+  async initiateFarcasterQRAuth(): Promise<any> {
+    console.log('=== INITIATING FARCASTER QR AUTH ===');
+    
+    try {
+      const authResponse = await this.farcasterQR.initiateAuth();
+      
+      this.storeAuthState('farcaster_qr', { 
+        timestamp: Date.now(),
+        state: authResponse.state,
+        nonce: authResponse.nonce
+      });
+      
+      console.log('Farcaster QR auth initiated:', authResponse);
+      return authResponse;
+      
+    } catch (error: any) {
+      console.error('Error initiating Farcaster QR auth:', error);
+      throw new Error(`Failed to initiate Farcaster QR auth: ${error.message}`);
     }
   }
   

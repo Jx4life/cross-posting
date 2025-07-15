@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Switch } from './ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { toast } from './ui/use-toast';
 import { 
   Twitter, 
@@ -15,6 +16,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { oauthManager } from '@/services/oauth/OAuthManager';
+import { FarcasterQRCode } from './FarcasterQRCode';
 
 interface ConnectionStatus {
   isConnected: boolean;
@@ -69,6 +71,8 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
     tiktok: { isConnected: false, isEnabled: true },
     youtubeShorts: { isConnected: false, isEnabled: true },
   });
+
+  const [showFarcasterQR, setShowFarcasterQR] = useState(false);
 
   const platforms = [
     {
@@ -259,52 +263,16 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
           });
           
         } else if (platformId === 'farcaster') {
-          console.log('=== INITIATING FARCASTER CONNECTION ===');
-          console.log('Current URL:', window.location.href);
-          console.log('Origin:', window.location.origin);
+          console.log('=== INITIATING FARCASTER QR CONNECTION ===');
           
-          try {
-            const authUrl = await oauthManager.initiateFarcasterAuth();
-            console.log('Opening Farcaster auth URL:', authUrl);
-            
-            // Try to open in popup window
-            const popup = window.open(authUrl, 'farcaster_auth', 'width=600,height=700,scrollbars=yes,resizable=yes');
-            
-            if (!popup) {
-              // Fallback: redirect in the same window
-              console.log('Popup blocked, redirecting in same window');
-              window.location.href = authUrl;
-              return;
-            }
-            
-            toast({
-              title: "Farcaster Authentication Started",
-              description: "Complete the Farcaster authentication in the popup window.",
-            });
-            
-            // The popup communication is now handled by the message listener
-            // No need for the interval check anymore
-            
-          } catch (error: any) {
-            console.error('Farcaster connection error:', error);
-            
-            // Provide specific guidance based on error type
-            if (error.message.includes('redirect_uri_mismatch')) {
-              toast({
-                title: "Configuration Error",
-                description: "Redirect URI mismatch. Your Neynar app may need to be configured for this domain. Please check the console for details.",
-                variant: "destructive"
-              });
-            } else if (error.message.includes('invalid_client')) {
-              toast({
-                title: "Client Configuration Error",
-                description: "Invalid client ID. Please verify your Neynar app configuration.",
-                variant: "destructive"
-              });
-            } else {
-              throw error;
-            }
-          }
+          // Show QR code dialog instead of popup
+          setShowFarcasterQR(true);
+          
+          // Clear connecting state since we're showing the QR dialog
+          setConnections(prev => ({
+            ...prev,
+            [platformId]: { ...prev[platformId], isConnecting: false }
+          }));
           
         } else if (platformId === 'lens') {
           const { handle, address } = await oauthManager.initiateLensAuth();
@@ -352,24 +320,13 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
       
       let errorMessage = error.message || `Failed to connect to ${platform.name}`;
       
-      // Provide more specific error messages for common issues
-      if (platformId === 'farcaster') {
-        if (error.message.includes('popup blocked')) {
-          errorMessage = 'Popup blocked. Please allow popups and try again.';
-        } else if (error.message.includes('redirect_uri')) {
-          errorMessage = 'Configuration error. Please check your Neynar app settings or contact support.';
-        } else if (error.message.includes('invalid_client')) {
-          errorMessage = 'Invalid client ID. Please verify your Neynar app configuration.';
-        }
-      }
-      
       toast({
         title: "Connection Failed",
         description: errorMessage,
         variant: "destructive"
       });
     } finally {
-      // Only clear connecting state if not using popup communication
+      // Only clear connecting state if not using popup communication or QR dialog
       if (platformId !== 'farcaster' && platformId !== 'twitter' && platformId !== 'facebook') {
         setConnections(prev => ({
           ...prev,
@@ -377,6 +334,49 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
         }));
       }
     }
+  };
+
+  const handleFarcasterQRSuccess = (userData: any) => {
+    console.log('Farcaster QR authentication successful:', userData);
+    
+    // Store credentials
+    oauthManager.storeCredentials('farcaster', userData);
+    
+    // Update UI
+    setConnections(prev => ({
+      ...prev,
+      farcaster: {
+        ...prev.farcaster,
+        isConnected: true,
+        username: userData.username,
+        fid: userData.fid,
+        displayName: userData.displayName,
+        lastConnected: new Date().toISOString(),
+        isConnecting: false
+      }
+    }));
+    
+    setShowFarcasterQR(false);
+    
+    toast({
+      title: "Connected Successfully",
+      description: `Connected to Farcaster as ${userData.username}`,
+    });
+  };
+
+  const handleFarcasterQRError = (error: string) => {
+    console.error('Farcaster QR authentication error:', error);
+    
+    setConnections(prev => ({
+      ...prev,
+      farcaster: { ...prev.farcaster, isConnecting: false }
+    }));
+    
+    toast({
+      title: "Connection Failed",
+      description: error,
+      variant: "destructive"
+    });
   };
 
   const handleDisconnect = (platformId: string) => {
@@ -419,113 +419,129 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Social Media Connections</CardTitle>
-          <CardDescription>
-            Connect your social media accounts to enable cross-posting
-          </CardDescription>
-        </div>
-        <Button variant="outline" size="sm" onClick={onOpenPlatformConfig}>
-          <Settings className="h-4 w-4 mr-2" />
-          Configure
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {platforms.map((platform) => {
-            const connection = connections[platform.id];
-            const PlatformIcon = platform.icon;
-            
-            return (
-              <div
-                key={platform.id}
-                className={`p-4 rounded-lg border ${platform.bgColor} transition-all hover:shadow-md`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-                    <PlatformIcon className={`h-6 w-6 ${platform.color}`} />
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <h3 className="font-medium">{platform.name}</h3>
-                        {platform.supportsOAuth && (
-                          <ExternalLink className="h-3 w-3 text-muted-foreground" />
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Social Media Connections</CardTitle>
+            <CardDescription>
+              Connect your social media accounts to enable cross-posting
+            </CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={onOpenPlatformConfig}>
+            <Settings className="h-4 w-4 mr-2" />
+            Configure
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {platforms.map((platform) => {
+              const connection = connections[platform.id];
+              const PlatformIcon = platform.icon;
+              
+              return (
+                <div
+                  key={platform.id}
+                  className={`p-4 rounded-lg border ${platform.bgColor} transition-all hover:shadow-md`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      <PlatformIcon className={`h-6 w-6 ${platform.color}`} />
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <h3 className="font-medium">{platform.name}</h3>
+                          {platform.supportsOAuth && (
+                            <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                          )}
+                        </div>
+                        {connection.isConnected && (
+                          <div className="text-sm text-muted-foreground">
+                            {connection.username && <p>@{connection.username}</p>}
+                            {connection.fid && <p>FID: {connection.fid}</p>}
+                            {connection.displayName && <p>{connection.displayName}</p>}
+                          </div>
                         )}
                       </div>
-                      {connection.isConnected && (
-                        <div className="text-sm text-muted-foreground">
-                          {connection.username && <p>@{connection.username}</p>}
-                          {connection.fid && <p>FID: {connection.fid}</p>}
-                          {connection.displayName && <p>{connection.displayName}</p>}
-                        </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {connection.isConnected ? (
+                        <Badge variant="default" className="bg-green-500 text-white">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Connected
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Not Connected
+                        </Badge>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        checked={connection.isEnabled}
+                        onCheckedChange={() => toggleEnabled(platform.id)}
+                        disabled={!connection.isConnected}
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        Enable for posting
+                      </span>
+                    </div>
+                    
                     {connection.isConnected ? (
-                      <Badge variant="default" className="bg-green-500 text-white">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Connected
-                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDisconnect(platform.id)}
+                        disabled={connection.isConnecting}
+                      >
+                        Disconnect
+                      </Button>
                     ) : (
-                      <Badge variant="secondary">
-                        <AlertCircle className="h-3 w-3 mr-1" />
-                        Not Connected
-                      </Badge>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleConnect(platform.id)}
+                        disabled={connection.isConnecting}
+                      >
+                        {connection.isConnecting ? "Connecting..." : "Connect"}
+                      </Button>
                     )}
                   </div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      checked={connection.isEnabled}
-                      onCheckedChange={() => toggleEnabled(platform.id)}
-                      disabled={!connection.isConnected}
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      Enable for posting
-                    </span>
-                  </div>
                   
-                  {connection.isConnected ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDisconnect(platform.id)}
-                      disabled={connection.isConnecting}
-                    >
-                      Disconnect
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => handleConnect(platform.id)}
-                      disabled={connection.isConnecting}
-                    >
-                      {connection.isConnecting ? "Connecting..." : "Connect"}
-                    </Button>
+                  {!platform.supportsOAuth && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Demo connection - OAuth integration pending
+                    </p>
+                  )}
+                  
+                  {connection.lastConnected && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Last connected: {new Date(connection.lastConnected).toLocaleDateString()}
+                    </p>
                   )}
                 </div>
-                
-                {!platform.supportsOAuth && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Demo connection - OAuth integration pending
-                  </p>
-                )}
-                
-                {connection.lastConnected && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Last connected: {new Date(connection.lastConnected).toLocaleDateString()}
-                  </p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Farcaster QR Code Dialog */}
+      <Dialog open={showFarcasterQR} onOpenChange={setShowFarcasterQR}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Connect to Farcaster</DialogTitle>
+          </DialogHeader>
+          <FarcasterQRCode
+            onSuccess={handleFarcasterQRSuccess}
+            onError={handleFarcasterQRError}
+            onClose={() => setShowFarcasterQR(false)}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
