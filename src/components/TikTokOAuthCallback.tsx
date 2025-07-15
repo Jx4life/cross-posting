@@ -63,7 +63,7 @@ const TikTokOAuthCallback = () => {
           
           // Store the TikTok configuration in the database
           const { error: saveError } = await supabase.from("post_configurations").upsert({
-            platform: "tiktok",
+            platform: "tiktok" as any, // Type assertion to handle the enum update
             access_token: data.accessToken,
             refresh_token: data.refreshToken,
             is_enabled: true,
