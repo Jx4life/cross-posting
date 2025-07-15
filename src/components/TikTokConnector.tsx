@@ -8,21 +8,24 @@ export const TikTokConnector = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
 
-  // Get the current URL for the redirect
   const currentUrl = window.location.origin;
 
   const handleConnectTikTok = async () => {
     setIsConnecting(true);
     try {
-      // Get the TikTok auth URL from our backend
+      console.log('Starting TikTok connection process...');
+      
       const { data, error } = await supabase.functions.invoke('tiktok-auth-url', {
         body: { redirectUri: `${currentUrl}/oauth/tiktok/callback` }
       });
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error('TikTok auth URL error:', error);
+        throw new Error(error.message || 'Failed to generate TikTok authorization URL');
+      }
       
       if (data?.authUrl) {
-        // Redirect to TikTok for authorization
+        console.log('Redirecting to TikTok auth URL:', data.authUrl);
         window.location.href = data.authUrl;
       } else {
         throw new Error("Failed to generate TikTok authorization URL");
@@ -43,18 +46,12 @@ export const TikTokConnector = () => {
     setIsVerifying(true);
     try {
       toast({
-        title: "Verification Check",
-        description: "Checking TikTok domain verification status..."
+        title: "Domain Verification",
+        description: "Your domain verification meta tag is already added to your website. Please verify your domain in the TikTok Developer Portal.",
       });
       
-      // This would call a function to check verification status
-      // In a real implementation, we'd have an edge function for this
-      setTimeout(() => {
-        toast({
-          title: "Verification Instructions",
-          description: "Please ensure your verification meta tag is correctly added to your index.html and your site is deployed with these changes."
-        });
-      }, 1500);
+      // Open TikTok Developer Portal in new tab
+      window.open('https://developers.tiktok.com/apps', '_blank');
       
     } catch (error: any) {
       toast({
@@ -90,22 +87,26 @@ export const TikTokConnector = () => {
           disabled={isVerifying}
           className="flex-1"
         >
-          {isVerifying ? "Checking..." : "Verify Domain Status"}
+          Open TikTok Developer Portal
         </Button>
       </div>
       
-      <div className="bg-yellow-500/10 p-3 rounded-md text-sm mt-3">
-        <p className="font-medium">Domain Verification Troubleshooting:</p>
-        <ol className="list-decimal pl-5 mt-2 space-y-1">
-          <li>Ensure your meta tag is in the <code>&lt;head&gt;</code> section of your HTML</li>
-          <li>Deploy your site with the verification meta tag</li>
-          <li>Wait a few minutes for TikTok's systems to detect the tag</li>
-          <li>Try verification again in the TikTok Developer Portal</li>
+      <div className="bg-blue-500/10 p-3 rounded-md text-sm mt-3">
+        <p className="font-medium text-blue-400">Domain Verification Steps:</p>
+        <ol className="list-decimal pl-5 mt-2 space-y-1 text-blue-300">
+          <li>Your verification meta tag is already added to your website</li>
+          <li>Visit the TikTok Developer Portal (button above)</li>
+          <li>Go to your app's settings and verify your domain</li>
+          <li>Once verified, you can connect your TikTok account</li>
         </ol>
         
         <div className="mt-3 p-2 bg-black/20 rounded-md font-mono text-xs break-all">
-          <p>Current verification tag:</p>
+          <p className="text-blue-400">Verification tag (already added):</p>
           <p className="text-green-400 mt-1">&lt;meta name="tiktok-developers-site-verification" content="DdXHQR44CVq49tXdjR7GwN3eMFYaKfYN" /&gt;</p>
+        </div>
+        
+        <div className="mt-2 text-xs text-blue-300">
+          <p><strong>Your domain:</strong> {currentUrl}</p>
         </div>
       </div>
     </div>

@@ -1,6 +1,5 @@
 
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { TikTokAPI } from '../_shared/tiktok-api.ts';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,81 +7,63 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
-  
+
   try {
-    // Parse request body
     const { redirectUri } = await req.json();
     
-    if (!redirectUri) {
-      return new Response(
-        JSON.stringify({ error: 'Missing redirectUri parameter' }),
-        { 
-          status: 400, 
-          headers: { 
-            'Content-Type': 'application/json',
-            ...corsHeaders 
-          } 
-        }
-      );
-    }
+    console.log('TikTok auth URL request:', { redirectUri });
     
-    // Get client credentials from environment variables
+    // Get TikTok credentials from Supabase secrets
     const clientId = Deno.env.get('TIKTOK_CLIENT_ID');
-    const clientSecret = Deno.env.get('TIKTOK_CLIENT_SECRET');
     
-    if (!clientId || !clientSecret) {
+    if (!clientId) {
+      console.error('Missing TikTok client ID');
       return new Response(
-        JSON.stringify({ error: 'TikTok API credentials not configured' }),
+        JSON.stringify({ error: 'TikTok credentials not configured' }),
         { 
-          status: 500, 
-          headers: { 
-            'Content-Type': 'application/json',
-            ...corsHeaders 
-          } 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
     
-    const tiktokConfig = {
-      clientId,
-      clientSecret,
-      redirectUri,
-      scopes: ['user.info.basic', 'video.publish']
-    };
-
-    const tiktokAPI = new TikTokAPI(tiktokConfig);
-    
-    // Generate a state parameter for CSRF protection
+    // Generate TikTok OAuth URL
+    const scopes = ['user.info.basic', 'video.publish'];
     const state = crypto.randomUUID();
     
-    // Generate the authorization URL
-    const authUrl = tiktokAPI.generateAuthUrl(state);
+    const params = new URLSearchParams({
+      client_key: clientId,
+      scope: scopes.join(','),
+      response_type: 'code',
+      redirect_uri: redirectUri,
+      state: state
+    });
+    
+    const authUrl = `https://www.tiktok.com/v2/auth/authorize/?${params.toString()}`;
+    
+    console.log('Generated TikTok auth URL:', authUrl);
     
     return new Response(
-      JSON.stringify({ success: true, authUrl }),
+      JSON.stringify({ authUrl, state }),
       { 
-        headers: { 
-          'Content-Type': 'application/json',
-          ...corsHeaders 
-        } 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
     
   } catch (error) {
-    console.error('Error generating TikTok auth URL:', error);
+    console.error('TikTok auth URL error:', error);
     
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to generate TikTok authorization URL' }),
+      JSON.stringify({ 
+        error: error.message || 'Failed to generate TikTok auth URL' 
+      }),
       { 
         status: 500, 
-        headers: { 
-          'Content-Type': 'application/json',
-          ...corsHeaders 
-        } 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }

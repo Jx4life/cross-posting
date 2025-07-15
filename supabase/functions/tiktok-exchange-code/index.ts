@@ -1,6 +1,5 @@
 
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { TikTokAPI } from '../_shared/tiktok-api.ts';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,91 +7,91 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
-  
+
   try {
-    // Parse request body
     const { code, redirectUri } = await req.json();
     
-    if (!code || !redirectUri) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required parameters' }),
-        { 
-          status: 400, 
-          headers: { 
-            'Content-Type': 'application/json',
-            ...corsHeaders 
-          } 
-        }
-      );
-    }
+    console.log('TikTok token exchange request:', { code, redirectUri });
     
-    // Get client credentials from environment variables
+    // Get TikTok credentials from Supabase secrets
     const clientId = Deno.env.get('TIKTOK_CLIENT_ID');
     const clientSecret = Deno.env.get('TIKTOK_CLIENT_SECRET');
     
     if (!clientId || !clientSecret) {
+      console.error('Missing TikTok credentials');
       return new Response(
-        JSON.stringify({ error: 'TikTok API credentials not configured' }),
+        JSON.stringify({ error: 'TikTok credentials not configured' }),
         { 
-          status: 500, 
-          headers: { 
-            'Content-Type': 'application/json',
-            ...corsHeaders 
-          } 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
     
-    const tiktokConfig = {
-      clientId,
-      clientSecret,
-      redirectUri,
-      scopes: ['user.info.basic', 'video.publish']
-    };
-
-    const tiktokAPI = new TikTokAPI(tiktokConfig);
+    // Exchange code for access token
+    const tokenUrl = 'https://open.tiktokapis.com/v2/oauth/token/';
+    const params = new URLSearchParams({
+      client_key: clientId,
+      client_secret: clientSecret,
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri: redirectUri
+    });
     
-    // Exchange the authorization code for tokens
-    const tokenResponse = await tiktokAPI.exchangeCodeForToken(code);
+    console.log('Making token exchange request to TikTok...');
     
-    if (!tokenResponse || !tokenResponse.access_token) {
-      throw new Error('Failed to exchange code for token');
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params
+    });
+    
+    const responseText = await response.text();
+    console.log('TikTok token response:', responseText);
+    
+    if (!response.ok) {
+      console.error('TikTok token exchange failed:', response.status, responseText);
+      throw new Error(`TikTok API error: ${response.status} ${response.statusText}`);
     }
     
-    // Get user info using the access token
-    const userInfo = await tiktokAPI.getUserInfo(tokenResponse.access_token);
+    const data = JSON.parse(responseText);
+    
+    if (data.error) {
+      console.error('TikTok API error:', data.error, data.error_description);
+      throw new Error(`TikTok API error: ${data.error} - ${data.error_description || ''}`);
+    }
+    
+    console.log('TikTok token exchange successful');
     
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        accessToken: tokenResponse.access_token,
-        refreshToken: tokenResponse.refresh_token,
-        expiresIn: tokenResponse.expires_in,
-        userInfo
+      JSON.stringify({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        expires_in: data.expires_in,
+        open_id: data.open_id,
+        scope: data.scope
       }),
       { 
-        headers: { 
-          'Content-Type': 'application/json',
-          ...corsHeaders 
-        } 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
     
   } catch (error) {
-    console.error('Error exchanging TikTok code:', error);
+    console.error('TikTok token exchange error:', error);
     
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to exchange authorization code' }),
+      JSON.stringify({ 
+        error: error.message || 'Failed to exchange TikTok authorization code' 
+      }),
       { 
         status: 500, 
-        headers: { 
-          'Content-Type': 'application/json',
-          ...corsHeaders 
-        } 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }
