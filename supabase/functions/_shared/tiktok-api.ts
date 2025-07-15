@@ -8,7 +8,7 @@ export interface TikTokConfig {
 
 export class TikTokAPI {
   private config: TikTokConfig;
-  private baseUrl = 'https://open-api.tiktok.com';
+  private baseUrl = 'https://open.tiktokapis.com';
   
   constructor(config: TikTokConfig) {
     this.config = config;
@@ -20,33 +20,36 @@ export class TikTokAPI {
   generateAuthUrl(state?: string): string {
     const params = new URLSearchParams({
       client_key: this.config.clientId,
-      response_type: 'code',
       scope: this.config.scopes.join(','),
+      response_type: 'code',
       redirect_uri: this.config.redirectUri,
-      state: state || crypto.randomUUID(),
+      state: state || crypto.randomUUID()
     });
     
-    return `${this.baseUrl}/platform/oauth/connect/?${params.toString()}`;
+    // Use the correct TikTok OAuth authorization endpoint
+    return `https://www.tiktok.com/v2/auth/authorize/?${params.toString()}`;
   }
   
   /**
    * Exchange authorization code for access token
    */
   async exchangeCodeForToken(code: string) {
-    const url = `${this.baseUrl}/oauth/access_token/`;
+    const url = `${this.baseUrl}/v2/oauth/token/`;
     const params = new URLSearchParams({
       client_key: this.config.clientId,
       client_secret: this.config.clientSecret,
       code,
       grant_type: 'authorization_code',
-      redirect_uri: this.config.redirectUri,
+      redirect_uri: this.config.redirectUri
     });
     
-    const response = await fetch(`${url}?${params.toString()}`, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Cache-Control': 'no-cache',
       },
+      body: params
     });
     
     if (!response.ok) {
@@ -74,18 +77,21 @@ export class TikTokAPI {
    * Refresh access token using refresh token
    */
   async refreshToken(refreshToken: string) {
-    const url = `${this.baseUrl}/oauth/refresh_token/`;
+    const url = `${this.baseUrl}/v2/oauth/token/`;
     const params = new URLSearchParams({
       client_key: this.config.clientId,
+      client_secret: this.config.clientSecret,
       grant_type: 'refresh_token',
-      refresh_token: refreshToken,
+      refresh_token: refreshToken
     });
     
-    const response = await fetch(`${url}?${params.toString()}`, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Cache-Control': 'no-cache',
       },
+      body: params
     });
     
     if (!response.ok) {
@@ -113,13 +119,16 @@ export class TikTokAPI {
    * Get user information using access token
    */
   async getUserInfo(accessToken: string) {
-    const url = `${this.baseUrl}/user/info/`;
-    const params = new URLSearchParams({
-      access_token: accessToken,
-      fields: 'open_id,union_id,avatar_url,display_name,bio_description,profile_deep_link',
+    const response = await fetch(`${this.baseUrl}/v2/user/info/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fields: ['open_id', 'union_id', 'avatar_url', 'display_name', 'username']
+      })
     });
-    
-    const response = await fetch(`${url}?${params.toString()}`);
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -130,10 +139,10 @@ export class TikTokAPI {
     const data = await response.json();
     
     if (data.error) {
-      throw new Error(`TikTok API error: ${data.error} - ${data.error_description || ''}`);
+      throw new Error(`TikTok API error: ${data.error?.message || 'Unknown error'}`);
     }
     
-    return data.user;
+    return data.data.user;
   }
   
   /**
