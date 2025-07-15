@@ -23,6 +23,7 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
+  const [qrCodeError, setQrCodeError] = useState(false);
   
   const farcasterService = new FarcasterAuthService();
 
@@ -30,6 +31,7 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
     try {
       setIsLoading(true);
       setError(null);
+      setQrCodeError(false);
       
       const signerResponse = await farcasterService.createSigner();
       setSigner(signerResponse);
@@ -130,6 +132,11 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
     }
   };
 
+  const handleQrCodeError = () => {
+    console.log('QR Code image failed to load');
+    setQrCodeError(true);
+  };
+
   useEffect(() => {
     initializeSigner();
     
@@ -197,19 +204,34 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
       <CardContent className="text-center space-y-4">
         {signer && (
           <>
-            <div className="bg-white p-4 rounded-lg">
+            <div className="bg-white p-4 rounded-lg border">
               <div className="flex items-center justify-center">
-                <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(signer.signer_approval_url || '')}`}
-                  alt="Farcaster QR Code"
-                  className="w-48 h-48"
-                />
+                {!qrCodeError ? (
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(signer.signer_approval_url || '')}`}
+                    alt="Farcaster QR Code"
+                    className="w-48 h-48"
+                    onError={handleQrCodeError}
+                    onLoad={() => console.log('QR code loaded successfully')}
+                  />
+                ) : (
+                  <div className="w-48 h-48 bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center rounded-lg">
+                    <div className="text-center">
+                      <AlertCircle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500">QR Code unavailable</p>
+                      <p className="text-xs text-gray-400">Use the button below</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                Scan this QR code with your Farcaster app to approve the connection
+                {!qrCodeError 
+                  ? "Scan this QR code with your Farcaster app to approve the connection"
+                  : "Click the button below to open the Farcaster app and approve the connection"
+                }
               </p>
               
               <Button 
@@ -238,6 +260,14 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
                 Cancel
               </Button>
             </div>
+            
+            {signer.signer_approval_url && (
+              <div className="mt-4 p-2 bg-gray-50 rounded text-xs text-gray-600">
+                <p className="font-medium mb-1">Debug Info:</p>
+                <p className="break-all">URL: {signer.signer_approval_url}</p>
+                <p>UUID: {signer.signer_uuid}</p>
+              </div>
+            )}
           </>
         )}
       </CardContent>
