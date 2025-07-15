@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { toast } from './ui/use-toast';
 import { Loader2, RefreshCw, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
-import { FarcasterQRAuth, FarcasterSignerResponse } from '@/services/oauth/FarcasterQRAuth';
+import { FarcasterAuthService } from '@/services/oauth/FarcasterAuthService';
+import { FarcasterSignerResponse } from '@/services/oauth/FarcasterQRAuth';
 
 interface FarcasterQRCodeProps {
   onSuccess: (userData: any) => void;
@@ -22,24 +23,15 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
-  const [showApiKeyError, setShowApiKeyError] = useState(false);
-
-  // This should be configured through environment variables or user settings
-  const NEYNAR_API_KEY = 'NEYNAR_API_KEY'; // This needs to be set by the user
   
-  const farcasterAuth = new FarcasterQRAuth({
-    clientId: 'c8655842-2b6b-4763-bcc2-50119d871c23',
-    redirectUri: `${window.location.origin}/auth/callback/farcaster`,
-    apiKey: NEYNAR_API_KEY
-  });
+  const farcasterService = new FarcasterAuthService();
 
   const initializeSigner = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      setShowApiKeyError(false);
       
-      const signerResponse = await farcasterAuth.createSigner();
+      const signerResponse = await farcasterService.createSigner();
       setSigner(signerResponse);
       
       // Start polling for signer approval
@@ -47,14 +39,7 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
       
     } catch (error: any) {
       console.error('Failed to initialize Farcaster signer:', error);
-      
-      if (error.message.includes('401') || error.message.includes('API')) {
-        setShowApiKeyError(true);
-        setError('Invalid API key. Please configure your Neynar API key.');
-      } else {
-        setError(error.message || 'Failed to initialize authentication');
-      }
-      
+      setError(error.message || 'Failed to initialize authentication');
       onError(error.message || 'Failed to initialize authentication');
     } finally {
       setIsLoading(false);
@@ -66,7 +51,7 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
     
     const interval = setInterval(async () => {
       try {
-        const signerStatus = await farcasterAuth.getSigner(signerUuid);
+        const signerStatus = await farcasterService.getSigner(signerUuid);
         
         if (signerStatus.status === 'approved') {
           clearInterval(interval);
@@ -77,7 +62,7 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
           let userData = signerStatus.user;
           
           if (signerStatus.fid && !userData) {
-            userData = await farcasterAuth.getUserByFid(signerStatus.fid);
+            userData = await farcasterService.getUserByFid(signerStatus.fid);
           }
           
           toast({
@@ -182,23 +167,6 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
         </CardHeader>
         <CardContent className="text-center space-y-4">
           <p className="text-muted-foreground">{error}</p>
-          
-          {showApiKeyError && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-              <p className="text-sm text-yellow-800">
-                You need to configure your Neynar API key to use Farcaster authentication.
-                <br />
-                <a 
-                  href="https://dev.neynar.com/" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
-                >
-                  Get your API key from Neynar
-                </a>
-              </p>
-            </div>
-          )}
           
           <div className="flex space-x-2">
             <Button onClick={handleRefresh} variant="outline" className="flex-1">

@@ -1,7 +1,7 @@
 import { TwitterOAuth, TwitterOAuthConfig } from './TwitterOAuth';
 import { FacebookOAuth, FacebookOAuthConfig } from './FacebookOAuth';
 import { NeynarOAuth } from './NeynarOAuth';
-import { FarcasterQRAuth } from './FarcasterQRAuth';
+import { FarcasterAuthService } from './FarcasterAuthService';
 import { LensOAuth } from './LensOAuth';
 
 export interface OAuthCredentials {
@@ -19,7 +19,7 @@ export class OAuthManager {
   private twitter: TwitterOAuth;
   private facebook: FacebookOAuth;
   private neynar: NeynarOAuth;
-  private farcasterQR: FarcasterQRAuth;
+  private farcasterAuth: FarcasterAuthService;
   private lens: LensOAuth;
   
   constructor() {
@@ -47,12 +47,8 @@ export class OAuthManager {
       scopes: ['read', 'write']
     });
     
-    // Initialize the managed signers auth - API key needs to be configured
-    this.farcasterQR = new FarcasterQRAuth({
-      clientId: 'c8655842-2b6b-4763-bcc2-50119d871c23',
-      redirectUri: farcasterRedirectUri,
-      apiKey: 'NEYNAR_API_KEY' // This needs to be configured
-    });
+    // Initialize the managed signers auth service
+    this.farcasterAuth = new FarcasterAuthService();
     
     this.lens = new LensOAuth();
   }
@@ -93,7 +89,7 @@ export class OAuthManager {
     console.log('=== INITIATING FARCASTER QR AUTH ===');
     
     try {
-      const signerResponse = await this.farcasterQR.createSigner();
+      const signerResponse = await this.farcasterAuth.createSigner();
       
       this.storeAuthState('farcaster_qr', { 
         timestamp: Date.now(),
