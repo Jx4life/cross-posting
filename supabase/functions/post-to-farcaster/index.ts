@@ -55,6 +55,57 @@ serve(async (req) => {
       );
     }
 
+    // First, let's check the signer info to verify it's properly configured
+    console.log('Checking signer info...');
+    const signerResponse = await fetch(`https://api.neynar.com/v2/farcaster/signer?signer_uuid=${FARCASTER_SIGNER_UUID}`, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json',
+        'api_key': NEYNAR_API_KEY,
+      }
+    });
+
+    const signerData = await signerResponse.json();
+    console.log('Signer info:', {
+      status: signerResponse.status,
+      signerData: signerData
+    });
+
+    if (!signerResponse.ok) {
+      return new Response(
+        JSON.stringify({ 
+          error: "Invalid signer configuration",
+          success: false,
+          details: {
+            signerError: signerData,
+            message: "Your Farcaster signer may not be properly configured or approved"
+          }
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
+
+    // Check if signer is approved
+    if (signerData.status !== 'approved') {
+      return new Response(
+        JSON.stringify({ 
+          error: "Signer not approved",
+          success: false,
+          details: {
+            signerStatus: signerData.status,
+            message: "Your Farcaster signer needs to be approved before you can post. Please check your Neynar dashboard."
+          }
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
+
     // Construct the payload according to Neynar managed signers documentation
     const castPayload: any = {
       signer_uuid: FARCASTER_SIGNER_UUID,
@@ -139,11 +190,27 @@ serve(async (req) => {
 
     console.log('Successful cast response:', responseData);
 
+    // Extract more detailed information about the cast
+    const castInfo = responseData.cast || responseData;
+    const castHash = castInfo.hash;
+    const author = castInfo.author;
+    
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: "Content posted to Farcaster successfully",
-        cast: responseData.cast
+        cast: responseData.cast,
+        details: {
+          castHash: castHash,
+          castUrl: `https://warpcast.com/${author?.username}/${castHash}`,
+          authorUsername: author?.username,
+          authorFid: author?.fid,
+          text: castInfo.text,
+          signerInfo: {
+            fid: signerData.fid,
+            username: signerData.username
+          }
+        }
       }),
       { 
         status: 200, 

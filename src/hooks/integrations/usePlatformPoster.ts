@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -48,12 +47,19 @@ export const usePlatformPoster = () => {
         throw new Error(data?.error || 'Farcaster posting failed');
       }
       
+      // Log success details for debugging
+      console.log('Farcaster post successful:', data.details);
+      
       return {
         platform: 'farcaster',
         success: true,
-        data
+        data,
+        message: data.details?.castUrl ? 
+          `Posted successfully! View at: ${data.details.castUrl}` : 
+          'Posted successfully to Farcaster'
       };
     } catch (error: any) {
+      console.error('Farcaster posting error:', error);
       return {
         platform: 'farcaster',
         success: false,
