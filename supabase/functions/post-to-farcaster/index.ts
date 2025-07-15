@@ -13,17 +13,18 @@ serve(async (req) => {
 
   try {
     const NEYNAR_API_KEY = Deno.env.get("NEYNAR_API_KEY");
+    const FARCASTER_SIGNER_UUID = Deno.env.get("FARCASTER_SIGNER_UUID");
     
-    console.log('=== FARCASTER POST WITH NEYNAR START ===');
+    console.log('=== FARCASTER POST (SIMPLE APPROACH) ===');
     console.log('Environment check:', {
       hasApiKey: !!NEYNAR_API_KEY,
-      apiKeyPrefix: NEYNAR_API_KEY ? NEYNAR_API_KEY.substring(0, 8) + '...' : 'none'
+      hasSignerUuid: !!FARCASTER_SIGNER_UUID,
     });
     
-    if (!NEYNAR_API_KEY) {
+    if (!NEYNAR_API_KEY || !FARCASTER_SIGNER_UUID) {
       return new Response(
         JSON.stringify({ 
-          error: "Missing NEYNAR_API_KEY environment variable",
+          error: "Missing NEYNAR_API_KEY or FARCASTER_SIGNER_UUID environment variables",
           success: false
         }),
         { 
@@ -33,8 +34,8 @@ serve(async (req) => {
       );
     }
 
-    const { content, mediaUrl, mediaType, accessToken } = await req.json();
-    console.log('Request payload:', { content, mediaUrl, mediaType, hasAccessToken: !!accessToken });
+    const { content, mediaUrl, mediaType } = await req.json();
+    console.log('Request payload:', { content, mediaUrl, mediaType });
     
     if (!content && !mediaUrl) {
       return new Response(
@@ -49,8 +50,9 @@ serve(async (req) => {
       );
     }
 
-    // Construct the payload for posting
-    const castPayload: any = {
+    // Simple cast payload
+    const castPayload = {
+      signer_uuid: FARCASTER_SIGNER_UUID,
       text: content || "",
     };
 
@@ -59,59 +61,32 @@ serve(async (req) => {
       castPayload.embeds = [{ url: mediaUrl }];
     }
 
-    console.log('=== POSTING TO NEYNAR ===');
-    console.log('Cast payload:', JSON.stringify(castPayload, null, 2));
-    console.log('Using access token:', !!accessToken);
+    console.log('Posting to Neynar with payload:', JSON.stringify(castPayload, null, 2));
 
-    // Try posting with the access token if available
-    let neynarResponse;
-    
-    if (accessToken) {
-      console.log('Attempting post with user access token');
-      neynarResponse = await fetch('https://api.neynar.com/v2/farcaster/cast', {
-        method: 'POST',
-        headers: {
-          'accept': 'application/json',
-          'api_key': NEYNAR_API_KEY,
-          'authorization': `Bearer ${accessToken}`,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify(castPayload)
-      });
-    } else {
-      console.log('No access token provided, attempting with API key only');
-      // Fallback to API key only (if Neynar supports this)
-      neynarResponse = await fetch('https://api.neynar.com/v2/farcaster/cast', {
-        method: 'POST',
-        headers: {
-          'accept': 'application/json',
-          'api_key': NEYNAR_API_KEY,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify(castPayload)
-      });
-    }
+    const neynarResponse = await fetch('https://api.neynar.com/v2/farcaster/cast', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api_key': NEYNAR_API_KEY,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(castPayload)
+    });
 
     console.log('Neynar response status:', neynarResponse.status);
-    console.log('Neynar response headers:', Object.fromEntries(neynarResponse.headers.entries()));
-
     const responseText = await neynarResponse.text();
     console.log('Raw Neynar response:', responseText);
 
     let responseData;
     try {
       responseData = JSON.parse(responseText);
-      console.log('Parsed response data:', JSON.stringify(responseData, null, 2));
     } catch (parseError) {
-      console.error('Failed to parse Neynar response as JSON:', parseError);
+      console.error('Failed to parse response:', parseError);
       return new Response(
         JSON.stringify({ 
           error: "Invalid response from Neynar API",
           success: false,
-          details: {
-            status: neynarResponse.status,
-            responseText: responseText.substring(0, 500)
-          }
+          details: responseText.substring(0, 500)
         }),
         { 
           status: 500, 
@@ -121,21 +96,12 @@ serve(async (req) => {
     }
 
     if (!neynarResponse.ok) {
-      console.error('NEYNAR API ERROR:', {
-        status: neynarResponse.status,
-        statusText: neynarResponse.statusText,
-        responseData
-      });
-      
+      console.error('Neynar API error:', responseData);
       return new Response(
         JSON.stringify({ 
-          error: responseData?.message || responseData?.error || "Failed to post to Farcaster",
+          error: responseData?.message || "Failed to post to Farcaster",
           success: false,
-          details: {
-            status: neynarResponse.status,
-            neynarError: responseData,
-            suggestion: !accessToken ? "Try connecting your Neynar account first" : "Check your Neynar authentication"
-          }
+          details: responseData
         }),
         { 
           status: neynarResponse.status, 
@@ -144,38 +110,25 @@ serve(async (req) => {
       );
     }
 
-    console.log('=== SUCCESS RESPONSE ANALYSIS ===');
-    console.log('Full success response:', JSON.stringify(responseData, null, 2));
-
-    // Extract cast information from the response
-    const castInfo = responseData.cast || responseData;
-    const castHash = castInfo?.hash;
-    const author = castInfo?.author;
+    // Extract cast information
+    const cast = responseData.cast || responseData;
+    const castHash = cast?.hash;
+    const author = cast?.author;
     
+    console.log('=== POST SUCCESS ===');
     console.log('Cast hash:', castHash);
-    console.log('Author info:', author);
-    console.log('Cast text:', castInfo?.text);
-    
-    const castUrl = author?.username && castHash ? 
-      `https://warpcast.com/${author.username}/${castHash}` : null;
-    
-    console.log('Generated cast URL:', castUrl);
-    console.log('=== FARCASTER POST SUCCESS ===');
+    console.log('Author:', author?.username);
     
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: accessToken ? 
-          "Content posted to Farcaster successfully via SIWN" : 
-          "Content posted to Farcaster successfully",
-        cast: responseData.cast,
+        message: "Content posted to Farcaster successfully",
+        cast: cast,
         details: {
           castHash: castHash,
-          castUrl: castUrl,
+          castUrl: author?.username && castHash ? `https://warpcast.com/${author.username}/${castHash}` : null,
           authorUsername: author?.username,
           authorFid: author?.fid,
-          text: castInfo?.text,
-          authMethod: accessToken ? 'SIWN' : 'API_KEY',
         }
       }),
       { 
@@ -185,17 +138,12 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('=== EDGE FUNCTION ERROR ===');
-    console.error('Error details:', error);
-    console.error('Error stack:', error.stack);
+    console.error('Edge function error:', error);
     return new Response(
       JSON.stringify({ 
         error: error.message || "Internal server error",
         success: false,
-        details: {
-          errorType: error.constructor.name,
-          stack: error.stack
-        }
+        details: error.stack
       }),
       { 
         status: 500, 

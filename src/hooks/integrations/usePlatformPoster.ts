@@ -35,26 +35,15 @@ export const usePlatformPoster = () => {
   };
   
   const postToFarcaster = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
-    console.log('=== FRONTEND FARCASTER POST START (SIWN) ===');
+    console.log('=== FRONTEND FARCASTER POST (SIMPLE) ===');
     console.log('Posting to Farcaster with:', { content, mediaUrl, mediaType });
     
     try {
-      // Get Neynar credentials for SIWN authentication
-      const neynarCredentials = oauthManager.getCredentials('neynar');
-      if (!neynarCredentials) {
-        return {
-          platform: 'farcaster',
-          success: false,
-          message: 'Please connect your Neynar account first (Sign In With Neynar)'
-        };
-      }
-
       const { data, error } = await supabase.functions.invoke('post-to-farcaster', {
         body: { 
           content, 
           mediaUrl, 
-          mediaType,
-          accessToken: neynarCredentials.accessToken
+          mediaType
         }
       });
       
@@ -70,20 +59,19 @@ export const usePlatformPoster = () => {
         throw new Error(data?.error || 'Farcaster posting failed');
       }
       
-      console.log('=== FARCASTER POST SUCCESS (SIWN) ===');
+      console.log('=== FARCASTER POST SUCCESS (SIMPLE) ===');
       console.log('Success data:', JSON.stringify(data, null, 2));
-      console.log('Cast URL:', data.details?.castUrl);
       
       return {
         platform: 'farcaster',
         success: true,
         data,
         message: data.details?.castUrl ? 
-          `Posted successfully via SIWN! View at: ${data.details.castUrl}` : 
-          'Posted successfully to Farcaster via SIWN'
+          `Posted successfully! View at: ${data.details.castUrl}` : 
+          'Posted successfully to Farcaster'
       };
     } catch (error: any) {
-      console.error('=== FARCASTER POSTING ERROR (SIWN) ===');
+      console.error('=== FARCASTER POSTING ERROR (SIMPLE) ===');
       console.error('Error:', error);
       return {
         platform: 'farcaster',
