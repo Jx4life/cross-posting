@@ -34,21 +34,37 @@ export const usePlatformPoster = () => {
   };
   
   const postToFarcaster = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
+    console.log('=== FRONTEND FARCASTER POST START ===');
+    console.log('Posting to Farcaster with:', { content, mediaUrl, mediaType });
+    
     try {
       const { data, error } = await supabase.functions.invoke('post-to-farcaster', {
         body: { content, mediaUrl, mediaType }
       });
       
+      console.log('Supabase function response:', { data, error });
+      
       if (error) {
+        console.error('Supabase function error:', error);
         throw new Error(error.message || 'Farcaster API error');
       }
       
       if (!data || !data.success) {
+        console.error('Farcaster posting failed:', data);
         throw new Error(data?.error || 'Farcaster posting failed');
       }
       
-      // Log success details for debugging
-      console.log('Farcaster post successful:', data.details);
+      // Log all the debug information
+      console.log('=== FARCASTER POST SUCCESS DETAILS ===');
+      console.log('Success data:', JSON.stringify(data, null, 2));
+      console.log('Cast URL:', data.details?.castUrl);
+      console.log('Cast hash:', data.details?.castHash);
+      console.log('Author username:', data.details?.authorUsername);
+      console.log('Author FID:', data.details?.authorFid);
+      console.log('Signer FID:', data.details?.signerInfo?.fid);
+      console.log('Signer username:', data.details?.signerInfo?.username);
+      console.log('Debug info:', data.details?.debug);
+      console.log('=== END SUCCESS DETAILS ===');
       
       return {
         platform: 'farcaster',
@@ -59,7 +75,8 @@ export const usePlatformPoster = () => {
           'Posted successfully to Farcaster'
       };
     } catch (error: any) {
-      console.error('Farcaster posting error:', error);
+      console.error('=== FARCASTER POSTING ERROR ===');
+      console.error('Error:', error);
       return {
         platform: 'farcaster',
         success: false,

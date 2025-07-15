@@ -15,6 +15,7 @@ serve(async (req) => {
     const NEYNAR_API_KEY = Deno.env.get("NEYNAR_API_KEY");
     const FARCASTER_SIGNER_UUID = Deno.env.get("FARCASTER_SIGNER_UUID");
     
+    console.log('=== FARCASTER POST DEBUG START ===');
     console.log('Environment check:', {
       hasApiKey: !!NEYNAR_API_KEY,
       hasSignerUuid: !!FARCASTER_SIGNER_UUID,
@@ -56,7 +57,7 @@ serve(async (req) => {
     }
 
     // First, let's check the signer info to verify it's properly configured
-    console.log('Checking signer info...');
+    console.log('=== CHECKING SIGNER INFO ===');
     const signerResponse = await fetch(`https://api.neynar.com/v2/farcaster/signer?signer_uuid=${FARCASTER_SIGNER_UUID}`, {
       method: 'GET',
       headers: {
@@ -66,12 +67,11 @@ serve(async (req) => {
     });
 
     const signerData = await signerResponse.json();
-    console.log('Signer info:', {
-      status: signerResponse.status,
-      signerData: signerData
-    });
+    console.log('Signer response status:', signerResponse.status);
+    console.log('Full signer data:', JSON.stringify(signerData, null, 2));
 
     if (!signerResponse.ok) {
+      console.error('SIGNER ERROR:', signerData);
       return new Response(
         JSON.stringify({ 
           error: "Invalid signer configuration",
@@ -89,7 +89,12 @@ serve(async (req) => {
     }
 
     // Check if signer is approved
+    console.log('Signer status:', signerData.status);
+    console.log('Signer FID:', signerData.fid);
+    console.log('Signer username:', signerData.username);
+    
     if (signerData.status !== 'approved') {
+      console.error('SIGNER NOT APPROVED:', signerData.status);
       return new Response(
         JSON.stringify({ 
           error: "Signer not approved",
@@ -117,15 +122,8 @@ serve(async (req) => {
       castPayload.embeds = [{ url: mediaUrl }];
     }
 
-    console.log('Sending to Neynar:', {
-      url: 'https://api.neynar.com/v2/farcaster/cast',
-      payload: castPayload,
-      headers: {
-        'accept': 'application/json',
-        'api_key': NEYNAR_API_KEY ? NEYNAR_API_KEY.substring(0, 8) + '...' : 'none',
-        'content-type': 'application/json'
-      }
-    });
+    console.log('=== POSTING TO NEYNAR ===');
+    console.log('Cast payload:', JSON.stringify(castPayload, null, 2));
 
     // Make the API call to Neynar
     const neynarResponse = await fetch('https://api.neynar.com/v2/farcaster/cast', {
@@ -142,11 +140,12 @@ serve(async (req) => {
     console.log('Neynar response headers:', Object.fromEntries(neynarResponse.headers.entries()));
 
     const responseText = await neynarResponse.text();
-    console.log('Neynar response body:', responseText);
+    console.log('Raw Neynar response:', responseText);
 
     let responseData;
     try {
       responseData = JSON.parse(responseText);
+      console.log('Parsed response data:', JSON.stringify(responseData, null, 2));
     } catch (parseError) {
       console.error('Failed to parse Neynar response as JSON:', parseError);
       return new Response(
@@ -166,7 +165,7 @@ serve(async (req) => {
     }
 
     if (!neynarResponse.ok) {
-      console.error('Neynar API error:', {
+      console.error('NEYNAR API ERROR:', {
         status: neynarResponse.status,
         statusText: neynarResponse.statusText,
         responseData
@@ -188,12 +187,33 @@ serve(async (req) => {
       );
     }
 
-    console.log('Successful cast response:', responseData);
+    console.log('=== SUCCESS RESPONSE ANALYSIS ===');
+    console.log('Full success response:', JSON.stringify(responseData, null, 2));
 
     // Extract more detailed information about the cast
     const castInfo = responseData.cast || responseData;
-    const castHash = castInfo.hash;
-    const author = castInfo.author;
+    const castHash = castInfo?.hash;
+    const author = castInfo?.author;
+    
+    console.log('Cast hash:', castHash);
+    console.log('Author info:', author);
+    console.log('Cast text:', castInfo?.text);
+    
+    // Check if we actually have the required fields
+    if (!castHash || !author?.username) {
+      console.error('MISSING CAST DATA:', {
+        hasCastHash: !!castHash,
+        hasAuthor: !!author,
+        hasUsername: !!author?.username,
+        castInfo
+      });
+    }
+    
+    const castUrl = author?.username && castHash ? 
+      `https://warpcast.com/${author.username}/${castHash}` : null;
+    
+    console.log('Generated cast URL:', castUrl);
+    console.log('=== FARCASTER POST DEBUG END ===');
     
     return new Response(
       JSON.stringify({ 
@@ -202,13 +222,19 @@ serve(async (req) => {
         cast: responseData.cast,
         details: {
           castHash: castHash,
-          castUrl: `https://warpcast.com/${author?.username}/${castHash}`,
+          castUrl: castUrl,
           authorUsername: author?.username,
           authorFid: author?.fid,
-          text: castInfo.text,
+          text: castInfo?.text,
           signerInfo: {
             fid: signerData.fid,
             username: signerData.username
+          },
+          debug: {
+            signerApproved: signerData.status === 'approved',
+            responseHasCast: !!responseData.cast,
+            responseHasHash: !!castHash,
+            responseHasAuthor: !!author
           }
         }
       }),
@@ -219,7 +245,9 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Edge function error:', error);
+    console.error('=== EDGE FUNCTION ERROR ===');
+    console.error('Error details:', error);
+    console.error('Error stack:', error.stack);
     return new Response(
       JSON.stringify({ 
         error: error.message || "Internal server error",
