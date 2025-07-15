@@ -8,7 +8,7 @@ export interface FarcasterQRAuthConfig {
 export interface FarcasterAuthResponse {
   signer_uuid: string;
   public_key: string;
-  status: 'pending_approval' | 'approved' | 'revoked';
+  status: 'generated' | 'pending_approval' | 'approved' | 'revoked';
   signer_approval_url?: string;
   fid?: number;
   user?: {
@@ -24,7 +24,7 @@ export interface FarcasterAuthResponse {
 export interface FarcasterSignerResponse {
   signer_uuid: string;
   public_key: string;
-  status: 'pending_approval' | 'approved' | 'revoked';
+  status: 'generated' | 'pending_approval' | 'approved' | 'revoked';
   signer_approval_url?: string;
   fid?: number;
 }
