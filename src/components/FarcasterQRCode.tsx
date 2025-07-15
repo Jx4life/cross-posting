@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { toast } from './ui/use-toast';
 import { Loader2, RefreshCw, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
-import { FarcasterQRAuth, FarcasterAuthResponse } from '@/services/oauth/FarcasterQRAuth';
+import { FarcasterQRAuth, FarcasterSignerResponse } from '@/services/oauth/FarcasterQRAuth';
 
 interface FarcasterQRCodeProps {
   onSuccess: (userData: any) => void;
@@ -17,76 +17,93 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
   onError,
   onClose
 }) => {
-  const [authResponse, setAuthResponse] = useState<FarcasterAuthResponse | null>(null);
+  const [signer, setSigner] = useState<FarcasterSignerResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
+  const [showApiKeyError, setShowApiKeyError] = useState(false);
 
+  // This should be configured through environment variables or user settings
+  const NEYNAR_API_KEY = 'NEYNAR_API_KEY'; // This needs to be set by the user
+  
   const farcasterAuth = new FarcasterQRAuth({
     clientId: 'c8655842-2b6b-4763-bcc2-50119d871c23',
-    redirectUri: `${window.location.origin}/auth/callback/farcaster`
+    redirectUri: `${window.location.origin}/auth/callback/farcaster`,
+    apiKey: NEYNAR_API_KEY
   });
 
-  const initializeAuth = async () => {
+  const initializeSigner = async () => {
     try {
       setIsLoading(true);
       setError(null);
+      setShowApiKeyError(false);
       
-      const response = await farcasterAuth.initiateAuth();
-      setAuthResponse(response);
+      const signerResponse = await farcasterAuth.createSigner();
+      setSigner(signerResponse);
       
-      // Start polling for auth status
-      startPolling(response.state, response.nonce);
+      // Start polling for signer approval
+      startPolling(signerResponse.signer_uuid);
       
     } catch (error: any) {
-      console.error('Failed to initialize Farcaster auth:', error);
-      setError(error.message || 'Failed to initialize authentication');
+      console.error('Failed to initialize Farcaster signer:', error);
+      
+      if (error.message.includes('401') || error.message.includes('API')) {
+        setShowApiKeyError(true);
+        setError('Invalid API key. Please configure your Neynar API key.');
+      } else {
+        setError(error.message || 'Failed to initialize authentication');
+      }
+      
       onError(error.message || 'Failed to initialize authentication');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const startPolling = (state: string, nonce: string) => {
+  const startPolling = (signerUuid: string) => {
     setIsPolling(true);
     
     const interval = setInterval(async () => {
       try {
-        const statusResponse = await farcasterAuth.pollAuthStatus(state, nonce);
+        const signerStatus = await farcasterAuth.getSigner(signerUuid);
         
-        if (statusResponse.status === 'completed') {
+        if (signerStatus.status === 'approved') {
           clearInterval(interval);
           setPollInterval(null);
           setIsPolling(false);
           
-          // Complete the authentication
-          const tokenResponse = await farcasterAuth.completeAuth(state, nonce);
+          // Get user data
+          let userData = signerStatus.user;
+          
+          if (signerStatus.fid && !userData) {
+            userData = await farcasterAuth.getUserByFid(signerStatus.fid);
+          }
           
           toast({
             title: "Authentication Successful",
-            description: `Connected as ${tokenResponse.user?.username || 'Farcaster user'}`,
+            description: `Connected as ${userData?.username || 'Farcaster user'}`,
           });
           
           onSuccess({
-            accessToken: tokenResponse.access_token,
-            refreshToken: tokenResponse.refresh_token,
-            expiresAt: tokenResponse.expires_in ? Date.now() + (tokenResponse.expires_in * 1000) : undefined,
-            username: tokenResponse.user?.username,
-            fid: tokenResponse.user?.fid,
-            displayName: tokenResponse.user?.display_name,
-            pfpUrl: tokenResponse.user?.pfp_url
+            signer_uuid: signerStatus.signer_uuid,
+            public_key: signerStatus.public_key,
+            fid: signerStatus.fid,
+            username: userData?.username,
+            displayName: userData?.display_name,
+            pfpUrl: userData?.pfp_url,
+            status: 'approved'
           });
           
-        } else if (statusResponse.status === 'expired') {
+        } else if (signerStatus.status === 'revoked') {
           clearInterval(interval);
           setPollInterval(null);
           setIsPolling(false);
-          setError('Authentication expired. Please try again.');
+          setError('Authentication was revoked. Please try again.');
           
           toast({
-            title: "Authentication Expired",
-            description: "The QR code has expired. Please generate a new one.",
+            title: "Authentication Revoked",
+            description: "The authentication request was revoked. Please try again.",
             variant: "destructive"
           });
         }
@@ -102,7 +119,7 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
     
     setPollInterval(interval);
     
-    // Auto-stop polling after 5 minutes
+    // Auto-stop polling after 10 minutes
     setTimeout(() => {
       if (interval) {
         clearInterval(interval);
@@ -110,7 +127,7 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
         setIsPolling(false);
         setError('Authentication timed out. Please try again.');
       }
-    }, 5 * 60 * 1000);
+    }, 10 * 60 * 1000);
   };
 
   const handleRefresh = () => {
@@ -119,24 +136,17 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
       setPollInterval(null);
     }
     setIsPolling(false);
-    initializeAuth();
+    initializeSigner();
   };
 
   const handleOpenInApp = () => {
-    if (authResponse?.connect_uri) {
-      // Try to open in Farcaster app
-      const appUrl = authResponse.connect_uri.replace('https://warpcast.com/', 'farcaster://');
-      window.location.href = appUrl;
-      
-      // Fallback to web URL after a short delay
-      setTimeout(() => {
-        window.open(authResponse.connect_uri, '_blank');
-      }, 500);
+    if (signer?.signer_approval_url) {
+      window.open(signer.signer_approval_url, '_blank');
     }
   };
 
   useEffect(() => {
-    initializeAuth();
+    initializeSigner();
     
     return () => {
       if (pollInterval) {
@@ -155,7 +165,7 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="text-center">
-          <p className="text-muted-foreground">Setting up authentication...</p>
+          <p className="text-muted-foreground">Setting up signer...</p>
         </CardContent>
       </Card>
     );
@@ -172,6 +182,24 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
         </CardHeader>
         <CardContent className="text-center space-y-4">
           <p className="text-muted-foreground">{error}</p>
+          
+          {showApiKeyError && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <p className="text-sm text-yellow-800">
+                You need to configure your Neynar API key to use Farcaster authentication.
+                <br />
+                <a 
+                  href="https://dev.neynar.com/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  Get your API key from Neynar
+                </a>
+              </p>
+            </div>
+          )}
+          
           <div className="flex space-x-2">
             <Button onClick={handleRefresh} variant="outline" className="flex-1">
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -199,12 +227,12 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="text-center space-y-4">
-        {authResponse && (
+        {signer && (
           <>
             <div className="bg-white p-4 rounded-lg">
               <div className="flex items-center justify-center">
                 <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(authResponse.connect_uri)}`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(signer.signer_approval_url || '')}`}
                   alt="Farcaster QR Code"
                   className="w-48 h-48"
                 />
@@ -213,7 +241,7 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
             
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                Scan this QR code with your Farcaster app to connect
+                Scan this QR code with your Farcaster app to approve the connection
               </p>
               
               <Button 
@@ -229,7 +257,7 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
             {isPolling && (
               <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Waiting for authentication...</span>
+                <span>Waiting for approval...</span>
               </div>
             )}
             

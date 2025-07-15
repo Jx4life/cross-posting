@@ -47,10 +47,11 @@ export class OAuthManager {
       scopes: ['read', 'write']
     });
     
-    // Initialize the new QR-based auth
+    // Initialize the managed signers auth - API key needs to be configured
     this.farcasterQR = new FarcasterQRAuth({
       clientId: 'c8655842-2b6b-4763-bcc2-50119d871c23',
-      redirectUri: farcasterRedirectUri
+      redirectUri: farcasterRedirectUri,
+      apiKey: 'NEYNAR_API_KEY' // This needs to be configured
     });
     
     this.lens = new LensOAuth();
@@ -87,21 +88,21 @@ export class OAuthManager {
     }
   }
 
-  // New method for QR-based Farcaster authentication
+  // Updated method for QR-based Farcaster authentication
   async initiateFarcasterQRAuth(): Promise<any> {
     console.log('=== INITIATING FARCASTER QR AUTH ===');
     
     try {
-      const authResponse = await this.farcasterQR.initiateAuth();
+      const signerResponse = await this.farcasterQR.createSigner();
       
       this.storeAuthState('farcaster_qr', { 
         timestamp: Date.now(),
-        state: authResponse.state,
-        nonce: authResponse.nonce
+        signer_uuid: signerResponse.signer_uuid,
+        public_key: signerResponse.public_key
       });
       
-      console.log('Farcaster QR auth initiated:', authResponse);
-      return authResponse;
+      console.log('Farcaster QR auth initiated:', signerResponse);
+      return signerResponse;
       
     } catch (error: any) {
       console.error('Error initiating Farcaster QR auth:', error);
@@ -261,11 +262,41 @@ export class OAuthManager {
     localStorage.removeItem(`oauth_credentials_${platform}`);
   }
   
+  // Updated method to check if connected (includes signer-based auth)
   isConnected(platform: string): boolean {
     if (platform === 'lens') {
       return !!(localStorage.getItem('walletAddress') && localStorage.getItem('lensHandle'));
     }
+    
+    if (platform === 'farcaster') {
+      // Check both traditional OAuth and signer-based auth
+      const credentials = this.getCredentials(platform);
+      const signerData = localStorage.getItem('farcaster_signer');
+      return !!(credentials || signerData);
+    }
+    
     return !!this.getCredentials(platform);
+  }
+  
+  // Method to store Farcaster signer data
+  storeFarcasterSigner(signerData: any): void {
+    console.log('Storing Farcaster signer:', signerData);
+    localStorage.setItem('farcaster_signer', JSON.stringify({
+      ...signerData,
+      timestamp: Date.now()
+    }));
+  }
+  
+  // Method to get Farcaster signer data
+  getFarcasterSigner(): any {
+    const stored = localStorage.getItem('farcaster_signer');
+    return stored ? JSON.parse(stored) : null;
+  }
+  
+  // Method to clear Farcaster signer data
+  clearFarcasterSigner(): void {
+    console.log('Clearing Farcaster signer');
+    localStorage.removeItem('farcaster_signer');
   }
 }
 

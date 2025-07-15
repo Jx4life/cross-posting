@@ -339,8 +339,8 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
   const handleFarcasterQRSuccess = (userData: any) => {
     console.log('Farcaster QR authentication successful:', userData);
     
-    // Store credentials
-    oauthManager.storeCredentials('farcaster', userData);
+    // Store signer data instead of OAuth credentials
+    oauthManager.storeFarcasterSigner(userData);
     
     // Update UI
     setConnections(prev => ({
@@ -360,7 +360,7 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
     
     toast({
       title: "Connected Successfully",
-      description: `Connected to Farcaster as ${userData.username}`,
+      description: `Connected to Farcaster as ${userData.username || 'user'}`,
     });
   };
 
@@ -388,6 +388,11 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
       localStorage.removeItem('lensHandle');
       localStorage.removeItem('lensProfileId');
       localStorage.removeItem('walletSignature');
+    }
+    
+    if (platformId === 'farcaster') {
+      // Also clear signer data
+      oauthManager.clearFarcasterSigner();
     }
     
     setConnections(prev => ({

@@ -2,31 +2,31 @@
 export interface FarcasterQRAuthConfig {
   clientId: string;
   redirectUri: string;
+  apiKey: string;
 }
 
 export interface FarcasterAuthResponse {
-  state: string;
-  nonce: string;
-  connect_uri: string;
-  status: 'pending' | 'completed' | 'expired';
+  signer_uuid: string;
+  public_key: string;
+  status: 'pending_approval' | 'approved' | 'revoked';
+  signer_approval_url?: string;
+  fid?: number;
   user?: {
     fid: number;
     username: string;
     display_name: string;
     pfp_url: string;
+    custody_address?: string;
+    verification_addresses?: string[];
   };
 }
 
-export interface FarcasterTokenResponse {
-  access_token: string;
-  refresh_token?: string;
-  expires_in?: number;
-  user?: {
-    fid: number;
-    username: string;
-    display_name: string;
-    pfp_url: string;
-  };
+export interface FarcasterSignerResponse {
+  signer_uuid: string;
+  public_key: string;
+  status: 'pending_approval' | 'approved' | 'revoked';
+  signer_approval_url?: string;
+  fid?: number;
 }
 
 export class FarcasterQRAuth {
@@ -36,126 +36,114 @@ export class FarcasterQRAuth {
     this.config = config;
   }
   
-  async initiateAuth(): Promise<FarcasterAuthResponse> {
-    console.log('=== FARCASTER QR AUTH INITIATION ===');
-    console.log('Client ID:', this.config.clientId);
-    console.log('Redirect URI:', this.config.redirectUri);
+  async createSigner(): Promise<FarcasterSignerResponse> {
+    console.log('=== FARCASTER CREATE SIGNER ===');
+    console.log('API Key present:', !!this.config.apiKey);
     
     try {
-      const response = await fetch('https://api.neynar.com/v2/farcaster/auth', {
+      const response = await fetch('https://api.neynar.com/v2/farcaster/signer', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'accept': 'application/json',
+          'Accept': 'application/json',
+          'api_key': this.config.apiKey,
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          client_id: this.config.clientId,
-          redirect_uri: this.config.redirectUri,
-        }),
+        body: JSON.stringify({})
       });
       
-      console.log('Auth initiation response status:', response.status);
+      console.log('Create signer response status:', response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Auth initiation error:', errorText);
-        throw new Error(`Failed to initiate Farcaster auth: ${response.status} ${response.statusText}`);
+        console.error('Create signer error:', errorText);
+        throw new Error(`Failed to create Farcaster signer: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
-      console.log('Auth initiation successful:', data);
+      console.log('Create signer successful:', data);
       
       return {
-        state: data.state,
-        nonce: data.nonce,
-        connect_uri: data.connect_uri,
-        status: 'pending'
+        signer_uuid: data.signer_uuid,
+        public_key: data.public_key,
+        status: data.status,
+        signer_approval_url: data.signer_approval_url,
+        fid: data.fid
       };
       
     } catch (error: any) {
-      console.error('Farcaster QR auth initiation error:', error);
-      throw new Error(`Failed to initiate Farcaster authentication: ${error.message}`);
+      console.error('Farcaster create signer error:', error);
+      throw new Error(`Failed to create Farcaster signer: ${error.message}`);
     }
   }
   
-  async pollAuthStatus(state: string, nonce: string): Promise<FarcasterAuthResponse> {
-    console.log('=== FARCASTER AUTH STATUS POLLING ===');
-    console.log('State:', state);
-    console.log('Nonce:', nonce);
+  async getSigner(signerUuid: string): Promise<FarcasterAuthResponse> {
+    console.log('=== FARCASTER GET SIGNER ===');
+    console.log('Signer UUID:', signerUuid);
     
     try {
-      const response = await fetch(`https://api.neynar.com/v2/farcaster/auth/status?state=${state}&nonce=${nonce}`, {
+      const response = await fetch(`https://api.neynar.com/v2/farcaster/signer?signer_uuid=${signerUuid}`, {
         method: 'GET',
         headers: {
-          'accept': 'application/json',
-        },
+          'Accept': 'application/json',
+          'api_key': this.config.apiKey
+        }
       });
       
-      console.log('Status polling response status:', response.status);
+      console.log('Get signer response status:', response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Status polling error:', errorText);
-        throw new Error(`Failed to check auth status: ${response.status} ${response.statusText}`);
+        console.error('Get signer error:', errorText);
+        throw new Error(`Failed to get signer status: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
-      console.log('Status polling result:', data);
+      console.log('Get signer result:', data);
       
       return {
-        state: data.state,
-        nonce: data.nonce,
-        connect_uri: data.connect_uri,
+        signer_uuid: data.signer_uuid,
+        public_key: data.public_key,
         status: data.status,
+        signer_approval_url: data.signer_approval_url,
+        fid: data.fid,
         user: data.user
       };
       
     } catch (error: any) {
-      console.error('Farcaster auth status polling error:', error);
-      throw new Error(`Failed to check authentication status: ${error.message}`);
+      console.error('Farcaster get signer error:', error);
+      throw new Error(`Failed to get signer status: ${error.message}`);
     }
   }
   
-  async completeAuth(state: string, nonce: string): Promise<FarcasterTokenResponse> {
-    console.log('=== FARCASTER AUTH COMPLETION ===');
-    console.log('State:', state);
-    console.log('Nonce:', nonce);
+  async getUserByFid(fid: number): Promise<any> {
+    console.log('=== FARCASTER GET USER BY FID ===');
+    console.log('FID:', fid);
     
     try {
-      const response = await fetch('https://api.neynar.com/v2/farcaster/auth/token', {
-        method: 'POST',
+      const response = await fetch(`https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`, {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
-          'accept': 'application/json',
-        },
-        body: JSON.stringify({
-          client_id: this.config.clientId,
-          state: state,
-          nonce: nonce,
-        }),
+          'Accept': 'application/json',
+          'api_key': this.config.apiKey
+        }
       });
       
-      console.log('Auth completion response status:', response.status);
+      console.log('Get user response status:', response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Auth completion error:', errorText);
-        throw new Error(`Failed to complete Farcaster auth: ${response.status} ${response.statusText}`);
+        console.error('Get user error:', errorText);
+        throw new Error(`Failed to get user data: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
-      console.log('Auth completion successful:', data);
+      console.log('Get user result:', data);
       
-      return {
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
-        expires_in: data.expires_in,
-        user: data.user
-      };
+      return data.users && data.users.length > 0 ? data.users[0] : null;
       
     } catch (error: any) {
-      console.error('Farcaster auth completion error:', error);
-      throw new Error(`Failed to complete authentication: ${error.message}`);
+      console.error('Farcaster get user error:', error);
+      throw new Error(`Failed to get user data: ${error.message}`);
     }
   }
 }
