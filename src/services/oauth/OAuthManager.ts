@@ -63,22 +63,40 @@ export class OAuthManager {
   }
   
   async initiateLensAuth(): Promise<{ handle: string; address: string }> {
-    const { address, signature } = await this.lens.connectWallet();
-    
-    // Store wallet connection
-    localStorage.setItem('walletAddress', address);
-    localStorage.setItem('walletSignature', signature);
-    
-    // Try to get Lens profile
-    const profile = await this.lens.getLensProfile(address);
-    
-    if (profile) {
-      localStorage.setItem('lensHandle', profile.handle);
-      localStorage.setItem('lensProfileId', profile.profileId);
-      return { handle: profile.handle, address };
+    try {
+      console.log('=== OAUTH MANAGER: INITIATING LENS AUTH ===');
+      
+      const { address, signature } = await this.lens.connectWallet();
+      
+      // Store wallet connection
+      localStorage.setItem('walletAddress', address);
+      localStorage.setItem('walletSignature', signature);
+      
+      // Try to get Lens profile
+      const profile = await this.lens.getLensProfile(address);
+      
+      if (profile) {
+        localStorage.setItem('lensHandle', profile.handle);
+        localStorage.setItem('lensProfileId', profile.profileId);
+        
+        console.log('Lens auth successful:', { handle: profile.handle, address });
+        
+        return { handle: profile.handle, address };
+      }
+      
+      throw new Error('No Lens profile found for this wallet address');
+      
+    } catch (error: any) {
+      console.error('OAuth Manager - Lens auth error:', error);
+      
+      // Clean up any partial state
+      localStorage.removeItem('walletAddress');
+      localStorage.removeItem('walletSignature');
+      localStorage.removeItem('lensHandle');
+      localStorage.removeItem('lensProfileId');
+      
+      throw error;
     }
-    
-    throw new Error('No Lens profile found for this wallet address');
   }
   
   async handleCallback(platform: string, code: string): Promise<OAuthCredentials> {
