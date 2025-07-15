@@ -15,6 +15,16 @@ export const TikTokConnector = () => {
     try {
       console.log('Starting TikTok connection process...');
       
+      // Clear any existing TikTok credentials to ensure fresh connection
+      const { error: deleteError } = await supabase
+        .from("post_configurations")
+        .delete()
+        .eq("platform", "tiktok");
+      
+      if (deleteError) {
+        console.warn('Could not clear existing TikTok config:', deleteError);
+      }
+      
       const { data, error } = await supabase.functions.invoke('tiktok-auth-url', {
         body: { redirectUri: `${currentUrl}/oauth/tiktok/callback` }
       });
@@ -26,6 +36,7 @@ export const TikTokConnector = () => {
       
       if (data?.authUrl) {
         console.log('Redirecting to TikTok auth URL:', data.authUrl);
+        // Redirect in the same window to ensure proper OAuth flow
         window.location.href = data.authUrl;
       } else {
         throw new Error("Failed to generate TikTok authorization URL");
@@ -37,9 +48,9 @@ export const TikTokConnector = () => {
         description: error.message || "Failed to connect to TikTok",
         variant: "destructive"
       });
-    } finally {
       setIsConnecting(false);
     }
+    // Note: Don't set isConnecting to false here as we're redirecting
   };
 
   const verifyDomain = async () => {

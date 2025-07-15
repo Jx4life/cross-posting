@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 import { oauthManager } from '@/services/oauth/OAuthManager';
 import { FarcasterQRCode } from './FarcasterQRCode';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ConnectionStatus {
   isConnected: boolean;
@@ -121,7 +123,7 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
       icon: TiktokIcon,
       color: 'text-white',
       bgColor: 'bg-black/10',
-      supportsOAuth: false
+      supportsOAuth: true // Changed to true since we have OAuth flow
     },
     {
       id: 'youtubeShorts',
@@ -135,46 +137,86 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
 
   // Check connection status on component mount
   useEffect(() => {
-    const checkConnections = () => {
+    const checkConnections = async () => {
       setConnections(prev => {
         const updated = { ...prev };
         
         platforms.forEach(platform => {
-          const isConnected = oauthManager.isConnected(platform.id);
-          
-          if (isConnected && platform.id === 'lens') {
-            const handle = localStorage.getItem('lensHandle');
-            updated[platform.id] = {
-              ...prev[platform.id],
-              isConnected: true,
-              username: handle || 'lens.user',
-              lastConnected: new Date().toISOString()
-            };
-          } else if (isConnected && platform.id === 'farcaster') {
-            const credentials = oauthManager.getCredentials(platform.id);
-            console.log('Farcaster credentials check:', credentials);
+          if (platform.id === 'tiktok') {
+            // For TikTok, we'll check the database instead of localStorage
+            checkTikTokConnection(updated);
+          } else {
+            const isConnected = oauthManager.isConnected(platform.id);
             
-            updated[platform.id] = {
-              ...prev[platform.id],
-              isConnected: true,
-              username: credentials?.username || 'farcaster.user',
-              fid: credentials?.fid,
-              displayName: credentials?.displayName,
-              lastConnected: new Date().toISOString()
-            };
-          } else if (isConnected) {
-            const credentials = oauthManager.getCredentials(platform.id);
-            updated[platform.id] = {
-              ...prev[platform.id],
-              isConnected: true,
-              username: credentials?.username || 'connected.user',
-              lastConnected: new Date().toISOString()
-            };
+            if (isConnected && platform.id === 'lens') {
+              const handle = localStorage.getItem('lensHandle');
+              updated[platform.id] = {
+                ...prev[platform.id],
+                isConnected: true,
+                username: handle || 'lens.user',
+                lastConnected: new Date().toISOString()
+              };
+            } else if (isConnected && platform.id === 'farcaster') {
+              const credentials = oauthManager.getCredentials(platform.id);
+              console.log('Farcaster credentials check:', credentials);
+              
+              updated[platform.id] = {
+                ...prev[platform.id],
+                isConnected: true,
+                username: credentials?.username || 'farcaster.user',
+                fid: credentials?.fid,
+                displayName: credentials?.displayName,
+                lastConnected: new Date().toISOString()
+              };
+            } else if (isConnected) {
+              const credentials = oauthManager.getCredentials(platform.id);
+              updated[platform.id] = {
+                ...prev[platform.id],
+                isConnected: true,
+                username: credentials?.username || 'connected.user',
+                lastConnected: new Date().toISOString()
+              };
+            }
           }
         });
         
         return updated;
       });
+    };
+    
+    const checkTikTokConnection = async (updated: Record<string, ConnectionStatus>) => {
+      try {
+        const { data, error } = await supabase
+          .from('post_configurations')
+          .select('*')
+          .eq('platform', 'tiktok')
+          .eq('is_enabled', true)
+          .single();
+        
+        if (data && !error) {
+          console.log('TikTok connection found in database:', data);
+          setConnections(prev => ({
+            ...prev,
+            tiktok: {
+              ...prev.tiktok,
+              isConnected: true,
+              lastConnected: data.updated_at || data.created_at,
+              username: 'tiktok.user'
+            }
+          }));
+        } else {
+          console.log('No TikTok connection found or error:', error);
+          setConnections(prev => ({
+            ...prev,
+            tiktok: {
+              ...prev.tiktok,
+              isConnected: false
+            }
+          }));
+        }
+      } catch (error) {
+        console.error('Error checking TikTok connection:', error);
+      }
     };
     
     checkConnections();
@@ -235,6 +277,17 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
   const handleConnect = async (platformId: string) => {
     const platform = platforms.find(p => p.id === platformId);
     if (!platform) return;
+    
+    // For TikTok, redirect to the TikTok connector component instead
+    if (platformId === 'tiktok') {
+      // Open the TikTok connector in a new tab or modal
+      // You might want to navigate to a specific TikTok setup page
+      toast({
+        title: "TikTok Setup",
+        description: "Please use the dedicated TikTok connector to complete the setup process.",
+      });
+      return;
+    }
     
     // Set connecting state
     setConnections(prev => ({
