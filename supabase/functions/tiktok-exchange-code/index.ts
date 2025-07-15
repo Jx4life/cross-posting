@@ -31,7 +31,9 @@ serve(async (req) => {
       );
     }
     
-    // Exchange code for access token
+    console.log('Using client ID:', clientId);
+    
+    // Exchange code for access token using the correct endpoint
     const tokenUrl = 'https://open.tiktokapis.com/v2/oauth/token/';
     const params = new URLSearchParams({
       client_key: clientId,
@@ -42,21 +44,25 @@ serve(async (req) => {
     });
     
     console.log('Making token exchange request to TikTok...');
+    console.log('Token URL:', tokenUrl);
+    console.log('Request params:', params.toString());
     
     const response = await fetch(tokenUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Cache-Control': 'no-cache',
       },
       body: params
     });
     
     const responseText = await response.text();
+    console.log('TikTok token response status:', response.status);
     console.log('TikTok token response:', responseText);
     
     if (!response.ok) {
       console.error('TikTok token exchange failed:', response.status, responseText);
-      throw new Error(`TikTok API error: ${response.status} ${response.statusText}`);
+      throw new Error(`TikTok API error: ${response.status} ${response.statusText} - ${responseText}`);
     }
     
     const data = JSON.parse(responseText);

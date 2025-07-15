@@ -1,4 +1,3 @@
-
 export interface TikTokConfig {
   clientId: string;
   clientSecret: string;
@@ -37,7 +36,7 @@ export interface TikTokPostResponse {
 
 export class TikTokAPI {
   private config: TikTokConfig;
-  private baseUrl = 'https://open-api.tiktok.com';
+  private baseUrl = 'https://open.tiktokapis.com';
   
   constructor(config: TikTokConfig) {
     this.config = config;
@@ -52,11 +51,12 @@ export class TikTokAPI {
       state: state || Math.random().toString(36).substring(7)
     });
     
-    return `${this.baseUrl}/platform/oauth/authorize/?${params.toString()}`;
+    // Use the correct TikTok OAuth authorization endpoint
+    return `https://www.tiktok.com/v2/auth/authorize/?${params.toString()}`;
   }
   
   async exchangeCodeForToken(code: string): Promise<TikTokTokenResponse> {
-    const response = await fetch(`${this.baseUrl}/oauth/access_token/`, {
+    const response = await fetch(`${this.baseUrl}/v2/oauth/token/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -76,11 +76,11 @@ export class TikTokAPI {
       throw new Error(`TikTok token exchange failed: ${data.error_description || data.error}`);
     }
     
-    return data.data;
+    return data;
   }
   
   async refreshToken(refreshToken: string): Promise<TikTokTokenResponse> {
-    const response = await fetch(`${this.baseUrl}/oauth/refresh_token/`, {
+    const response = await fetch(`${this.baseUrl}/v2/oauth/token/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -99,11 +99,11 @@ export class TikTokAPI {
       throw new Error(`TikTok token refresh failed: ${data.error_description || data.error}`);
     }
     
-    return data.data;
+    return data;
   }
   
   async getUserInfo(accessToken: string): Promise<TikTokUserInfo> {
-    const response = await fetch(`${this.baseUrl}/user/info/`, {
+    const response = await fetch(`${this.baseUrl}/v2/user/info/`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -130,20 +130,28 @@ export class TikTokAPI {
     description?: string
   ): Promise<TikTokVideoUploadResponse> {
     // First, initialize video upload
-    const initResponse = await fetch(`${this.baseUrl}/video/init/`, {
+    const initResponse = await fetch(`${this.baseUrl}/v2/post/publish/video/init/`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        title,
-        description: description || '',
-        privacy_level: 'SELF_ONLY', // Can be PUBLIC_TO_EVERYONE, MUTUAL_FOLLOW_FRIENDS, SELF_ONLY
-        disable_duet: false,
-        disable_comment: false,
-        disable_stitch: false,
-        video_cover_timestamp_ms: 1000
+        post_info: {
+          title,
+          description: description || '',
+          privacy_level: 'SELF_ONLY',
+          disable_duet: false,
+          disable_comment: false,
+          disable_stitch: false,
+          video_cover_timestamp_ms: 1000
+        },
+        source_info: {
+          source: 'FILE_UPLOAD',
+          video_size: videoFile.size,
+          chunk_size: videoFile.size,
+          total_chunk_count: 1
+        }
       })
     });
     
@@ -155,7 +163,7 @@ export class TikTokAPI {
     
     // Upload video file
     const uploadUrl = initData.data.upload_url;
-    const videoId = initData.data.video_id;
+    const publishId = initData.data.publish_id;
     
     const formData = new FormData();
     formData.append('video', videoFile);
@@ -170,7 +178,7 @@ export class TikTokAPI {
     }
     
     return {
-      video_id: videoId,
+      video_id: publishId,
       status: 'uploaded',
       upload_url: uploadUrl
     };
@@ -178,16 +186,16 @@ export class TikTokAPI {
   
   async publishVideo(
     accessToken: string,
-    videoId: string
+    publishId: string
   ): Promise<TikTokPostResponse> {
-    const response = await fetch(`${this.baseUrl}/video/publish/`, {
+    const response = await fetch(`${this.baseUrl}/v2/post/publish/`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        video_id: videoId
+        publish_id: publishId
       })
     });
     
@@ -198,21 +206,21 @@ export class TikTokAPI {
     }
     
     return {
-      video_id: videoId,
+      video_id: publishId,
       share_url: data.data.share_url,
       status: data.data.status
     };
   }
   
-  async getVideoStatus(accessToken: string, videoId: string): Promise<any> {
-    const response = await fetch(`${this.baseUrl}/video/query/`, {
+  async getVideoStatus(accessToken: string, publishId: string): Promise<any> {
+    const response = await fetch(`${this.baseUrl}/v2/post/publish/status/fetch/`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        video_id: videoId
+        publish_id: publishId
       })
     });
     

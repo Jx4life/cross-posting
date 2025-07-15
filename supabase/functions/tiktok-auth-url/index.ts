@@ -30,7 +30,7 @@ serve(async (req) => {
       );
     }
     
-    // Generate TikTok OAuth URL
+    // Generate TikTok OAuth URL using the correct endpoint
     const scopes = ['user.info.basic', 'video.publish'];
     const state = crypto.randomUUID();
     
@@ -42,9 +42,11 @@ serve(async (req) => {
       state: state
     });
     
+    // Use the correct TikTok OAuth authorization endpoint
     const authUrl = `https://www.tiktok.com/v2/auth/authorize/?${params.toString()}`;
     
     console.log('Generated TikTok auth URL:', authUrl);
+    console.log('Client ID being used:', clientId);
     
     return new Response(
       JSON.stringify({ authUrl, state }),
