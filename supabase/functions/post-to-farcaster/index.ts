@@ -15,11 +15,22 @@ serve(async (req) => {
     const NEYNAR_API_KEY = Deno.env.get("NEYNAR_API_KEY");
     const FARCASTER_SIGNER_UUID = Deno.env.get("FARCASTER_SIGNER_UUID");
     
+    console.log('Environment check:', {
+      hasApiKey: !!NEYNAR_API_KEY,
+      hasSignerUuid: !!FARCASTER_SIGNER_UUID,
+      apiKeyPrefix: NEYNAR_API_KEY ? NEYNAR_API_KEY.substring(0, 8) + '...' : 'none',
+      signerUuidPrefix: FARCASTER_SIGNER_UUID ? FARCASTER_SIGNER_UUID.substring(0, 8) + '...' : 'none'
+    });
+    
     if (!NEYNAR_API_KEY || !FARCASTER_SIGNER_UUID) {
       return new Response(
         JSON.stringify({ 
           error: "Missing required environment variables",
-          success: false 
+          success: false,
+          details: {
+            hasApiKey: !!NEYNAR_API_KEY,
+            hasSignerUuid: !!FARCASTER_SIGNER_UUID
+          }
         }),
         { 
           status: 500,
@@ -29,6 +40,7 @@ serve(async (req) => {
     }
 
     const { content, mediaUrl, mediaType } = await req.json();
+    console.log('Request payload:', { content, mediaUrl, mediaType });
     
     if (!content && !mediaUrl) {
       return new Response(
@@ -43,32 +55,80 @@ serve(async (req) => {
       );
     }
 
-    const castData: any = {
+    // Construct the payload according to Neynar managed signers documentation
+    const castPayload: any = {
       signer_uuid: FARCASTER_SIGNER_UUID,
       text: content || "",
     };
 
+    // Add embeds if media is provided
     if (mediaUrl) {
-      castData.embeds = [{ url: mediaUrl }];
+      castPayload.embeds = [{ url: mediaUrl }];
     }
 
+    console.log('Sending to Neynar:', {
+      url: 'https://api.neynar.com/v2/farcaster/cast',
+      payload: castPayload,
+      headers: {
+        'accept': 'application/json',
+        'api_key': NEYNAR_API_KEY ? NEYNAR_API_KEY.substring(0, 8) + '...' : 'none',
+        'content-type': 'application/json'
+      }
+    });
+
+    // Make the API call to Neynar
     const neynarResponse = await fetch('https://api.neynar.com/v2/farcaster/cast', {
       method: 'POST',
       headers: {
-        'Accept': 'application/json',
-        'Api-Key': NEYNAR_API_KEY,
-        'Content-Type': 'application/json',
+        'accept': 'application/json',
+        'api_key': NEYNAR_API_KEY,
+        'content-type': 'application/json',
       },
-      body: JSON.stringify(castData)
+      body: JSON.stringify(castPayload)
     });
 
-    const responseData = await neynarResponse.json();
+    console.log('Neynar response status:', neynarResponse.status);
+    console.log('Neynar response headers:', Object.fromEntries(neynarResponse.headers.entries()));
 
-    if (!neynarResponse.ok) {
+    const responseText = await neynarResponse.text();
+    console.log('Neynar response body:', responseText);
+
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('Failed to parse Neynar response as JSON:', parseError);
       return new Response(
         JSON.stringify({ 
-          error: responseData?.message || "Failed to post to Farcaster",
-          success: false 
+          error: "Invalid response from Neynar API",
+          success: false,
+          details: {
+            status: neynarResponse.status,
+            responseText: responseText.substring(0, 500)
+          }
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
+
+    if (!neynarResponse.ok) {
+      console.error('Neynar API error:', {
+        status: neynarResponse.status,
+        statusText: neynarResponse.statusText,
+        responseData
+      });
+      
+      return new Response(
+        JSON.stringify({ 
+          error: responseData?.message || responseData?.error || "Failed to post to Farcaster",
+          success: false,
+          details: {
+            status: neynarResponse.status,
+            neynarError: responseData
+          }
         }),
         { 
           status: neynarResponse.status, 
@@ -76,6 +136,8 @@ serve(async (req) => {
         }
       );
     }
+
+    console.log('Successful cast response:', responseData);
 
     return new Response(
       JSON.stringify({ 
@@ -90,10 +152,15 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    console.error('Edge function error:', error);
     return new Response(
       JSON.stringify({ 
         error: error.message || "Internal server error",
-        success: false 
+        success: false,
+        details: {
+          errorType: error.constructor.name,
+          stack: error.stack
+        }
       }),
       { 
         status: 500, 
