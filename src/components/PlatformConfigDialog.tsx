@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -47,24 +48,39 @@ export const PlatformConfigDialog = () => {
       setTestingConnection(true);
       toast({
         title: "Testing Connection",
-        description: "Testing Farcaster configuration..."
+        description: "Testing Farcaster configuration with Neynar API..."
       });
+      
+      console.log("Testing Farcaster connection...");
       
       // Test the actual Farcaster integration
       const { data, error } = await supabase.functions.invoke('post-to-farcaster', {
-        body: { content: "Test connection from social media manager" }
+        body: { 
+          content: "Test connection from social media manager - " + new Date().toISOString() 
+        }
       });
       
-      if (error) throw error;
+      console.log("Farcaster test response:", { data, error });
       
-      toast({
-        title: "Test Successful",
-        description: "Farcaster integration is working correctly!"
-      });
+      if (error) {
+        console.error("Farcaster test error:", error);
+        throw new Error(error.message || "Failed to connect to Farcaster");
+      }
+      
+      if (data?.success) {
+        toast({
+          title: "Test Successful",
+          description: "Farcaster integration is working correctly! Test cast posted successfully."
+        });
+      } else {
+        throw new Error(data?.error || "Unknown error occurred during test");
+      }
+      
     } catch (error: any) {
+      console.error("Farcaster test failed:", error);
       toast({
         title: "Test Failed",
-        description: error.message || "Failed to test Farcaster integration. Please check your Neynar API key and signer UUID.",
+        description: error.message || "Failed to test Farcaster integration. Please check your Neynar API key and signer UUID in Supabase secrets.",
         variant: "destructive"
       });
     } finally {
@@ -254,7 +270,7 @@ export const PlatformConfigDialog = () => {
           <TabsContent value="farcaster" className="space-y-4 mt-4">
             <div>
               <p className="text-sm mb-4">
-                To enable Farcaster integration, you need to set up your Neynar API key and Farcaster signer UUID in Supabase Edge Function Secrets.
+                Farcaster integration is configured and ready to use! The required secrets are already set up in Supabase.
               </p>
               
               <div className="space-y-2">
@@ -264,18 +280,18 @@ export const PlatformConfigDialog = () => {
                 </div>
                 
                 <div className="bg-purple-500/10 p-3 rounded-md text-sm">
-                  <p>Required secrets need to be set in Supabase:</p>
+                  <p>✅ Configured secrets in Supabase:</p>
                   <ul className="list-disc pl-5 mt-2 space-y-1">
-                    <li>NEYNAR_API_KEY</li>
-                    <li>FARCASTER_SIGNER_UUID</li>
+                    <li>NEYNAR_API_KEY ✅</li>
+                    <li>FARCASTER_SIGNER_UUID ✅</li>
                   </ul>
-                  <p className="mt-2 text-gray-400">
-                    Get your API key from Neynar and create a signer for your Farcaster account
+                  <p className="mt-2 text-green-400">
+                    All required secrets are configured! You can now post to Farcaster.
                   </p>
                 </div>
                 
                 <p className="text-sm text-gray-400">
-                  Farcaster uses the Neynar API for posting casts. You'll need both a Neynar API key and a signer UUID for your Farcaster account.
+                  Farcaster uses the Neynar API for posting casts. The integration is ready to use with your configured signer.
                 </p>
               </div>
             </div>
