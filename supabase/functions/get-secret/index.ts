@@ -14,7 +14,10 @@ serve(async (req) => {
   try {
     const { name } = await req.json()
     
+    console.log('Getting secret:', name)
+    
     if (!name) {
+      console.error('No secret name provided')
       return new Response(
         JSON.stringify({ error: 'Secret name is required' }),
         { 
@@ -26,7 +29,10 @@ serve(async (req) => {
 
     const secret = Deno.env.get(name)
     
+    console.log('Secret exists:', !!secret)
+    
     if (!secret) {
+      console.error(`Secret ${name} not found in environment`)
       return new Response(
         JSON.stringify({ error: `Secret ${name} not found` }),
         { 
@@ -36,6 +42,7 @@ serve(async (req) => {
       )
     }
 
+    console.log('Returning secret successfully')
     return new Response(
       JSON.stringify({ value: secret }),
       { 
