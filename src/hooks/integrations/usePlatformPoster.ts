@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -36,19 +35,44 @@ export const usePlatformPoster = () => {
   
   const postToFarcaster = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
     try {
+      console.log('=== FRONTEND FARCASTER POST START ===');
+      console.log('Attempting to post to Farcaster:', { content, mediaUrl, mediaType });
+      
       const { data, error } = await supabase.functions.invoke('post-to-farcaster', {
         body: { content, mediaUrl, mediaType }
       });
       
-      if (error) throw error;
+      console.log('Farcaster function response:', { data, error });
       
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw new Error(`Farcaster API Error: ${error.message || 'Unknown error'}`);
+      }
+      
+      if (!data) {
+        throw new Error('No response data from Farcaster function');
+      }
+      
+      if (!data.success) {
+        console.error('Farcaster function returned error:', data);
+        throw new Error(data.error || data.details || 'Farcaster posting failed');
+      }
+      
+      console.log('=== FRONTEND FARCASTER POST SUCCESS ===');
       return {
         platform: 'farcaster',
         success: true,
         data
       };
     } catch (error: any) {
-      console.error('Farcaster posting error:', error);
+      console.error('=== FRONTEND FARCASTER POST ERROR ===');
+      console.error('Farcaster posting error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        error: error
+      });
+      
       return {
         platform: 'farcaster',
         success: false,
