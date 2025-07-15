@@ -15,11 +15,22 @@ serve(async (req) => {
 
   try {
     // Get secret environment variables
-    const WARPCAST_API_KEY = Deno.env.get("WARPCAST_API_KEY");
+    const NEYNAR_API_KEY = Deno.env.get("NEYNAR_API_KEY");
+    const FARCASTER_SIGNER_UUID = Deno.env.get("FARCASTER_SIGNER_UUID");
     
-    if (!WARPCAST_API_KEY) {
+    if (!NEYNAR_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "Warpcast API key not configured" }),
+        JSON.stringify({ error: "Neynar API key not configured" }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
+
+    if (!FARCASTER_SIGNER_UUID) {
+      return new Response(
+        JSON.stringify({ error: "Farcaster signer UUID not configured" }),
         { 
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -40,8 +51,9 @@ serve(async (req) => {
       );
     }
 
-    // Prepare the cast data
+    // Prepare the cast data for Neynar API
     const castData: any = {
+      signer_uuid: FARCASTER_SIGNER_UUID,
       text: content || "",
     };
 
@@ -50,13 +62,14 @@ serve(async (req) => {
       castData.embeds = [{ url: mediaUrl }];
     }
 
-    console.log(`Posting to Farcaster: ${JSON.stringify(castData)}`);
+    console.log(`Posting to Farcaster via Neynar: ${JSON.stringify(castData)}`);
 
-    // Make the actual API call to Warpcast
-    const response = await fetch('https://api.warpcast.com/v2/casts', {
+    // Make the actual API call to Neynar
+    const response = await fetch('https://api.neynar.com/v2/farcaster/cast', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${WARPCAST_API_KEY}`,
+        'Accept': 'application/json',
+        'Api-Key': NEYNAR_API_KEY,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(castData)
@@ -65,11 +78,11 @@ serve(async (req) => {
     const responseData = await response.json();
 
     if (!response.ok) {
-      console.error("Warpcast API error:", responseData);
+      console.error("Neynar API error:", responseData);
       return new Response(
         JSON.stringify({ 
           error: "Failed to post to Farcaster", 
-          details: responseData.errors || responseData.message || "Unknown error"
+          details: responseData.message || responseData.error || "Unknown error"
         }),
         { 
           status: response.status, 
@@ -84,7 +97,7 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         message: "Content posted to Farcaster successfully",
-        cast: responseData.result?.cast || responseData.cast,
+        cast: responseData.cast,
         timestamp: new Date().toISOString()
       }),
       { 

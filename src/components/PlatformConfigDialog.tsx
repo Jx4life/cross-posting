@@ -64,7 +64,7 @@ export const PlatformConfigDialog = () => {
     } catch (error: any) {
       toast({
         title: "Test Failed",
-        description: error.message || "Failed to test Farcaster integration. Please check your API key.",
+        description: error.message || "Failed to test Farcaster integration. Please check your Neynar API key and signer UUID.",
         variant: "destructive"
       });
     } finally {
@@ -254,7 +254,7 @@ export const PlatformConfigDialog = () => {
           <TabsContent value="farcaster" className="space-y-4 mt-4">
             <div>
               <p className="text-sm mb-4">
-                To enable Farcaster integration, you need to set up your Warpcast API key in Supabase Edge Function Secrets.
+                To enable Farcaster integration, you need to set up your Neynar API key and Farcaster signer UUID in Supabase Edge Function Secrets.
               </p>
               
               <div className="space-y-2">
@@ -264,17 +264,18 @@ export const PlatformConfigDialog = () => {
                 </div>
                 
                 <div className="bg-purple-500/10 p-3 rounded-md text-sm">
-                  <p>Required secret needs to be set in Supabase:</p>
+                  <p>Required secrets need to be set in Supabase:</p>
                   <ul className="list-disc pl-5 mt-2 space-y-1">
-                    <li>WARPCAST_API_KEY</li>
+                    <li>NEYNAR_API_KEY</li>
+                    <li>FARCASTER_SIGNER_UUID</li>
                   </ul>
                   <p className="mt-2 text-gray-400">
-                    Get your API key from Warpcast developer settings
+                    Get your API key from Neynar and create a signer for your Farcaster account
                   </p>
                 </div>
                 
                 <p className="text-sm text-gray-400">
-                  Farcaster uses the Warpcast API for posting casts. Make sure you have proper permissions in your Warpcast developer account.
+                  Farcaster uses the Neynar API for posting casts. You'll need both a Neynar API key and a signer UUID for your Farcaster account.
                 </p>
               </div>
             </div>
