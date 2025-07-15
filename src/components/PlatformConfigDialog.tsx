@@ -110,6 +110,47 @@ export const PlatformConfigDialog = () => {
     }
   };
 
+  const handleTikTokConfigTest = async () => {
+    try {
+      setTestingConnection(true);
+      toast({
+        title: "Testing Connection",
+        description: "Testing TikTok configuration..."
+      });
+      
+      // Test the TikTok integration
+      const { data, error } = await supabase.functions.invoke('post-to-tiktok', {
+        body: { 
+          content: "Test connection from social media manager",
+          mediaUrl: "https://example.com/test-video.mp4",
+          mediaType: "video"
+        }
+      });
+      
+      if (error) {
+        throw new Error(error.message || "Failed to connect to TikTok");
+      }
+      
+      if (data?.success) {
+        toast({
+          title: "Test Successful",
+          description: "TikTok integration is working correctly! (simulated)"
+        });
+      } else {
+        throw new Error(data?.error || "Unknown error occurred during test");
+      }
+      
+    } catch (error: any) {
+      toast({
+        title: "Test Failed",
+        description: error.message || "Failed to test TikTok integration. Please check your TikTok API credentials.",
+        variant: "destructive"
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
   const handleFacebookConfigTest = async () => {
     try {
       setTestingConnection(true);
@@ -136,22 +177,6 @@ export const PlatformConfigDialog = () => {
       toast({
         title: "Test Successful",
         description: "Instagram integration test successful (simulated)"
-      });
-    } finally {
-      setTestingConnection(false);
-    }
-  };
-
-  const handleTikTokConfigTest = async () => {
-    try {
-      setTestingConnection(true);
-      toast({
-        title: "Testing Connection",
-        description: "Testing TikTok configuration..."
-      });
-      toast({
-        title: "Test Successful",
-        description: "TikTok integration test successful (simulated)"
       });
     } finally {
       setTestingConnection(false);
@@ -376,20 +401,30 @@ export const PlatformConfigDialog = () => {
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
                   <div className="h-5 w-5 rounded-full bg-black flex items-center justify-center text-white font-bold text-xs">T</div>
-                  <span>Your TikTok account will be used for posting</span>
+                  <span>Your TikTok account will be used for posting videos</span>
                 </div>
                 
                 <div className="bg-black/10 p-3 rounded-md text-sm">
                   <p>Required secrets need to be set in Supabase:</p>
                   <ul className="list-disc pl-5 mt-2 space-y-1">
-                    <li>TIKTOK_APP_ID</li>
-                    <li>TIKTOK_APP_SECRET</li>
+                    <li>TIKTOK_CLIENT_ID</li>
+                    <li>TIKTOK_CLIENT_SECRET</li>
                     <li>TIKTOK_ACCESS_TOKEN</li>
                   </ul>
                 </div>
                 
+                <div className="bg-yellow-500/10 p-3 rounded-md text-sm mt-3">
+                  <p className="font-medium">Getting TikTok API Access:</p>
+                  <ol className="list-decimal pl-5 mt-2 space-y-1">
+                    <li>Apply for TikTok for Developers at <a href="https://developers.tiktok.com/" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">developers.tiktok.com</a></li>
+                    <li>Create a new app and get your Client ID and Client Secret</li>
+                    <li>Set up OAuth redirect URI to match your domain</li>
+                    <li>Request the necessary scopes: user.info.basic, video.publish</li>
+                  </ol>
+                </div>
+                
                 <p className="text-sm text-gray-400">
-                  TikTok requires a video to post content.
+                  TikTok requires a video to post content and has strict content policies.
                 </p>
               </div>
             </div>

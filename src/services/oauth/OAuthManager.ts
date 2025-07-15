@@ -1,5 +1,6 @@
 import { TwitterOAuth, TwitterOAuthConfig } from './TwitterOAuth';
 import { FacebookOAuth, FacebookOAuthConfig } from './FacebookOAuth';
+import { TikTokOAuth, TikTokOAuthConfig } from './TikTokOAuth';
 import { NeynarOAuth } from './NeynarOAuth';
 import { FarcasterAuthService } from './FarcasterAuthService';
 import { LensOAuth } from './LensOAuth';
@@ -13,11 +14,13 @@ export interface OAuthCredentials {
   fid?: number;
   displayName?: string;
   pfpUrl?: string;
+  openId?: string;
 }
 
 export class OAuthManager {
   private twitter: TwitterOAuth;
   private facebook: FacebookOAuth;
+  private tiktok: TikTokOAuth;
   private neynar: NeynarOAuth;
   private farcasterAuth: FarcasterAuthService;
   private lens: LensOAuth;
@@ -34,6 +37,13 @@ export class OAuthManager {
       appId: import.meta.env.VITE_FACEBOOK_APP_ID || 'demo_app_id',
       redirectUri: `${window.location.origin}/auth/callback/facebook`,
       scopes: ['pages_manage_posts', 'pages_read_engagement']
+    });
+    
+    this.tiktok = new TikTokOAuth({
+      clientId: import.meta.env.VITE_TIKTOK_CLIENT_ID || 'demo_client_id',
+      clientSecret: import.meta.env.VITE_TIKTOK_CLIENT_SECRET || 'demo_secret',
+      redirectUri: `${window.location.origin}/auth/callback/tiktok`,
+      scopes: ['user.info.basic', 'video.publish']
     });
     
     // Keep the old OAuth flow for backward compatibility
@@ -62,6 +72,12 @@ export class OAuthManager {
   async initiateFacebookAuth(): Promise<string> {
     const authUrl = this.facebook.generateAuthUrl();
     this.storeAuthState('facebook', { timestamp: Date.now() });
+    return authUrl;
+  }
+
+  async initiateTikTokAuth(): Promise<string> {
+    const authUrl = this.tiktok.generateAuthUrl();
+    this.storeAuthState('tiktok', { timestamp: Date.now() });
     return authUrl;
   }
   
@@ -186,6 +202,20 @@ export class OAuthManager {
           throw new Error(`Facebook authentication failed: ${error.message}`);
         }
         
+      case 'tiktok':
+        try {
+          const tiktokTokens = await this.tiktok.exchangeCodeForToken(code);
+          return {
+            accessToken: tiktokTokens.access_token,
+            refreshToken: tiktokTokens.refresh_token,
+            expiresAt: tiktokTokens.expires_in ? Date.now() + (tiktokTokens.expires_in * 1000) : undefined,
+            openId: tiktokTokens.open_id
+          };
+        } catch (error: any) {
+          console.error('TikTok callback error:', error);
+          throw new Error(`TikTok authentication failed: ${error.message}`);
+        }
+        
       case 'farcaster':
         try {
           console.log('Processing Farcaster token exchange...');
@@ -293,6 +323,11 @@ export class OAuthManager {
   clearFarcasterSigner(): void {
     console.log('Clearing Farcaster signer');
     localStorage.removeItem('farcaster_signer');
+  }
+
+  // Method to get TikTok API instance
+  getTikTokAPI() {
+    return this.tiktok.getAPI();
   }
 }
 

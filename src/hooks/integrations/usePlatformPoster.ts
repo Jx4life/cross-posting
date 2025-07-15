@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { oauthManager } from "@/services/oauth/OAuthManager";
@@ -120,6 +121,50 @@ export const usePlatformPoster = () => {
     }
   };
   
+  const postToTikTok = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
+    try {
+      console.log('Posting to TikTok:', { content, mediaUrl, mediaType });
+      
+      // TikTok requires video
+      if (!mediaUrl || mediaType !== 'video') {
+        return {
+          platform: 'tiktok',
+          success: false,
+          message: 'TikTok posts require a video'
+        };
+      }
+      
+      // Call the TikTok edge function
+      const { data, error } = await supabase.functions.invoke('post-to-tiktok', {
+        body: { 
+          content,
+          mediaUrl,
+          mediaType
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (!data || !data.success) {
+        throw new Error(data?.error || 'TikTok posting failed');
+      }
+      
+      return {
+        platform: 'tiktok',
+        success: true,
+        data: data.data,
+        message: data.message || 'Posted successfully to TikTok'
+      };
+    } catch (error: any) {
+      console.error('TikTok posting error:', error);
+      return {
+        platform: 'tiktok',
+        success: false,
+        message: error.message || 'Error posting to TikTok'
+      };
+    }
+  };
+  
   const postToFacebook = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
     try {
       // This would be implemented with a real API in production
@@ -171,38 +216,6 @@ export const usePlatformPoster = () => {
         platform: 'instagram',
         success: false,
         message: error.message || 'Error posting to Instagram'
-      };
-    }
-  };
-  
-  const postToTikTok = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
-    try {
-      // This would be implemented with a real API in production
-      console.log('Posting to TikTok:', { content, mediaUrl, mediaType });
-      
-      // TikTok requires video
-      if (!mediaUrl || mediaType !== 'video') {
-        return {
-          platform: 'tiktok',
-          success: false,
-          message: 'TikTok posts require a video'
-        };
-      }
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      return {
-        platform: 'tiktok',
-        success: true,
-        data: { id: 'tt-' + Date.now() }
-      };
-    } catch (error: any) {
-      console.error('TikTok posting error:', error);
-      return {
-        platform: 'tiktok',
-        success: false,
-        message: error.message || 'Error posting to TikTok'
       };
     }
   };
