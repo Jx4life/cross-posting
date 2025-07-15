@@ -36,86 +36,24 @@ export const usePlatformPoster = () => {
   
   const postToFarcaster = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
     try {
-      console.log('=== FRONTEND FARCASTER POST START ===');
-      console.log('Attempting to post to Farcaster:', { content, mediaUrl, mediaType });
-      
-      // Make the edge function call with improved error handling
-      let response;
-      try {
-        response = await supabase.functions.invoke('post-to-farcaster', {
-          body: { content, mediaUrl, mediaType }
-        });
-        console.log('Raw Supabase function response:', response);
-      } catch (invokeError: any) {
-        console.error('Supabase invoke error occurred:', invokeError);
-        
-        // For FunctionsHttpError, we need to extract the actual response
-        if (invokeError.name === 'FunctionsHttpError') {
-          console.error('Edge function returned non-2xx status. This means our edge function is running but returning an error.');
-          console.error('Error details:', {
-            name: invokeError.name,
-            message: invokeError.message,
-            context: invokeError.context,
-            details: invokeError.details
-          });
-          
-          // The actual error details should be in the context or we need to handle it differently
-          let errorMessage = 'Farcaster edge function returned an error status';
-          
-          if (invokeError.context) {
-            errorMessage += `. Context: ${JSON.stringify(invokeError.context)}`;
-          }
-          
-          // Return a structured error response
-          return {
-            platform: 'farcaster',
-            success: false,
-            message: `Edge function error: ${errorMessage}. Check the Supabase function logs for detailed error information.`
-          };
-        }
-        
-        // For other types of errors
-        let errorMessage = 'Failed to call Farcaster edge function';
-        if (invokeError.message) {
-          errorMessage = invokeError.message;
-        }
-        
-        throw new Error(errorMessage);
-      }
-      
-      const { data, error } = response;
-      console.log('Farcaster function response data:', data);
-      console.log('Farcaster function response error:', error);
+      const { data, error } = await supabase.functions.invoke('post-to-farcaster', {
+        body: { content, mediaUrl, mediaType }
+      });
       
       if (error) {
-        console.error('Supabase function returned error:', error);
-        throw new Error(`Farcaster API Error: ${error.message || JSON.stringify(error)}`);
+        throw new Error(error.message || 'Farcaster API error');
       }
       
-      if (!data) {
-        throw new Error('No response data from Farcaster function');
+      if (!data || !data.success) {
+        throw new Error(data?.error || 'Farcaster posting failed');
       }
       
-      if (!data.success) {
-        console.error('Farcaster function returned unsuccessful result:', data);
-        throw new Error(data.error || data.details || data.message || 'Farcaster posting failed - no specific error message');
-      }
-      
-      console.log('=== FRONTEND FARCASTER POST SUCCESS ===');
       return {
         platform: 'farcaster',
         success: true,
         data
       };
     } catch (error: any) {
-      console.error('=== FRONTEND FARCASTER POST ERROR ===');
-      console.error('Farcaster posting error details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-        error: error
-      });
-      
       return {
         platform: 'farcaster',
         success: false,
