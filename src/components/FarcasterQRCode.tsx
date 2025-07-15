@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -33,7 +32,10 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
       setError(null);
       setQrCodeError(false);
       
+      console.log('=== INITIALIZING FARCASTER SIGNER ===');
       const signerResponse = await farcasterService.createSigner();
+      console.log('Signer response received:', signerResponse);
+      
       setSigner(signerResponse);
       
       // Start polling for signer approval
@@ -127,14 +129,55 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
   };
 
   const handleOpenInApp = () => {
-    if (signer?.signer_approval_url) {
-      window.open(signer.signer_approval_url, '_blank');
+    console.log('=== OPENING FARCASTER APP ===');
+    console.log('Signer approval URL:', signer?.signer_approval_url);
+    
+    if (!signer?.signer_approval_url) {
+      console.error('No signer approval URL available');
+      toast({
+        title: "Error",
+        description: "No authentication URL available. Please refresh and try again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Try to open the URL
+      const opened = window.open(signer.signer_approval_url, '_blank', 'noopener,noreferrer');
+      
+      if (!opened) {
+        console.error('Failed to open popup window');
+        // Fallback: try to navigate in the same window
+        window.location.href = signer.signer_approval_url;
+      } else {
+        console.log('Successfully opened Farcaster app');
+        toast({
+          title: "Opening Farcaster App",
+          description: "Complete the authentication in the opened window.",
+        });
+      }
+    } catch (error) {
+      console.error('Error opening Farcaster app:', error);
+      toast({
+        title: "Error",
+        description: "Failed to open Farcaster app. Please try copying the URL manually.",
+        variant: "destructive"
+      });
     }
   };
 
   const handleQrCodeError = () => {
+    console.log('=== QR CODE ERROR ===');
     console.log('QR Code image failed to load');
+    console.log('Attempted URL:', signer?.signer_approval_url);
     setQrCodeError(true);
+  };
+
+  const handleQrCodeLoad = () => {
+    console.log('=== QR CODE LOADED ===');
+    console.log('QR code loaded successfully');
+    setQrCodeError(false);
   };
 
   useEffect(() => {
@@ -212,7 +255,7 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
                     alt="Farcaster QR Code"
                     className="w-48 h-48"
                     onError={handleQrCodeError}
-                    onLoad={() => console.log('QR code loaded successfully')}
+                    onLoad={handleQrCodeLoad}
                   />
                 ) : (
                   <div className="w-48 h-48 bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center rounded-lg">
@@ -238,10 +281,17 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
                 onClick={handleOpenInApp}
                 variant="outline" 
                 className="w-full"
+                disabled={!signer?.signer_approval_url}
               >
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Open in Farcaster App
               </Button>
+              
+              {!signer?.signer_approval_url && (
+                <p className="text-xs text-red-500 mt-1">
+                  No authentication URL available
+                </p>
+              )}
             </div>
             
             {isPolling && (
@@ -266,6 +316,8 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
                 <p className="font-medium mb-1">Debug Info:</p>
                 <p className="break-all">URL: {signer.signer_approval_url}</p>
                 <p>UUID: {signer.signer_uuid}</p>
+                <p>Status: {signer.status}</p>
+                <p>QR Error: {qrCodeError ? 'Yes' : 'No'}</p>
               </div>
             )}
           </>
