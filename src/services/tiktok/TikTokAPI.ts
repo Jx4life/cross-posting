@@ -40,7 +40,12 @@ export class TikTokAPI {
   private baseUrl = 'https://open.tiktokapis.com';
   
   constructor(config: TikTokConfig) {
-    this.config = config;
+    // Use sandbox credentials
+    this.config = {
+      ...config,
+      clientId: 'sbawjmn8p4yrizyuis',
+      clientSecret: 'F51RS5h2sDaZUUxLbDWoe9p5TXEalKxj'
+    };
   }
   
   generateAuthUrl(state?: string): string {

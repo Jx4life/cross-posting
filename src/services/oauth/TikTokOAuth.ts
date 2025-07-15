@@ -13,8 +13,15 @@ export class TikTokOAuth {
   private config: TikTokOAuthConfig;
   
   constructor(config: TikTokOAuthConfig) {
-    this.config = config;
-    this.api = new TikTokAPI(config);
+    // Use sandbox credentials
+    const sandboxConfig = {
+      ...config,
+      clientId: 'sbawjmn8p4yrizyuis',
+      clientSecret: 'F51RS5h2sDaZUUxLbDWoe9p5TXEalKxj'
+    };
+    
+    this.config = sandboxConfig;
+    this.api = new TikTokAPI(sandboxConfig);
   }
   
   generateAuthUrl(state?: string): string {
