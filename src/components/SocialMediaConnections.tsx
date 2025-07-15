@@ -176,6 +176,58 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
     checkConnections();
   }, []);
 
+  // Set up message listener for popup communication
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      console.log('Received message from popup:', event.data);
+      
+      if (event.origin !== window.location.origin) {
+        console.log('Message from different origin, ignoring');
+        return;
+      }
+      
+      if (event.data.type === 'OAUTH_SUCCESS') {
+        const { platform, credentials } = event.data;
+        console.log(`OAuth success for ${platform}:`, credentials);
+        
+        setConnections(prev => ({
+          ...prev,
+          [platform]: {
+            ...prev[platform],
+            isConnected: true,
+            username: credentials?.username,
+            fid: credentials?.fid,
+            displayName: credentials?.displayName,
+            lastConnected: new Date().toISOString(),
+            isConnecting: false
+          }
+        }));
+        
+        toast({
+          title: "Connected Successfully",
+          description: `Connected to ${platform} as ${credentials?.username || 'user'}`,
+        });
+      } else if (event.data.type === 'OAUTH_ERROR') {
+        const { platform, error } = event.data;
+        console.error(`OAuth error for ${platform}:`, error);
+        
+        setConnections(prev => ({
+          ...prev,
+          [platform]: { ...prev[platform], isConnecting: false }
+        }));
+        
+        toast({
+          title: "Connection Failed",
+          description: error || `Failed to connect to ${platform}`,
+          variant: "destructive"
+        });
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
   const handleConnect = async (platformId: string) => {
     const platform = platforms.find(p => p.id === platformId);
     if (!platform) return;
@@ -230,91 +282,8 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
               description: "Complete the Farcaster authentication in the popup window.",
             });
             
-            // Monitor popup for completion
-            const checkClosed = setInterval(() => {
-              try {
-                if (popup.closed) {
-                  clearInterval(checkClosed);
-                  console.log('Popup closed, checking connection status...');
-                  
-                  // Check if connection was successful after a brief delay
-                  setTimeout(() => {
-                    const isConnected = oauthManager.isConnected('farcaster');
-                    console.log('Farcaster connection check result:', isConnected);
-                    
-                    if (isConnected) {
-                      const credentials = oauthManager.getCredentials('farcaster');
-                      console.log('Farcaster credentials found:', credentials);
-                      
-                      setConnections(prev => ({
-                        ...prev,
-                        farcaster: {
-                          ...prev.farcaster,
-                          isConnected: true,
-                          username: credentials?.username,
-                          fid: credentials?.fid,
-                          displayName: credentials?.displayName,
-                          lastConnected: new Date().toISOString(),
-                          isConnecting: false
-                        }
-                      }));
-                      
-                      toast({
-                        title: "Connected Successfully",
-                        description: `Connected to Farcaster as ${credentials?.username || 'user'}`,
-                      });
-                    } else {
-                      console.log('No Farcaster credentials found after popup closed');
-                      setConnections(prev => ({
-                        ...prev,
-                        farcaster: { ...prev.farcaster, isConnecting: false }
-                      }));
-                      
-                      toast({
-                        title: "Connection Incomplete",
-                        description: "Farcaster connection was not completed. Please try again.",
-                        variant: "destructive"
-                      });
-                    }
-                  }, 1000);
-                }
-              } catch (error) {
-                // Handle cross-origin errors when checking popup.closed
-                console.log('Error checking popup status, assuming closed:', error);
-                clearInterval(checkClosed);
-                
-                setTimeout(() => {
-                  const isConnected = oauthManager.isConnected('farcaster');
-                  if (isConnected) {
-                    const credentials = oauthManager.getCredentials('farcaster');
-                    setConnections(prev => ({
-                      ...prev,
-                      farcaster: {
-                        ...prev.farcaster,
-                        isConnected: true,
-                        username: credentials?.username,
-                        fid: credentials?.fid,
-                        displayName: credentials?.displayName,
-                        lastConnected: new Date().toISOString(),
-                        isConnecting: false
-                      }
-                    }));
-                    
-                    toast({
-                      title: "Connected Successfully",
-                      description: `Connected to Farcaster as ${credentials?.username || 'user'}`,
-                    });
-                  } else {
-                    setConnections(prev => ({
-                      ...prev,
-                      farcaster: { ...prev.farcaster, isConnecting: false }
-                    }));
-                  }
-                }, 1000);
-              }
-            }, 1000);
-            
-            return; // Early return since we handle the connecting state differently
+            // The popup communication is now handled by the message listener
+            // No need for the interval check anymore
             
           } catch (error: any) {
             console.error('Farcaster connection error:', error);
@@ -400,8 +369,8 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
         variant: "destructive"
       });
     } finally {
-      // Only clear connecting state if not Farcaster (handled separately)
-      if (platformId !== 'farcaster') {
+      // Only clear connecting state if not using popup communication
+      if (platformId !== 'farcaster' && platformId !== 'twitter' && platformId !== 'facebook') {
         setConnections(prev => ({
           ...prev,
           [platformId]: { ...prev[platformId], isConnecting: false }

@@ -19,10 +19,16 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ platform }) => {
   const [debugInfo, setDebugInfo] = useState<any>({});
 
   useEffect(() => {
-    console.log('=== OAUTH CALLBACK COMPONENT ===');
+    console.log('=== OAUTH CALLBACK COMPONENT MOUNTED ===');
     console.log('Platform:', platform);
     console.log('Current URL:', window.location.href);
     console.log('Search params:', Object.fromEntries(searchParams.entries()));
+    console.log('Window parent:', window.parent);
+    console.log('Window opener:', window.opener);
+    
+    // Check if this is a popup window
+    const isPopup = window.opener && window.opener !== window;
+    console.log('Is popup window:', isPopup);
     
     const handleCallback = async () => {
       try {
@@ -38,7 +44,9 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ platform }) => {
           code: code ? `${code.substring(0, 10)}...` : null,
           error,
           errorDescription,
-          state
+          state,
+          isPopup,
+          hasOpener: !!window.opener
         };
         
         setDebugInfo(currentDebugInfo);
@@ -47,11 +55,41 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ platform }) => {
         if (error) {
           const errorMsg = errorDescription || `Authentication failed: ${error}`;
           console.error('OAuth error from provider:', errorMsg);
+          
+          // If in popup, try to communicate with parent
+          if (isPopup) {
+            try {
+              window.opener.postMessage({
+                type: 'OAUTH_ERROR',
+                platform,
+                error: errorMsg
+              }, window.location.origin);
+            } catch (e) {
+              console.error('Failed to post message to parent:', e);
+            }
+          }
+          
           throw new Error(errorMsg);
         }
 
         if (!code) {
-          throw new Error('No authorization code received from the provider');
+          const noCodeError = 'No authorization code received from the provider';
+          console.error(noCodeError);
+          
+          // If in popup, try to communicate with parent
+          if (isPopup) {
+            try {
+              window.opener.postMessage({
+                type: 'OAUTH_ERROR',
+                platform,
+                error: noCodeError
+              }, window.location.origin);
+            } catch (e) {
+              console.error('Failed to post message to parent:', e);
+            }
+          }
+          
+          throw new Error(noCodeError);
         }
 
         console.log(`Attempting to exchange code for ${platform} credentials...`);
@@ -80,26 +118,59 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ platform }) => {
         
         setMessage(successMessage);
         
-        toast({
-          title: "Connection Successful",
-          description: `Your ${platform} account has been connected successfully.`,
-        });
+        // If in popup, communicate success to parent and close
+        if (isPopup) {
+          try {
+            window.opener.postMessage({
+              type: 'OAUTH_SUCCESS',
+              platform,
+              credentials
+            }, window.location.origin);
+            
+            // Close popup after a short delay
+            setTimeout(() => {
+              window.close();
+            }, 1500);
+          } catch (e) {
+            console.error('Failed to post message to parent:', e);
+          }
+        } else {
+          // Show toast for non-popup flow
+          toast({
+            title: "Connection Successful",
+            description: `Your ${platform} account has been connected successfully.`,
+          });
 
-        // Redirect back to main app after a delay
-        setTimeout(() => {
-          navigate('/');
-        }, 2000);
+          // Redirect back to main app after a delay
+          setTimeout(() => {
+            navigate('/');
+          }, 2000);
+        }
 
       } catch (error: any) {
         console.error('OAuth callback error:', error);
         setStatus('error');
         setMessage(error.message || 'Authentication failed');
         
-        toast({
-          title: "Connection Failed",
-          description: error.message || 'Failed to complete authentication',
-          variant: "destructive"
-        });
+        // If in popup, communicate error to parent
+        if (isPopup) {
+          try {
+            window.opener.postMessage({
+              type: 'OAUTH_ERROR',
+              platform,
+              error: error.message || 'Authentication failed'
+            }, window.location.origin);
+          } catch (e) {
+            console.error('Failed to post message to parent:', e);
+          }
+        } else {
+          // Show toast for non-popup flow
+          toast({
+            title: "Connection Failed",
+            description: error.message || 'Failed to complete authentication',
+            variant: "destructive"
+          });
+        }
         
         // Update debug info with error
         setDebugInfo(prev => ({
@@ -139,6 +210,7 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ platform }) => {
               <div className="text-xs text-muted-foreground">
                 <p>Platform: {platform}</p>
                 <p>Code: {debugInfo.code || 'Not received'}</p>
+                <p>Is Popup: {debugInfo.isPopup ? 'Yes' : 'No'}</p>
               </div>
             </div>
           )}
@@ -146,18 +218,20 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ platform }) => {
           {status === 'success' && (
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                Redirecting you back to the app...
+                {debugInfo.isPopup ? 'This window will close automatically...' : 'Redirecting you back to the app...'}
               </p>
-              <Button onClick={() => navigate('/')} className="w-full">
-                Continue to App
-              </Button>
+              {!debugInfo.isPopup && (
+                <Button onClick={() => navigate('/')} className="w-full">
+                  Continue to App
+                </Button>
+              )}
             </div>
           )}
           
           {status === 'error' && (
             <div className="space-y-2">
-              <Button onClick={() => navigate('/')} className="w-full">
-                Return to App
+              <Button onClick={() => debugInfo.isPopup ? window.close() : navigate('/')} className="w-full">
+                {debugInfo.isPopup ? 'Close Window' : 'Return to App'}
               </Button>
               <details className="text-xs text-muted-foreground">
                 <summary>Debug Information</summary>
