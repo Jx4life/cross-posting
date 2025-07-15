@@ -18,11 +18,19 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ platform }) => {
   const [message, setMessage] = useState('Processing authentication...');
 
   useEffect(() => {
+    console.log('=== OAUTH CALLBACK DEBUG ===');
+    console.log('Platform:', platform);
+    console.log('Current URL:', window.location.href);
+    console.log('Search params:', Object.fromEntries(searchParams.entries()));
+    
     const handleCallback = async () => {
       try {
         const code = searchParams.get('code');
         const error = searchParams.get('error');
         const errorDescription = searchParams.get('error_description');
+        const state = searchParams.get('state');
+
+        console.log('OAuth callback params:', { code, error, errorDescription, state });
 
         if (error) {
           throw new Error(errorDescription || `Authentication failed: ${error}`);
@@ -32,8 +40,12 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ platform }) => {
           throw new Error('No authorization code received');
         }
 
+        console.log('Attempting to exchange code for credentials...');
+        
         // Exchange code for credentials
         const credentials = await oauthManager.handleCallback(platform, code);
+        
+        console.log('Credentials received:', credentials);
         
         // Store credentials
         oauthManager.storeCredentials(platform, credentials);
@@ -87,6 +99,11 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ platform }) => {
         </CardHeader>
         <CardContent className="text-center space-y-4">
           <p className="text-muted-foreground">{message}</p>
+          
+          <div className="text-xs text-muted-foreground">
+            <p>Platform: {platform}</p>
+            <p>URL: {window.location.href}</p>
+          </div>
           
           {status === 'success' && (
             <p className="text-sm text-muted-foreground">
