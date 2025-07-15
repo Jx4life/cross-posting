@@ -35,10 +35,11 @@ export const usePlatformPoster = () => {
   };
   
   const postToFarcaster = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
-    console.log('=== FRONTEND FARCASTER POST (SIMPLE) ===');
-    console.log('Posting to Farcaster with:', { content, mediaUrl, mediaType });
+    console.log('=== FRONTEND FARCASTER POST ===');
+    console.log('Starting Farcaster post with:', { content, mediaUrl, mediaType });
     
     try {
+      console.log('Invoking Supabase function...');
       const { data, error } = await supabase.functions.invoke('post-to-farcaster', {
         body: { 
           content, 
@@ -59,20 +60,26 @@ export const usePlatformPoster = () => {
         throw new Error(data?.error || 'Farcaster posting failed');
       }
       
-      console.log('=== FARCASTER POST SUCCESS (SIMPLE) ===');
+      console.log('=== FARCASTER POST SUCCESS ===');
       console.log('Success data:', JSON.stringify(data, null, 2));
+      
+      // Create a more detailed success message
+      let successMessage = 'Posted successfully to Farcaster';
+      if (data.details?.castUrl) {
+        successMessage += `! View at: ${data.details.castUrl}`;
+      } else if (data.details?.castHash) {
+        successMessage += `! Cast hash: ${data.details.castHash}`;
+      }
       
       return {
         platform: 'farcaster',
         success: true,
         data,
-        message: data.details?.castUrl ? 
-          `Posted successfully! View at: ${data.details.castUrl}` : 
-          'Posted successfully to Farcaster'
+        message: successMessage
       };
     } catch (error: any) {
-      console.error('=== FARCASTER POSTING ERROR (SIMPLE) ===');
-      console.error('Error:', error);
+      console.error('=== FARCASTER POSTING ERROR ===');
+      console.error('Error details:', error);
       return {
         platform: 'farcaster',
         success: false,
