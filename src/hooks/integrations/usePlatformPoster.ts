@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { oauthManager } from "@/services/oauth/OAuthManager";
 
 export interface PostResult {
   platform: string;
@@ -34,12 +35,27 @@ export const usePlatformPoster = () => {
   };
   
   const postToFarcaster = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
-    console.log('=== FRONTEND FARCASTER POST START ===');
+    console.log('=== FRONTEND FARCASTER POST START (SIWN) ===');
     console.log('Posting to Farcaster with:', { content, mediaUrl, mediaType });
     
     try {
+      // Get Neynar credentials for SIWN authentication
+      const neynarCredentials = oauthManager.getCredentials('neynar');
+      if (!neynarCredentials) {
+        return {
+          platform: 'farcaster',
+          success: false,
+          message: 'Please connect your Neynar account first (Sign In With Neynar)'
+        };
+      }
+
       const { data, error } = await supabase.functions.invoke('post-to-farcaster', {
-        body: { content, mediaUrl, mediaType }
+        body: { 
+          content, 
+          mediaUrl, 
+          mediaType,
+          accessToken: neynarCredentials.accessToken
+        }
       });
       
       console.log('Supabase function response:', { data, error });
@@ -54,28 +70,20 @@ export const usePlatformPoster = () => {
         throw new Error(data?.error || 'Farcaster posting failed');
       }
       
-      // Log all the debug information
-      console.log('=== FARCASTER POST SUCCESS DETAILS ===');
+      console.log('=== FARCASTER POST SUCCESS (SIWN) ===');
       console.log('Success data:', JSON.stringify(data, null, 2));
       console.log('Cast URL:', data.details?.castUrl);
-      console.log('Cast hash:', data.details?.castHash);
-      console.log('Author username:', data.details?.authorUsername);
-      console.log('Author FID:', data.details?.authorFid);
-      console.log('Signer FID:', data.details?.signerInfo?.fid);
-      console.log('Signer username:', data.details?.signerInfo?.username);
-      console.log('Debug info:', data.details?.debug);
-      console.log('=== END SUCCESS DETAILS ===');
       
       return {
         platform: 'farcaster',
         success: true,
         data,
         message: data.details?.castUrl ? 
-          `Posted successfully! View at: ${data.details.castUrl}` : 
-          'Posted successfully to Farcaster'
+          `Posted successfully via SIWN! View at: ${data.details.castUrl}` : 
+          'Posted successfully to Farcaster via SIWN'
       };
     } catch (error: any) {
-      console.error('=== FARCASTER POSTING ERROR ===');
+      console.error('=== FARCASTER POSTING ERROR (SIWN) ===');
       console.error('Error:', error);
       return {
         platform: 'farcaster',
@@ -117,7 +125,6 @@ export const usePlatformPoster = () => {
     }
   };
   
-  // Traditional social media platforms (simulations for now)
   const postToFacebook = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
     try {
       // This would be implemented with a real API in production

@@ -24,6 +24,7 @@ const App = () => (
             <Route path="/profile" element={<Profile />} />
             <Route path="/auth/callback/twitter" element={<OAuthCallback platform="twitter" />} />
             <Route path="/auth/callback/facebook" element={<OAuthCallback platform="facebook" />} />
+            <Route path="/auth/callback/neynar" element={<OAuthCallback platform="neynar" />} />
             <Route path="/auth/callback/instagram" element={<OAuthCallback platform="instagram" />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

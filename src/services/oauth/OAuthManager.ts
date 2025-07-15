@@ -1,6 +1,7 @@
 
 import { TwitterOAuth, TwitterOAuthConfig } from './TwitterOAuth';
 import { FacebookOAuth, FacebookOAuthConfig } from './FacebookOAuth';
+import { NeynarOAuth } from './NeynarOAuth';
 import { LensOAuth } from './LensOAuth';
 
 export interface OAuthCredentials {
@@ -9,11 +10,15 @@ export interface OAuthCredentials {
   expiresAt?: number;
   username?: string;
   profileId?: string;
+  fid?: number;
+  displayName?: string;
+  pfpUrl?: string;
 }
 
 export class OAuthManager {
   private twitter: TwitterOAuth;
   private facebook: FacebookOAuth;
+  private neynar: NeynarOAuth;
   private lens: LensOAuth;
   
   constructor() {
@@ -30,6 +35,12 @@ export class OAuthManager {
       scopes: ['pages_manage_posts', 'pages_read_engagement']
     });
     
+    this.neynar = new NeynarOAuth({
+      clientId: import.meta.env.VITE_NEYNAR_CLIENT_ID || 'demo_client_id',
+      redirectUri: `${window.location.origin}/auth/callback/neynar`,
+      scopes: ['read', 'write']
+    });
+    
     this.lens = new LensOAuth();
   }
   
@@ -42,6 +53,12 @@ export class OAuthManager {
   async initiateFacebookAuth(): Promise<string> {
     const authUrl = this.facebook.generateAuthUrl();
     this.storeAuthState('facebook', { timestamp: Date.now() });
+    return authUrl;
+  }
+  
+  async initiateNeynarAuth(): Promise<string> {
+    const authUrl = this.neynar.generateAuthUrl();
+    this.storeAuthState('neynar', { timestamp: Date.now() });
     return authUrl;
   }
   
@@ -83,6 +100,18 @@ export class OAuthManager {
         return {
           accessToken: facebookTokens.access_token,
           expiresAt: facebookTokens.expires_in ? Date.now() + (facebookTokens.expires_in * 1000) : undefined
+        };
+        
+      case 'neynar':
+        const neynarTokens = await this.neynar.exchangeCodeForToken(code);
+        return {
+          accessToken: neynarTokens.access_token,
+          refreshToken: neynarTokens.refresh_token,
+          expiresAt: neynarTokens.expires_in ? Date.now() + (neynarTokens.expires_in * 1000) : undefined,
+          username: neynarTokens.user?.username,
+          fid: neynarTokens.user?.fid,
+          displayName: neynarTokens.user?.display_name,
+          pfpUrl: neynarTokens.user?.pfp_url
         };
         
       default:
@@ -133,6 +162,9 @@ export class OAuthManager {
   isConnected(platform: string): boolean {
     if (platform === 'lens') {
       return !!(localStorage.getItem('walletAddress') && localStorage.getItem('lensHandle'));
+    }
+    if (platform === 'neynar') {
+      return !!this.getCredentials('neynar');
     }
     return !!this.getCredentials(platform);
   }
