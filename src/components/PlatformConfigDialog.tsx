@@ -12,6 +12,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
 import { LensConnector } from "./LensConnector";
+import { TikTokConnector } from "./TikTokConnector";
 
 export const PlatformConfigDialog = () => {
   const { user } = useAuth();
@@ -393,47 +394,7 @@ export const PlatformConfigDialog = () => {
           </TabsContent>
           
           <TabsContent value="tiktok" className="space-y-4 mt-4">
-            <div>
-              <p className="text-sm mb-4">
-                To enable TikTok integration, you need to set up your API keys in Supabase Edge Function Secrets.
-              </p>
-              
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <div className="h-5 w-5 rounded-full bg-black flex items-center justify-center text-white font-bold text-xs">T</div>
-                  <span>Your TikTok account will be used for posting videos</span>
-                </div>
-                
-                <div className="bg-black/10 p-3 rounded-md text-sm">
-                  <p>Required secrets need to be set in Supabase:</p>
-                  <ul className="list-disc pl-5 mt-2 space-y-1">
-                    <li>TIKTOK_CLIENT_ID</li>
-                    <li>TIKTOK_CLIENT_SECRET</li>
-                    <li>TIKTOK_ACCESS_TOKEN</li>
-                  </ul>
-                </div>
-                
-                <div className="bg-yellow-500/10 p-3 rounded-md text-sm mt-3">
-                  <p className="font-medium">Getting TikTok API Access:</p>
-                  <ol className="list-decimal pl-5 mt-2 space-y-1">
-                    <li>Apply for TikTok for Developers at <a href="https://developers.tiktok.com/" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">developers.tiktok.com</a></li>
-                    <li>Create a new app and get your Client ID and Client Secret</li>
-                    <li>Set up OAuth redirect URI to match your domain</li>
-                    <li>Request the necessary scopes: user.info.basic, video.publish</li>
-                  </ol>
-                </div>
-                
-                <p className="text-sm text-gray-400">
-                  TikTok requires a video to post content and has strict content policies.
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={handleTikTokConfigTest} disabled={testingConnection}>
-                {testingConnection ? "Testing..." : "Test Connection"}
-              </Button>
-            </div>
+            <TikTokConnector />
           </TabsContent>
           
           <TabsContent value="youtube" className="space-y-4 mt-4">
