@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -38,7 +39,7 @@ export const usePlatformPoster = () => {
       console.log('=== FRONTEND FARCASTER POST START ===');
       console.log('Attempting to post to Farcaster:', { content, mediaUrl, mediaType });
       
-      // Make the edge function call with detailed error catching
+      // Make the edge function call with improved error handling
       let response;
       try {
         response = await supabase.functions.invoke('post-to-farcaster', {
@@ -46,26 +47,37 @@ export const usePlatformPoster = () => {
         });
         console.log('Raw Supabase function response:', response);
       } catch (invokeError: any) {
-        console.error('Supabase invoke error details:', {
-          name: invokeError.name,
-          message: invokeError.message,
-          status: invokeError.status,
-          statusText: invokeError.statusText,
-          details: invokeError.details,
-          hint: invokeError.hint,
-          code: invokeError.code,
-          context: invokeError.context
-        });
+        console.error('Supabase invoke error occurred:', invokeError);
         
-        // Try to extract more meaningful error information
-        let errorMessage = 'Unknown error occurred while calling Farcaster function';
-        
-        if (invokeError.message) {
-          errorMessage = invokeError.message;
+        // For FunctionsHttpError, we need to extract the actual response
+        if (invokeError.name === 'FunctionsHttpError') {
+          console.error('Edge function returned non-2xx status. This means our edge function is running but returning an error.');
+          console.error('Error details:', {
+            name: invokeError.name,
+            message: invokeError.message,
+            context: invokeError.context,
+            details: invokeError.details
+          });
+          
+          // The actual error details should be in the context or we need to handle it differently
+          let errorMessage = 'Farcaster edge function returned an error status';
+          
+          if (invokeError.context) {
+            errorMessage += `. Context: ${JSON.stringify(invokeError.context)}`;
+          }
+          
+          // Return a structured error response
+          return {
+            platform: 'farcaster',
+            success: false,
+            message: `Edge function error: ${errorMessage}. Check the Supabase function logs for detailed error information.`
+          };
         }
         
-        if (invokeError.details) {
-          errorMessage += ` - Details: ${JSON.stringify(invokeError.details)}`;
+        // For other types of errors
+        let errorMessage = 'Failed to call Farcaster edge function';
+        if (invokeError.message) {
+          errorMessage = invokeError.message;
         }
         
         throw new Error(errorMessage);
