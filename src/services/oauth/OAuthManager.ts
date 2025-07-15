@@ -36,8 +36,8 @@ export class OAuthManager {
     });
     
     this.neynar = new NeynarOAuth({
-      clientId: import.meta.env.VITE_NEYNAR_CLIENT_ID || 'demo_client_id',
-      redirectUri: `${window.location.origin}/auth/callback/neynar`,
+      clientId: 'c8655842-2b6b-4763-bcc2-50119d871c23',
+      redirectUri: `${window.location.origin}/auth/callback/farcaster`,
       scopes: ['read', 'write']
     });
     
