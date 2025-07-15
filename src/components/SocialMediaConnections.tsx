@@ -123,7 +123,7 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
       icon: TiktokIcon,
       color: 'text-white',
       bgColor: 'bg-black/10',
-      supportsOAuth: true // Changed to true since we have OAuth flow
+      supportsOAuth: true
     },
     {
       id: 'youtubeShorts',
@@ -274,18 +274,67 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
+  const handleTikTokConnect = async () => {
+    console.log('=== INITIATING TIKTOK OAUTH ===');
+    
+    // Set connecting state
+    setConnections(prev => ({
+      ...prev,
+      tiktok: { ...prev.tiktok, isConnecting: true }
+    }));
+
+    try {
+      console.log('Starting TikTok connection process...');
+      
+      // Clear any existing TikTok credentials to ensure fresh connection
+      const { error: deleteError } = await supabase
+        .from("post_configurations")
+        .delete()
+        .eq("platform", "tiktok");
+      
+      if (deleteError) {
+        console.warn('Could not clear existing TikTok config:', deleteError);
+      }
+      
+      const currentUrl = window.location.origin;
+      const { data, error } = await supabase.functions.invoke('tiktok-auth-url', {
+        body: { redirectUri: `${currentUrl}/oauth/tiktok/callback` }
+      });
+
+      if (error) {
+        console.error('TikTok auth URL error:', error);
+        throw new Error(error.message || 'Failed to generate TikTok authorization URL');
+      }
+      
+      if (data?.authUrl) {
+        console.log('Redirecting to TikTok auth URL:', data.authUrl);
+        // Redirect in the same window to ensure proper OAuth flow
+        window.location.href = data.authUrl;
+      } else {
+        throw new Error("Failed to generate TikTok authorization URL");
+      }
+    } catch (error: any) {
+      console.error("TikTok connection error:", error);
+      toast({
+        title: "Connection Error",
+        description: error.message || "Failed to connect to TikTok",
+        variant: "destructive"
+      });
+      setConnections(prev => ({
+        ...prev,
+        tiktok: { ...prev.tiktok, isConnecting: false }
+      }));
+    }
+    // Note: Don't set isConnecting to false here as we're redirecting
+  };
+
   const handleConnect = async (platformId: string) => {
     const platform = platforms.find(p => p.id === platformId);
     if (!platform) return;
     
-    // For TikTok, redirect to the TikTok connector component instead
+    // Special handling for TikTok OAuth
     if (platformId === 'tiktok') {
-      // Open the TikTok connector in a new tab or modal
-      // You might want to navigate to a specific TikTok setup page
-      toast({
-        title: "TikTok Setup",
-        description: "Please use the dedicated TikTok connector to complete the setup process.",
-      });
+      await handleTikTokConnect();
       return;
     }
     
@@ -432,7 +481,23 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
     });
   };
 
-  const handleDisconnect = (platformId: string) => {
+  const handleDisconnect = async (platformId: string) => {
+    if (platformId === 'tiktok') {
+      // For TikTok, also clear from database
+      try {
+        const { error } = await supabase
+          .from("post_configurations")
+          .delete()
+          .eq("platform", "tiktok");
+        
+        if (error) {
+          console.error('Error clearing TikTok config from database:', error);
+        }
+      } catch (error) {
+        console.error('Error disconnecting TikTok:', error);
+      }
+    }
+    
     // Clear OAuth credentials
     oauthManager.clearCredentials(platformId);
     
