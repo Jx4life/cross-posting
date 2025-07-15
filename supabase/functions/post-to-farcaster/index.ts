@@ -14,7 +14,9 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Farcaster function invoked');
+    console.log('=== FARCASTER FUNCTION START ===');
+    console.log('Request method:', req.method);
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
     
     // Get secret environment variables
     const NEYNAR_API_KEY = Deno.env.get("NEYNAR_API_KEY");
@@ -23,11 +25,12 @@ serve(async (req) => {
     console.log('Environment check:', {
       hasNeynarKey: !!NEYNAR_API_KEY,
       hasSignerUuid: !!FARCASTER_SIGNER_UUID,
-      neynarKeyLength: NEYNAR_API_KEY ? NEYNAR_API_KEY.length : 0
+      neynarKeyLength: NEYNAR_API_KEY ? NEYNAR_API_KEY.length : 0,
+      signerUuidLength: FARCASTER_SIGNER_UUID ? FARCASTER_SIGNER_UUID.length : 0
     });
     
     if (!NEYNAR_API_KEY) {
-      console.error("NEYNAR_API_KEY not found in environment");
+      console.error("CRITICAL: NEYNAR_API_KEY not found in environment");
       return new Response(
         JSON.stringify({ 
           error: "Neynar API key not configured",
@@ -41,7 +44,7 @@ serve(async (req) => {
     }
 
     if (!FARCASTER_SIGNER_UUID) {
-      console.error("FARCASTER_SIGNER_UUID not found in environment");
+      console.error("CRITICAL: FARCASTER_SIGNER_UUID not found in environment");
       return new Response(
         JSON.stringify({ 
           error: "Farcaster signer UUID not configured",
@@ -55,10 +58,29 @@ serve(async (req) => {
     }
 
     // Parse the request body
-    const requestBody = await req.json();
+    let requestBody;
+    try {
+      const bodyText = await req.text();
+      console.log('Raw request body:', bodyText);
+      requestBody = JSON.parse(bodyText);
+      console.log('Parsed request body:', requestBody);
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      return new Response(
+        JSON.stringify({ 
+          error: "Invalid JSON in request body",
+          details: parseError.message
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
+    
     const { content, mediaUrl, mediaType } = requestBody;
     
-    console.log('Request body received:', { content, mediaUrl, mediaType });
+    console.log('Extracted content:', { content, mediaUrl, mediaType });
     
     if (!content && !mediaUrl) {
       console.error("No content or media provided");
@@ -85,18 +107,35 @@ serve(async (req) => {
       castData.embeds = [{ url: mediaUrl }];
     }
 
-    console.log(`Posting to Farcaster via Neynar:`, JSON.stringify(castData, null, 2));
+    console.log('Prepared cast data:', JSON.stringify(castData, null, 2));
 
     // Make the actual API call to Neynar
-    const neynarResponse = await fetch('https://api.neynar.com/v2/farcaster/cast', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Api-Key': NEYNAR_API_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(castData)
-    });
+    console.log('Making request to Neynar API...');
+    
+    let neynarResponse;
+    try {
+      neynarResponse = await fetch('https://api.neynar.com/v2/farcaster/cast', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Api-Key': NEYNAR_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(castData)
+      });
+    } catch (fetchError) {
+      console.error('Fetch error when calling Neynar:', fetchError);
+      return new Response(
+        JSON.stringify({ 
+          error: "Network error when calling Farcaster API", 
+          details: fetchError.message
+        }),
+        { 
+          status: 502, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
 
     console.log('Neynar response status:', neynarResponse.status);
     console.log('Neynar response headers:', Object.fromEntries(neynarResponse.headers.entries()));
@@ -107,6 +146,7 @@ serve(async (req) => {
     let responseData;
     try {
       responseData = JSON.parse(responseText);
+      console.log('Neynar response body (parsed):', responseData);
     } catch (parseError) {
       console.error('Failed to parse Neynar response as JSON:', parseError);
       return new Response(
@@ -143,6 +183,7 @@ serve(async (req) => {
     }
 
     console.log("Farcaster post successful:", responseData);
+    console.log('=== FARCASTER FUNCTION SUCCESS ===');
 
     return new Response(
       JSON.stringify({ 
@@ -158,14 +199,18 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    console.error("=== FARCASTER FUNCTION ERROR ===");
     console.error("Unexpected error in Farcaster function:", error);
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
     console.error("Error stack:", error.stack);
     
     return new Response(
       JSON.stringify({ 
         error: "Internal server error", 
         details: error.message,
-        type: error.name || 'UnknownError'
+        type: error.name || 'UnknownError',
+        timestamp: new Date().toISOString()
       }),
       { 
         status: 500, 
