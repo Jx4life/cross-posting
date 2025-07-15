@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -38,8 +39,17 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
       
       setSigner(signerResponse);
       
-      // Start polling for signer approval
-      startPolling(signerResponse.signer_uuid);
+      // Check if we have an approval URL or need to poll for it
+      if (signerResponse.signer_approval_url) {
+        console.log('Approval URL available, starting polling');
+        startPolling(signerResponse.signer_uuid);
+      } else if (signerResponse.status === 'generated') {
+        console.log('Signer generated but no approval URL yet, will poll for updates');
+        startPolling(signerResponse.signer_uuid);
+      } else {
+        console.log('Starting polling for signer approval');
+        startPolling(signerResponse.signer_uuid);
+      }
       
     } catch (error: any) {
       console.error('Failed to initialize Farcaster signer:', error);
@@ -55,7 +65,12 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
     
     const interval = setInterval(async () => {
       try {
+        console.log('=== POLLING SIGNER STATUS ===');
         const signerStatus = await farcasterService.getSigner(signerUuid);
+        console.log('Polling result:', signerStatus);
+        
+        // Update the signer state with the latest data
+        setSigner(signerStatus);
         
         if (signerStatus.status === 'approved') {
           clearInterval(interval);
@@ -99,10 +114,8 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
         
       } catch (error: any) {
         console.error('Polling error:', error);
-        clearInterval(interval);
-        setPollInterval(null);
-        setIsPolling(false);
-        setError(error.message || 'Failed to check authentication status');
+        // Don't stop polling on temporary errors, just log them
+        console.log('Continuing to poll despite error...');
       }
     }, 2000); // Poll every 2 seconds
     
@@ -249,9 +262,9 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
           <>
             <div className="bg-white p-4 rounded-lg border">
               <div className="flex items-center justify-center">
-                {!qrCodeError ? (
+                {signer.signer_approval_url && !qrCodeError ? (
                   <img 
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(signer.signer_approval_url || '')}`}
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(signer.signer_approval_url)}`}
                     alt="Farcaster QR Code"
                     className="w-48 h-48"
                     onError={handleQrCodeError}
@@ -261,8 +274,12 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
                   <div className="w-48 h-48 bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center rounded-lg">
                     <div className="text-center">
                       <AlertCircle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500">QR Code unavailable</p>
-                      <p className="text-xs text-gray-400">Use the button below</p>
+                      <p className="text-sm text-gray-500">
+                        {signer.status === 'generated' ? 'Waiting for approval URL...' : 'QR Code unavailable'}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {signer.status === 'generated' ? 'Polling for updates...' : 'Use the button below'}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -271,8 +288,10 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
             
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                {!qrCodeError 
+                {signer.signer_approval_url && !qrCodeError
                   ? "Scan this QR code with your Farcaster app to approve the connection"
+                  : signer.status === 'generated'
+                  ? "Setting up your authentication link..."
                   : "Click the button below to open the Farcaster app and approve the connection"
                 }
               </p>
@@ -288,8 +307,8 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
               </Button>
               
               {!signer?.signer_approval_url && (
-                <p className="text-xs text-red-500 mt-1">
-                  No authentication URL available
+                <p className="text-xs text-muted-foreground mt-1">
+                  {signer.status === 'generated' ? 'Waiting for approval URL...' : 'No authentication URL available'}
                 </p>
               )}
             </div>
@@ -297,7 +316,9 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
             {isPolling && (
               <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Waiting for approval...</span>
+                <span>
+                  {signer.status === 'generated' ? 'Setting up authentication...' : 'Waiting for approval...'}
+                </span>
               </div>
             )}
             
@@ -311,15 +332,14 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
               </Button>
             </div>
             
-            {signer.signer_approval_url && (
-              <div className="mt-4 p-2 bg-gray-50 rounded text-xs text-gray-600">
-                <p className="font-medium mb-1">Debug Info:</p>
-                <p className="break-all">URL: {signer.signer_approval_url}</p>
-                <p>UUID: {signer.signer_uuid}</p>
-                <p>Status: {signer.status}</p>
-                <p>QR Error: {qrCodeError ? 'Yes' : 'No'}</p>
-              </div>
-            )}
+            <div className="mt-4 p-2 bg-gray-50 rounded text-xs text-gray-600">
+              <p className="font-medium mb-1">Debug Info:</p>
+              <p className="break-all">URL: {signer.signer_approval_url || 'Not available yet'}</p>
+              <p>UUID: {signer.signer_uuid}</p>
+              <p>Status: {signer.status}</p>
+              <p>QR Error: {qrCodeError ? 'Yes' : 'No'}</p>
+              <p>Has Approval URL: {signer.signer_approval_url ? 'Yes' : 'No'}</p>
+            </div>
           </>
         )}
       </CardContent>
