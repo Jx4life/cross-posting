@@ -3,10 +3,41 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { TikTokOAuth } from "@/services/oauth/TikTokOAuth";
+import { useAuth } from "@/providers/AuthProvider";
 
 export const TikTokConnector = () => {
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const { user } = useAuth();
+
+  // Check connection status on component mount
+  useState(() => {
+    if (user) {
+      checkConnectionStatus();
+    }
+  });
+
+  const checkConnectionStatus = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("post_configurations")
+        .select("is_enabled")
+        .eq("user_id", user.id)
+        .eq("platform", "tiktok")
+        .eq("is_enabled", true)
+        .single();
+      
+      setIsConnected(!!data && !error);
+    } catch (error) {
+      console.error('Error checking TikTok connection status:', error);
+      setIsConnected(false);
+    }
+  };
 
   // Use the exact current URL for redirect URI to ensure it matches TikTok app settings
   const currentUrl = window.location.origin;
@@ -61,6 +92,76 @@ export const TikTokConnector = () => {
     // Note: Don't set isConnecting to false here as we're redirecting
   };
 
+  const handleDisconnectTikTok = async () => {
+    if (!user) return;
+    
+    setIsDisconnecting(true);
+    try {
+      // Initialize TikTok OAuth service
+      const tikTokOAuth = new TikTokOAuth({
+        clientId: 'sbawjmn8p4yrizyuis',
+        clientSecret: 'F51RS5h2sDaZUUxLbDWoe9p5TXEalKxj',
+        redirectUri,
+        scopes: ['user.info.basic', 'video.publish']
+      });
+      
+      // Revoke access
+      await tikTokOAuth.revokeAccess(user.id);
+      
+      setIsConnected(false);
+      toast({
+        title: "TikTok Disconnected",
+        description: "Your TikTok account has been successfully disconnected.",
+      });
+      
+    } catch (error: any) {
+      console.error('TikTok disconnect error:', error);
+      toast({
+        title: "Disconnect Error",
+        description: error.message || "Failed to disconnect TikTok account",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
+
+  const handleValidateConnection = async () => {
+    if (!user) return;
+    
+    setIsVerifying(true);
+    try {
+      // Initialize TikTok OAuth service
+      const tikTokOAuth = new TikTokOAuth({
+        clientId: 'sbawjmn8p4yrizyuis',
+        clientSecret: 'F51RS5h2sDaZUUxLbDWoe9p5TXEalKxj',
+        redirectUri,
+        scopes: ['user.info.basic', 'video.publish']
+      });
+      
+      // Get user info with token refresh
+      const userInfo = await tikTokOAuth.getUserInfoWithRefresh(user.id);
+      
+      toast({
+        title: "Connection Valid",
+        description: `TikTok account @${userInfo.username || userInfo.display_name} is connected and working properly.`,
+      });
+      
+      setIsConnected(true);
+      
+    } catch (error: any) {
+      console.error('TikTok validation error:', error);
+      toast({
+        title: "Connection Issue",
+        description: error.message || "TikTok connection validation failed. You may need to reconnect.",
+        variant: "destructive"
+      });
+      setIsConnected(false);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   const verifyDomain = async () => {
     setIsVerifying(true);
     try {
@@ -88,26 +189,56 @@ export const TikTokConnector = () => {
       <div className="flex items-center space-x-2">
         <div className="h-5 w-5 rounded-full bg-black flex items-center justify-center text-white font-bold text-xs">T</div>
         <span>Connect your TikTok account to post videos</span>
+        {isConnected && (
+          <div className="flex items-center space-x-1 text-green-600">
+            <div className="h-2 w-2 rounded-full bg-green-500"></div>
+            <span className="text-sm">Connected</span>
+          </div>
+        )}
       </div>
       
       <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
-        <Button 
-          variant="outline" 
-          onClick={handleConnectTikTok} 
-          disabled={isConnecting}
-          className="flex-1"
-        >
-          {isConnecting ? "Connecting..." : "Connect TikTok"}
-        </Button>
-        
-        <Button 
-          variant="secondary" 
-          onClick={verifyDomain} 
-          disabled={isVerifying}
-          className="flex-1"
-        >
-          Open TikTok Developer Portal
-        </Button>
+        {!isConnected ? (
+          <>
+            <Button 
+              variant="outline" 
+              onClick={handleConnectTikTok} 
+              disabled={isConnecting}
+              className="flex-1"
+            >
+              {isConnecting ? "Connecting..." : "Connect TikTok"}
+            </Button>
+            
+            <Button 
+              variant="secondary" 
+              onClick={verifyDomain} 
+              disabled={isVerifying}
+              className="flex-1"
+            >
+              Open TikTok Developer Portal
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button 
+              variant="outline" 
+              onClick={handleValidateConnection} 
+              disabled={isVerifying}
+              className="flex-1"
+            >
+              {isVerifying ? "Validating..." : "Validate Connection"}
+            </Button>
+            
+            <Button 
+              variant="destructive" 
+              onClick={handleDisconnectTikTok} 
+              disabled={isDisconnecting}
+              className="flex-1"
+            >
+              {isDisconnecting ? "Disconnecting..." : "Disconnect TikTok"}
+            </Button>
+          </>
+        )}
       </div>
       
       <div className="bg-red-500/20 p-4 rounded-md">
@@ -157,6 +288,16 @@ export const TikTokConnector = () => {
               <strong>Return here and try "Connect TikTok" again</strong>
             </li>
           </ol>
+          
+          <div className="mt-4 p-3 bg-blue-500/20 rounded-md">
+            <h4 className="text-blue-300 font-semibold mb-2">✨ Enhanced Token Management:</h4>
+            <ul className="text-blue-200 text-xs space-y-1">
+              <li>• Automatic token refresh when expired</li>
+              <li>• Connection validation and health checks</li>
+              <li>• Better error handling for authentication issues</li>
+              <li>• Secure token storage and management</li>
+            </ul>
+          </div>
         </div>
         
         <div className="mt-4 p-3 bg-yellow-500/20 rounded-md">

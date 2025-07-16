@@ -1,5 +1,6 @@
 
 import { TikTokAPI, TikTokConfig } from '../tiktok/TikTokAPI';
+import { TikTokTokenManager } from '../tiktok/TikTokTokenManager';
 
 export interface TikTokOAuthConfig {
   clientId: string;
@@ -10,6 +11,7 @@ export interface TikTokOAuthConfig {
 
 export class TikTokOAuth {
   private api: TikTokAPI;
+  private tokenManager: TikTokTokenManager;
   private config: TikTokOAuthConfig;
   
   constructor(config: TikTokOAuthConfig) {
@@ -22,6 +24,7 @@ export class TikTokOAuth {
     
     this.config = sandboxConfig;
     this.api = new TikTokAPI(sandboxConfig);
+    this.tokenManager = new TikTokTokenManager(this.api);
   }
   
   generateAuthUrl(state?: string): string {
@@ -40,7 +43,39 @@ export class TikTokOAuth {
     return this.api.getUserInfo(accessToken);
   }
   
+  /**
+   * Get valid access token for a user, refreshing if necessary
+   */
+  async getValidAccessToken(userId: string): Promise<string> {
+    return this.tokenManager.getValidAccessToken(userId);
+  }
+  
+  /**
+   * Validate if the current access token is still valid
+   */
+  async validateToken(accessToken: string): Promise<boolean> {
+    return this.tokenManager.validateAccessToken(accessToken);
+  }
+  
+  /**
+   * Get user info with automatic token refresh
+   */
+  async getUserInfoWithRefresh(userId: string): Promise<any> {
+    return this.tokenManager.getUserInfoAndUpdate(userId);
+  }
+  
+  /**
+   * Revoke user's TikTok access
+   */
+  async revokeAccess(userId: string): Promise<void> {
+    return this.tokenManager.revokeToken(userId);
+  }
+  
   getAPI(): TikTokAPI {
     return this.api;
+  }
+  
+  getTokenManager(): TikTokTokenManager {
+    return this.tokenManager;
   }
 }
