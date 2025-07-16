@@ -153,6 +153,24 @@ serve(async (req) => {
 
     if (!initResponse.ok) {
       console.error('TikTok video init failed:', initData);
+      
+      // Handle specific TikTok API errors with better messaging
+      if (initData.error?.code === 'unaudited_client_can_only_post_to_private_accounts') {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'TikTok App Review Required',
+            message: 'Your TikTok app needs to be reviewed by TikTok before it can post to public accounts. For now, you can only post to private TikTok accounts. Please ensure your TikTok account privacy is set to "Private" in your TikTok settings, or apply for TikTok API review at https://developers.tiktok.com/doc/content-sharing-guidelines/',
+            code: 'UNAUDITED_CLIENT'
+          }),
+          { 
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      // Handle other TikTok API errors
       throw new Error(`TikTok video init failed: ${initData.error?.message || 'Unknown error'}`);
     }
 
