@@ -110,56 +110,142 @@ serve(async (req) => {
 
     console.log('Found TikTok configuration for user');
 
-    // Get TikTok API credentials from Supabase secrets (for API calls)
-    const tiktokClientId = Deno.env.get('TIKTOK_CLIENT_ID');
-    const tiktokClientSecret = Deno.env.get('TIKTOK_CLIENT_SECRET');
+    // Step 1: Download the video file from the provided URL
+    console.log('Downloading video from:', mediaUrl);
+    const videoResponse = await fetch(mediaUrl);
+    if (!videoResponse.ok) {
+      throw new Error(`Failed to download video: ${videoResponse.statusText}`);
+    }
     
-    if (!tiktokClientId || !tiktokClientSecret) {
-      console.error('Missing TikTok API credentials in secrets');
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'TikTok API credentials not configured' 
-        }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    const videoBuffer = await videoResponse.arrayBuffer();
+    const videoSize = videoBuffer.byteLength;
+    console.log('Video downloaded, size:', videoSize, 'bytes');
+
+    // Step 2: Initialize video upload with TikTok API
+    console.log('Initializing TikTok video upload...');
+    const initResponse = await fetch('https://open.tiktokapis.com/v2/post/publish/video/init/', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        post_info: {
+          title: content || 'Posted via Social Media Manager',
+          description: content || '',
+          privacy_level: 'SELF_ONLY', // Start with private posts for safety
+          disable_duet: false,
+          disable_comment: false,
+          disable_stitch: false,
+          video_cover_timestamp_ms: 1000
+        },
+        source_info: {
+          source: 'FILE_UPLOAD',
+          video_size: videoSize,
+          chunk_size: videoSize, // Upload in one chunk for simplicity
+          total_chunk_count: 1
         }
-      );
+      })
+    });
+
+    const initData = await initResponse.json();
+    console.log('TikTok init response:', initData);
+
+    if (!initResponse.ok) {
+      console.error('TikTok video init failed:', initData);
+      throw new Error(`TikTok video init failed: ${initData.error?.message || 'Unknown error'}`);
     }
 
-    console.log('TikTok API credentials found');
+    const uploadUrl = initData.data.upload_url;
+    const publishId = initData.data.publish_id;
     
-    // For now, simulate the TikTok API call since implementing the full TikTok video upload
-    // requires multiple complex steps (video upload initialization, chunked upload, post creation)
-    // In a real implementation, you would:
-    // 1. Download the video from mediaUrl
-    // 2. Initialize video upload with TikTok API
-    // 3. Upload video in chunks to TikTok's servers
-    // 4. Create the post with the content as description
+    console.log('Upload URL received:', uploadUrl);
+    console.log('Publish ID:', publishId);
+
+    // Step 3: Upload video file to TikTok's servers
+    console.log('Uploading video to TikTok...');
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Range': `bytes 0-${videoSize-1}/${videoSize}`,
+        'Content-Length': videoSize.toString(),
+      },
+      body: videoBuffer
+    });
+
+    if (!uploadResponse.ok) {
+      const uploadError = await uploadResponse.text();
+      console.error('TikTok video upload failed:', uploadError);
+      throw new Error(`TikTok video upload failed: ${uploadResponse.statusText}`);
+    }
+
+    console.log('Video uploaded successfully');
+
+    // Step 4: Publish the video
+    console.log('Publishing video on TikTok...');
+    const publishResponse = await fetch('https://open.tiktokapis.com/v2/post/publish/', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        publish_id: publishId
+      })
+    });
+
+    const publishData = await publishResponse.json();
+    console.log('TikTok publish response:', publishData);
+
+    if (!publishResponse.ok) {
+      console.error('TikTok video publish failed:', publishData);
+      throw new Error(`TikTok video publish failed: ${publishData.error?.message || 'Unknown error'}`);
+    }
+
+    // Step 5: Check publish status (optional but recommended)
+    let publishStatus = 'PROCESSING';
+    let attempts = 0;
+    const maxAttempts = 10;
     
-    console.log('Simulating TikTok video upload with user access token...');
-    console.log('Access token available:', !!config.access_token);
-    console.log('Video URL:', mediaUrl);
-    console.log('Content:', content);
-    
-    // Simulate API processing time
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const videoId = 'tt_' + Date.now();
-    const shareUrl = `https://www.tiktok.com/@user/video/${videoId}`;
-    
-    console.log('TikTok post simulation complete:', { videoId, shareUrl });
+    while (publishStatus === 'PROCESSING' && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+      
+      const statusResponse = await fetch('https://open.tiktokapis.com/v2/post/publish/status/fetch/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          publish_id: publishId
+        })
+      });
+
+      if (statusResponse.ok) {
+        const statusData = await statusResponse.json();
+        publishStatus = statusData.data?.status || 'PROCESSING';
+        console.log(`Publish status check ${attempts + 1}:`, publishStatus);
+        
+        if (publishStatus === 'PUBLISHED') {
+          console.log('Video successfully published to TikTok!');
+          break;
+        } else if (publishStatus === 'FAILED') {
+          throw new Error('TikTok video publish failed during processing');
+        }
+      }
+      
+      attempts++;
+    }
     
     return new Response(
       JSON.stringify({
         success: true,
         data: {
-          video_id: videoId,
-          share_url: shareUrl,
-          status: 'published'
+          publish_id: publishId,
+          status: publishStatus,
+          share_url: publishData.data?.share_url || `https://www.tiktok.com/@user/video/${publishId}`,
         },
-        message: 'Video posted to TikTok successfully (simulated)'
+        message: 'Video uploaded and published to TikTok successfully!'
       }),
       { 
         status: 200, 

@@ -23,16 +23,25 @@ export interface TikTokUserInfo {
   username: string;
 }
 
-export interface TikTokVideoUploadResponse {
-  video_id: string;
-  status: string;
-  upload_url?: string;
+export interface TikTokVideoInitResponse {
+  data: {
+    publish_id: string;
+    upload_url: string;
+  };
 }
 
-export interface TikTokPostResponse {
-  video_id: string;
-  share_url: string;
-  status: string;
+export interface TikTokPublishResponse {
+  data: {
+    publish_id: string;
+    share_url?: string;
+  };
+}
+
+export interface TikTokStatusResponse {
+  data: {
+    status: 'PROCESSING' | 'PUBLISHED' | 'FAILED';
+    fail_reason?: string;
+  };
 }
 
 export class TikTokAPI {
@@ -129,14 +138,16 @@ export class TikTokAPI {
     return data.data.user;
   }
   
-  async uploadVideo(
+  /**
+   * Initialize video upload with TikTok API
+   */
+  async initializeVideoUpload(
     accessToken: string,
-    videoFile: File,
+    videoSize: number,
     title: string,
     description?: string
-  ): Promise<TikTokVideoUploadResponse> {
-    // First, initialize video upload
-    const initResponse = await fetch(`${this.baseUrl}/v2/post/publish/video/init/`, {
+  ): Promise<TikTokVideoInitResponse> {
+    const response = await fetch(`${this.baseUrl}/v2/post/publish/video/init/`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -154,46 +165,45 @@ export class TikTokAPI {
         },
         source_info: {
           source: 'FILE_UPLOAD',
-          video_size: videoFile.size,
-          chunk_size: videoFile.size,
+          video_size: videoSize,
+          chunk_size: videoSize,
           total_chunk_count: 1
         }
       })
     });
     
-    const initData = await initResponse.json();
+    const data = await response.json();
     
-    if (!initResponse.ok) {
-      throw new Error(`TikTok video init failed: ${initData.error?.message || 'Unknown error'}`);
+    if (!response.ok) {
+      throw new Error(`TikTok video init failed: ${data.error?.message || 'Unknown error'}`);
     }
     
-    // Upload video file
-    const uploadUrl = initData.data.upload_url;
-    const publishId = initData.data.publish_id;
-    
-    const formData = new FormData();
-    formData.append('video', videoFile);
-    
-    const uploadResponse = await fetch(uploadUrl, {
-      method: 'PUT',
-      body: formData
-    });
-    
-    if (!uploadResponse.ok) {
-      throw new Error(`TikTok video upload failed: ${uploadResponse.statusText}`);
-    }
-    
-    return {
-      video_id: publishId,
-      status: 'uploaded',
-      upload_url: uploadUrl
-    };
+    return data;
   }
   
-  async publishVideo(
-    accessToken: string,
-    publishId: string
-  ): Promise<TikTokPostResponse> {
+  /**
+   * Upload video file to TikTok's servers
+   */
+  async uploadVideoFile(uploadUrl: string, videoBuffer: ArrayBuffer): Promise<void> {
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Range': `bytes 0-${videoBuffer.byteLength-1}/${videoBuffer.byteLength}`,
+        'Content-Length': videoBuffer.byteLength.toString(),
+      },
+      body: videoBuffer
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`TikTok video upload failed: ${response.statusText} - ${errorText}`);
+    }
+  }
+  
+  /**
+   * Publish the uploaded video
+   */
+  async publishVideo(accessToken: string, publishId: string): Promise<TikTokPublishResponse> {
     const response = await fetch(`${this.baseUrl}/v2/post/publish/`, {
       method: 'POST',
       headers: {
@@ -211,14 +221,13 @@ export class TikTokAPI {
       throw new Error(`TikTok video publish failed: ${data.error?.message || 'Unknown error'}`);
     }
     
-    return {
-      video_id: publishId,
-      share_url: data.data.share_url,
-      status: data.data.status
-    };
+    return data;
   }
   
-  async getVideoStatus(accessToken: string, publishId: string): Promise<any> {
+  /**
+   * Check the status of a published video
+   */
+  async getPublishStatus(accessToken: string, publishId: string): Promise<TikTokStatusResponse> {
     const response = await fetch(`${this.baseUrl}/v2/post/publish/status/fetch/`, {
       method: 'POST',
       headers: {
@@ -233,9 +242,64 @@ export class TikTokAPI {
     const data = await response.json();
     
     if (!response.ok) {
-      throw new Error(`TikTok video status failed: ${data.error?.message || 'Unknown error'}`);
+      throw new Error(`TikTok status check failed: ${data.error?.message || 'Unknown error'}`);
     }
     
-    return data.data;
+    return data;
+  }
+  
+  /**
+   * Complete video upload workflow - convenience method
+   */
+  async uploadAndPublishVideo(
+    accessToken: string,
+    videoFile: File,
+    title: string,
+    description?: string
+  ): Promise<{ publishId: string; shareUrl?: string; status: string }> {
+    // Convert File to ArrayBuffer
+    const videoBuffer = await videoFile.arrayBuffer();
+    
+    // Step 1: Initialize upload
+    const initResult = await this.initializeVideoUpload(
+      accessToken,
+      videoBuffer.byteLength,
+      title,
+      description
+    );
+    
+    // Step 2: Upload video file
+    await this.uploadVideoFile(initResult.data.upload_url, videoBuffer);
+    
+    // Step 3: Publish video
+    const publishResult = await this.publishVideo(accessToken, initResult.data.publish_id);
+    
+    // Step 4: Wait for processing and check status
+    let status = 'PROCESSING';
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (status === 'PROCESSING' && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      try {
+        const statusResult = await this.getPublishStatus(accessToken, initResult.data.publish_id);
+        status = statusResult.data.status;
+        
+        if (status === 'PUBLISHED' || status === 'FAILED') {
+          break;
+        }
+      } catch (error) {
+        console.warn('Status check failed:', error);
+      }
+      
+      attempts++;
+    }
+    
+    return {
+      publishId: initResult.data.publish_id,
+      shareUrl: publishResult.data.share_url,
+      status
+    };
   }
 }
