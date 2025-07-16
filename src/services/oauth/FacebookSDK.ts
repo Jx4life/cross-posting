@@ -44,58 +44,73 @@ export class FacebookSDK implements FacebookSDKService {
         }
       };
 
-      // Check if SDK is already loaded and initialized
-      const checkSDKReady = () => {
-        if (window.FB && window.FB.init) {
-          console.log('Facebook SDK is ready');
-          this.isInitialized = true;
-          resolve();
-          return true;
+      // More thorough SDK readiness check
+      const isSDKFullyReady = async () => {
+        try {
+          // Check if FB object exists and has all required methods
+          if (!window.FB) return false;
+          if (typeof window.FB.init !== 'function') return false;
+          if (typeof window.FB.login !== 'function') return false;
+          if (typeof window.FB.getLoginStatus !== 'function') return false;
+          
+          // Try to call getLoginStatus to verify SDK is actually initialized
+          return new Promise<boolean>((resolve) => {
+            try {
+              window.FB.getLoginStatus((response: any) => {
+                // If we get here without error, SDK is working
+                resolve(true);
+              });
+              
+              // Timeout in case getLoginStatus never responds
+              setTimeout(() => resolve(false), 1000);
+            } catch (error) {
+              resolve(false);
+            }
+          });
+        } catch (error) {
+          console.log('SDK readiness check failed:', error);
+          return false;
         }
-        return false;
       };
-
-      // Try immediate check first
-      if (checkSDKReady()) {
-        return;
-      }
 
       setAppId();
 
-      // Listen for the SDK ready event
-      const handleSDKReady = () => {
-        console.log('Facebook SDK ready event received');
-        if (checkSDKReady()) {
-          window.removeEventListener('fbSdkReady', handleSDKReady);
-        }
-      };
-
-      window.addEventListener('fbSdkReady', handleSDKReady);
-
-      // Polling fallback to check if SDK becomes available
-      let pollCount = 0;
-      const maxPolls = 50; // 5 seconds max
-      
-      const pollForSDK = () => {
-        pollCount++;
-        
-        if (checkSDKReady()) {
-          window.removeEventListener('fbSdkReady', handleSDKReady);
+      // Check if SDK is already ready
+      isSDKFullyReady().then((ready) => {
+        if (ready) {
+          console.log('Facebook SDK is already fully ready');
+          this.isInitialized = true;
+          resolve();
           return;
         }
-        
-        if (pollCount >= maxPolls) {
-          console.error('Facebook SDK failed to load within timeout');
-          window.removeEventListener('fbSdkReady', handleSDKReady);
-          reject(new Error('Facebook SDK failed to load'));
-          return;
-        }
-        
-        setTimeout(pollForSDK, 100);
-      };
 
-      // Start polling after a small delay
-      setTimeout(pollForSDK, 100);
+        // Start periodic checking
+        let attempts = 0;
+        const maxAttempts = 100; // 10 seconds
+        
+        const checkSDK = async () => {
+          attempts++;
+          
+          const ready = await isSDKFullyReady();
+          if (ready) {
+            console.log('Facebook SDK is now fully ready after', attempts, 'attempts');
+            this.isInitialized = true;
+            resolve();
+            return;
+          }
+          
+          if (attempts >= maxAttempts) {
+            console.error('Facebook SDK failed to initialize after', maxAttempts, 'attempts');
+            reject(new Error('Facebook SDK initialization timeout'));
+            return;
+          }
+          
+          setTimeout(checkSDK, 100);
+        };
+
+        // Start checking
+        setTimeout(checkSDK, 100);
+      });
     });
 
     return this.initPromise;
