@@ -133,7 +133,7 @@ serve(async (req) => {
         post_info: {
           title: content || 'Posted via Social Media Manager',
           description: content || '',
-          privacy_level: 'SELF_ONLY', // Start with private posts for safety
+          privacy_level: 'SELF_ONLY', // Private posts only for sandbox
           disable_duet: false,
           disable_comment: false,
           disable_stitch: false,
@@ -212,8 +212,45 @@ serve(async (req) => {
       })
     });
 
-    const publishData = await publishResponse.json();
-    console.log('TikTok publish response:', publishData);
+    console.log('Publish response status:', publishResponse.status);
+    console.log('Publish response headers:', Object.fromEntries(publishResponse.headers.entries()));
+
+    // Check if response is JSON before trying to parse it
+    const contentType = publishResponse.headers.get('content-type');
+    console.log('Publish response content-type:', contentType);
+    
+    let publishData;
+    if (contentType && contentType.includes('application/json')) {
+      publishData = await publishResponse.json();
+      console.log('TikTok publish response (JSON):', publishData);
+    } else {
+      const responseText = await publishResponse.text();
+      console.log('TikTok publish response (non-JSON):', responseText);
+      
+      // If we get HTML or other non-JSON response, it's likely an error page
+      if (responseText.includes('<html>') || responseText.includes('<!DOCTYPE')) {
+        console.error('Received HTML response instead of JSON - likely an authentication or permission error');
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'TikTok Authentication Error',
+            message: 'TikTok returned an error page instead of API response. This usually means there\'s an issue with your app permissions or token. Please try reconnecting your TikTok account.',
+            code: 'HTML_RESPONSE_ERROR',
+            debug: {
+              status: publishResponse.status,
+              contentType: contentType,
+              responsePreview: responseText.substring(0, 200)
+            }
+          }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      throw new Error(`TikTok publish returned non-JSON response: ${responseText}`);
+    }
 
     if (!publishResponse.ok) {
       console.error('TikTok video publish failed:', publishData);
