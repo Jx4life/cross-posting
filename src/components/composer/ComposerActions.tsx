@@ -39,7 +39,7 @@ export const ComposerActions: React.FC<ComposerActionsProps> = ({
         
         <div className="flex flex-col gap-2">
           <SchedulePicker
-            scheduledAt={scheduledAt}
+            scheduledTime={scheduledAt}
             onScheduleChange={onScheduleChange}
           />
           
