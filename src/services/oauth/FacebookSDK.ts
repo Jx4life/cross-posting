@@ -44,28 +44,58 @@ export class FacebookSDK implements FacebookSDKService {
         }
       };
 
+      // Check if SDK is already loaded and initialized
+      const checkSDKReady = () => {
+        if (window.FB && window.FB.init) {
+          console.log('Facebook SDK is ready');
+          this.isInitialized = true;
+          resolve();
+          return true;
+        }
+        return false;
+      };
+
+      // Try immediate check first
+      if (checkSDKReady()) {
+        return;
+      }
+
       setAppId();
 
-      // Wait for SDK to be ready
-      if (window.FB) {
-        this.isInitialized = true;
-        console.log('Facebook SDK already loaded');
-        resolve();
-      } else {
-        window.addEventListener('fbSdkReady', () => {
-          this.isInitialized = true;
-          console.log('Facebook SDK initialized via event');
-          resolve();
-        });
+      // Listen for the SDK ready event
+      const handleSDKReady = () => {
+        console.log('Facebook SDK ready event received');
+        if (checkSDKReady()) {
+          window.removeEventListener('fbSdkReady', handleSDKReady);
+        }
+      };
 
-        // Timeout fallback
-        setTimeout(() => {
-          if (!this.isInitialized) {
-            console.error('Facebook SDK failed to load within timeout');
-            reject(new Error('Facebook SDK failed to load'));
-          }
-        }, 10000);
-      }
+      window.addEventListener('fbSdkReady', handleSDKReady);
+
+      // Polling fallback to check if SDK becomes available
+      let pollCount = 0;
+      const maxPolls = 50; // 5 seconds max
+      
+      const pollForSDK = () => {
+        pollCount++;
+        
+        if (checkSDKReady()) {
+          window.removeEventListener('fbSdkReady', handleSDKReady);
+          return;
+        }
+        
+        if (pollCount >= maxPolls) {
+          console.error('Facebook SDK failed to load within timeout');
+          window.removeEventListener('fbSdkReady', handleSDKReady);
+          reject(new Error('Facebook SDK failed to load'));
+          return;
+        }
+        
+        setTimeout(pollForSDK, 100);
+      };
+
+      // Start polling after a small delay
+      setTimeout(pollForSDK, 100);
     });
 
     return this.initPromise;

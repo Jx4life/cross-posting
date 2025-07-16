@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Facebook, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { facebookSDK } from '@/services/oauth/FacebookSDK';
-import { toast } from './ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 
 interface FacebookLoginButtonProps {
   onStatusChange?: (status: FacebookLoginStatus) => void;
@@ -128,13 +128,20 @@ export const FacebookLoginButton: React.FC<FacebookLoginButtonProps> = ({
     
     try {
       setIsLoading(true);
+      console.log('Attempting Facebook login, current status:', loginStatus.status);
+      
+      // Ensure SDK is initialized before proceeding
+      await facebookSDK.init();
+      console.log('Facebook SDK initialized successfully');
       
       if (loginStatus.status === 'not_authorized') {
         // User is logged into Facebook but not authorized - just need authorization
+        console.log('User logged into Facebook but not authorized, requesting authorization...');
         const response = await facebookSDK.login();
         await statusChangeCallback(response);
       } else {
         // User needs to login to Facebook or re-authorize
+        console.log('User needs to login to Facebook...');
         const response = await facebookSDK.login();
         await statusChangeCallback(response);
       }
@@ -142,15 +149,26 @@ export const FacebookLoginButton: React.FC<FacebookLoginButtonProps> = ({
     } catch (error: any) {
       console.error('Facebook login error:', error);
       
+      let errorMessage = 'Failed to connect to Facebook';
+      
+      if (error.message.includes('FB.init')) {
+        errorMessage = 'Facebook SDK not ready. Please refresh the page and try again.';
+      } else if (error.message.includes('cancelled')) {
+        errorMessage = 'Facebook login was cancelled';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Login Failed",
-        description: error.message || "Failed to connect to Facebook",
+        description: errorMessage,
         variant: "destructive"
       });
       
       // Track login failure
       facebookSDK.trackEvent('fb_login_error', {
-        error: error.message
+        error: error.message,
+        current_status: loginStatus.status
       });
     } finally {
       setIsLoading(false);

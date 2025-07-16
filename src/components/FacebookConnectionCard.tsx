@@ -13,7 +13,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { FacebookLoginButton, FacebookLoginStatus, FacebookUserData } from './FacebookLoginButton';
-import { toast } from './ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 
 interface FacebookConnectionCardProps {
   isEnabled: boolean;
