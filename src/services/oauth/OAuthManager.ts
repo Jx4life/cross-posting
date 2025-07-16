@@ -70,9 +70,28 @@ export class OAuthManager {
   }
   
   async initiateFacebookAuth(): Promise<string> {
-    const authUrl = await this.facebook.getAuthUrl();
-    this.storeAuthState('facebook', { timestamp: Date.now() });
-    return authUrl;
+    try {
+      // Try SDK login first (better UX)
+      const credentials = await this.facebook.loginWithSDK();
+      
+      // Store credentials immediately
+      this.storeCredentials('facebook', {
+        accessToken: credentials.accessToken,
+        expiresAt: credentials.expiresAt,
+        profileId: credentials.user?.id,
+        username: credentials.user?.name
+      });
+
+      // Return success message instead of URL since login is complete
+      return 'success';
+    } catch (error) {
+      console.warn('SDK login failed, falling back to redirect flow:', error);
+      
+      // Fallback to traditional OAuth flow
+      const authUrl = await this.facebook.getAuthUrl();
+      this.storeAuthState('facebook', { timestamp: Date.now() });
+      return authUrl;
+    }
   }
 
   async initiateTikTokAuth(): Promise<string> {

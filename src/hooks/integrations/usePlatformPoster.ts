@@ -129,6 +129,17 @@ export const usePlatformPoster = () => {
         throw new Error(error.message || 'Failed to post to Facebook');
       }
 
+      // Track successful post
+      try {
+        const { facebookSDK } = await import('@/services/oauth/FacebookSDK');
+        facebookSDK.trackEvent('fb_post_success', {
+          content_type: mediaType || 'text',
+          has_media: !!mediaUrl
+        });
+      } catch (trackError) {
+        console.warn('Failed to track Facebook post event:', trackError);
+      }
+
       return {
         success: true,
         platform: 'Facebook',

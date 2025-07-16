@@ -360,13 +360,28 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
           });
           
         } else if (platformId === 'facebook') {
-          const authUrl = await oauthManager.initiateFacebookAuth();
-          window.open(authUrl, '_blank', 'width=600,height=700');
+          const authResult = await oauthManager.initiateFacebookAuth();
           
-          toast({
-            title: "Authentication Started",
-            description: "Complete the authentication in the popup window.",
-          });
+          if (authResult === 'success') {
+            // SDK login completed immediately
+            setConnections(prev => ({
+              ...prev,
+              [platformId]: { ...prev[platformId], isConnected: true, isEnabled: true }
+            }));
+            
+            toast({
+              title: "Connected Successfully",
+              description: "Successfully connected to Facebook!",
+            });
+          } else {
+            // Traditional OAuth flow
+            window.open(authResult, '_blank', 'width=600,height=700');
+            
+            toast({
+              title: "Authentication Started",
+              description: "Complete the authentication in the popup window.",
+            });
+          }
           
         } else if (platformId === 'farcaster') {
           console.log('=== INITIATING FARCASTER QR CONNECTION ===');

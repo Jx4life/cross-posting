@@ -1,4 +1,6 @@
 
+import { facebookSDK } from './FacebookSDK';
+
 export interface FacebookOAuthConfig {
   appId: string;
   redirectUri: string;
@@ -22,6 +24,44 @@ export class FacebookOAuth {
     });
     
     return `https://www.facebook.com/v18.0/dialog/oauth?${params.toString()}`;
+  }
+
+  // Enhanced login using Facebook SDK
+  async loginWithSDK(): Promise<{ accessToken: string; expiresAt?: number; user?: any; pages?: any[] }> {
+    try {
+      const loginResponse = await facebookSDK.login();
+      
+      if (!loginResponse.authResponse) {
+        throw new Error('Facebook login was cancelled or failed');
+      }
+
+      const { accessToken, expiresIn } = loginResponse.authResponse;
+      
+      // Get user info
+      const user = await facebookSDK.api('/me', { fields: 'id,name,picture' });
+      
+      // Get user's pages
+      let pages = [];
+      try {
+        const pagesResponse = await facebookSDK.api('/me/accounts');
+        pages = pagesResponse.data || [];
+      } catch (error) {
+        console.warn('Could not fetch user pages:', error);
+      }
+
+      // Track login event
+      facebookSDK.trackEvent('fb_login');
+
+      return {
+        accessToken,
+        expiresAt: expiresIn ? Date.now() + (expiresIn * 1000) : undefined,
+        user,
+        pages
+      };
+    } catch (error) {
+      console.error('Facebook SDK login error:', error);
+      throw error;
+    }
   }
   
   private generateState(): string {
