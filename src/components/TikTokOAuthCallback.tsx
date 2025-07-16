@@ -13,9 +13,35 @@ export const TikTokOAuthCallback = () => {
   const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(true);
   const [debugInfo, setDebugInfo] = useState<any>({});
-  const { user } = useAuth();
+  const { user, session } = useAuth();
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Wait for auth state to be properly loaded
+  useEffect(() => {
+    const checkAuthState = async () => {
+      // Give some time for auth state to load
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Check current session
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      console.log('Auth state check:', { 
+        user: !!user, 
+        session: !!session, 
+        currentSession: !!currentSession 
+      });
+      
+      setAuthChecked(true);
+    };
+    
+    checkAuthState();
+  }, [user, session]);
 
   useEffect(() => {
+    // Don't process callback until auth state is checked
+    if (!authChecked) {
+      return;
+    }
+
     const handleCallback = async () => {
       try {
         // Capture all URL parameters for debugging
@@ -62,12 +88,16 @@ export const TikTokOAuthCallback = () => {
           return;
         }
 
-        // Check if user is authenticated
-        if (!user) {
-          console.error('User not authenticated');
+        // Check auth state one more time before proceeding
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        const currentUser = currentSession?.user || user;
+        
+        if (!currentUser) {
+          console.error('User not authenticated after session check');
+          console.log('Redirecting to auth page...');
           toast({
             title: "Authentication Required",
-            description: "You must be logged in to connect TikTok",
+            description: "You must be logged in to connect TikTok. Please sign in and try again.",
             variant: "destructive"
           });
           navigate('/auth');
@@ -76,7 +106,7 @@ export const TikTokOAuthCallback = () => {
 
         console.log('Processing TikTok OAuth callback with code:', code);
         console.log('State parameter:', state);
-        console.log('User ID:', user.id);
+        console.log('User ID:', currentUser.id);
 
         // Use the exact same redirect URI that was used for the auth request
         const currentUrl = window.location.origin;
@@ -116,7 +146,7 @@ export const TikTokOAuthCallback = () => {
 
         // Store the TikTok configuration in the database with user_id
         const { error: saveError } = await supabase.from("post_configurations").upsert({
-          user_id: user.id,  // This was missing!
+          user_id: currentUser.id,
           platform: "tiktok" as any,
           access_token: data.access_token,
           refresh_token: data.refresh_token,
@@ -155,7 +185,7 @@ export const TikTokOAuthCallback = () => {
     };
 
     handleCallback();
-  }, [searchParams, navigate, user]);
+  }, [searchParams, navigate, user, session, authChecked]);
 
   const handleRetry = () => {
     navigate('/');
@@ -171,10 +201,13 @@ export const TikTokOAuthCallback = () => {
             <>
               <Loader2 className="h-8 w-8 animate-spin mx-auto text-white" />
               <h2 className="text-xl font-semibold text-white">
-                Connecting TikTok Account...
+                {!authChecked ? "Checking authentication..." : "Connecting TikTok Account..."}
               </h2>
               <p className="text-white/80">
-                Please wait while we complete the TikTok authentication process.
+                {!authChecked 
+                  ? "Please wait while we verify your login status." 
+                  : "Please wait while we complete the TikTok authentication process."
+                }
               </p>
             </>
           ) : hasError ? (
