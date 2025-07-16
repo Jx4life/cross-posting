@@ -6,12 +6,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/providers/AuthProvider';
 
 export const TikTokOAuthCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(true);
   const [debugInfo, setDebugInfo] = useState<any>({});
+  const { user } = useAuth();
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -60,8 +62,21 @@ export const TikTokOAuthCallback = () => {
           return;
         }
 
+        // Check if user is authenticated
+        if (!user) {
+          console.error('User not authenticated');
+          toast({
+            title: "Authentication Required",
+            description: "You must be logged in to connect TikTok",
+            variant: "destructive"
+          });
+          navigate('/auth');
+          return;
+        }
+
         console.log('Processing TikTok OAuth callback with code:', code);
         console.log('State parameter:', state);
+        console.log('User ID:', user.id);
 
         // Use the exact same redirect URI that was used for the auth request
         const currentUrl = window.location.origin;
@@ -99,8 +114,9 @@ export const TikTokOAuthCallback = () => {
 
         console.log('TikTok token exchange successful');
 
-        // Store the TikTok configuration in the database
+        // Store the TikTok configuration in the database with user_id
         const { error: saveError } = await supabase.from("post_configurations").upsert({
+          user_id: user.id,  // This was missing!
           platform: "tiktok" as any,
           access_token: data.access_token,
           refresh_token: data.refresh_token,
@@ -111,7 +127,7 @@ export const TikTokOAuthCallback = () => {
           console.error('Error saving TikTok configuration:', saveError);
           toast({
             title: "TikTok Connection Failed",
-            description: "Failed to save TikTok configuration to database",
+            description: `Failed to save TikTok configuration: ${saveError.message}`,
             variant: "destructive"
           });
           return;
@@ -139,7 +155,7 @@ export const TikTokOAuthCallback = () => {
     };
 
     handleCallback();
-  }, [searchParams, navigate]);
+  }, [searchParams, navigate, user]);
 
   const handleRetry = () => {
     navigate('/');
