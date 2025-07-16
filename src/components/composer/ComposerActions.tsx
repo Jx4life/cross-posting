@@ -1,12 +1,9 @@
 
 import React from "react";
-import { Button } from "../ui/button";
-import { Loader2, CalendarCheck2 } from "lucide-react";
-import { MediaUploader } from "../MediaUploader";
-import { SchedulePicker } from "../SchedulePicker";
-import { PlatformConfigDialog } from "../PlatformConfigDialog";
-import { format } from "date-fns";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { Button } from "@/components/ui/button";
+import { MediaUploader } from "@/components/MediaUploader";
+import { SchedulePicker } from "@/components/SchedulePicker";
+import { Send, Clock } from "lucide-react";
 
 interface ComposerActionsProps {
   isPosting: boolean;
@@ -14,7 +11,9 @@ interface ComposerActionsProps {
   scheduledAt: Date | null;
   onScheduleChange: (date: Date | null) => void;
   onMediaUpload: (url: string, type: 'image' | 'video') => void;
+  onPhotosUpload?: (urls: string[]) => void;
   onPost: () => void;
+  supportBatchPhotos?: boolean;
 }
 
 export const ComposerActions: React.FC<ComposerActionsProps> = ({
@@ -23,48 +22,51 @@ export const ComposerActions: React.FC<ComposerActionsProps> = ({
   scheduledAt,
   onScheduleChange,
   onMediaUpload,
-  onPost
+  onPhotosUpload,
+  onPost,
+  supportBatchPhotos = false
 }) => {
-  const isMobile = useIsMobile();
-  
   return (
-    <div className={`${isMobile ? 'flex flex-col space-y-3' : 'flex items-center justify-between'}`}>
-      <div className="flex items-center space-x-2">
-        <MediaUploader onMediaUpload={onMediaUpload} />
-        <SchedulePicker onScheduleChange={onScheduleChange} />
-        <PlatformConfigDialog />
-      </div>
-      
-      <div className="flex items-center gap-2 mt-2 md:mt-0">
-        {scheduledAt && !isMobile && (
-          <div className="text-xs md:text-sm text-muted-foreground flex items-center">
-            <CalendarCheck2 className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-            <span>Scheduled for: {format(scheduledAt, 'MMM d, h:mm a')}</span>
-          </div>
-        )}
-        
-        <Button 
-          onClick={onPost}
-          className={`bg-purple-600 hover:bg-purple-700 ${isMobile ? 'w-full' : ''}`}
-          disabled={isPosting || !isContentValid}
-        >
-          {isPosting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {scheduledAt ? 'Scheduling...' : 'Posting...'}
-            </>
-          ) : (
-            scheduledAt ? 'Schedule Post' : 'Post'
-          )}
-        </Button>
-      </div>
-      
-      {scheduledAt && isMobile && (
-        <div className="text-xs text-center text-muted-foreground flex items-center justify-center">
-          <CalendarCheck2 className="h-3 w-3 mr-1" />
-          <span>Scheduled for: {format(scheduledAt, 'MMM d, h:mm a')}</span>
+    <div className="flex flex-col space-y-4">
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1">
+          <MediaUploader 
+            onMediaUpload={onMediaUpload}
+            onPhotosUpload={onPhotosUpload}
+            supportBatchPhotos={supportBatchPhotos}
+          />
         </div>
-      )}
+        
+        <div className="flex flex-col gap-2">
+          <SchedulePicker
+            scheduledAt={scheduledAt}
+            onScheduleChange={onScheduleChange}
+          />
+          
+          <Button
+            onClick={onPost}
+            disabled={!isContentValid || isPosting}
+            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium px-6 py-2"
+          >
+            {isPosting ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                Posting...
+              </>
+            ) : scheduledAt ? (
+              <>
+                <Clock className="h-4 w-4 mr-2" />
+                Schedule Post
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4 mr-2" />
+                Post Now
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };

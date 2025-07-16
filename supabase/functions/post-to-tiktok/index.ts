@@ -195,6 +195,31 @@ class TikTokAPIClient {
     });
   }
 
+  async initializePhotoUpload(accessToken: string, photos: Array<{size: number, format: string}>, title: string, description?: string) {
+    return this.makeAPIRequest('/v2/post/publish/photo/init/', {
+      method: 'POST',
+      accessToken,
+      body: {
+        post_info: {
+          title,
+          description: description || '',
+          privacy_level: 'SELF_ONLY',
+          disable_duet: false,
+          disable_comment: false,
+          disable_stitch: false,
+        },
+        source_info: {
+          source: 'FILE_UPLOAD',
+          photo_count: photos.length,
+          photos: photos.map(photo => ({
+            photo_size: photo.size,
+            photo_format: photo.format
+          }))
+        }
+      }
+    });
+  }
+
   async uploadVideoFile(uploadUrl: string, videoBuffer: ArrayBuffer): Promise<void> {
     console.log(`Uploading video file (${videoBuffer.byteLength} bytes)`);
 
@@ -215,7 +240,39 @@ class TikTokAPIClient {
     console.log('Video upload completed successfully');
   }
 
-  async publishVideo(accessToken: string, publishId: string) {
+  async uploadPhotoFiles(uploadUrls: string[], photoBuffers: ArrayBuffer[]): Promise<void> {
+    console.log(`Uploading ${photoBuffers.length} photos`);
+
+    if (uploadUrls.length !== photoBuffers.length) {
+      throw new Error('Mismatch between upload URLs and photo buffers');
+    }
+
+    const uploadPromises = uploadUrls.map(async (uploadUrl, index) => {
+      const photoBuffer = photoBuffers[index];
+      console.log(`Uploading photo ${index + 1} (${photoBuffer.byteLength} bytes)`);
+
+      const response = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Range': `bytes 0-${photoBuffer.byteLength - 1}/${photoBuffer.byteLength}`,
+          'Content-Length': photoBuffer.byteLength.toString(),
+        },
+        body: photoBuffer
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Photo ${index + 1} upload failed: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      console.log(`Photo ${index + 1} upload completed successfully`);
+    });
+
+    await Promise.all(uploadPromises);
+    console.log('All photos uploaded successfully');
+  }
+
+  async publishContent(accessToken: string, publishId: string) {
     return this.makeAPIRequest('/v2/post/publish/', {
       method: 'POST',
       accessToken,
@@ -223,7 +280,7 @@ class TikTokAPIClient {
     });
   }
 
-  async checkVideoStatus(accessToken: string, publishId: string) {
+  async checkContentStatus(accessToken: string, publishId: string) {
     return this.makeAPIRequest('/v2/post/publish/status/fetch/', {
       method: 'POST',
       accessToken,
@@ -253,22 +310,52 @@ class TikTokAPIClient {
   }
 }
 
+async function downloadMediaFiles(mediaUrls: string[]): Promise<ArrayBuffer[]> {
+  const downloadPromises = mediaUrls.map(async (url) => {
+    console.log('Downloading media from:', url);
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to download media: ${response.statusText}`);
+    }
+    return response.arrayBuffer();
+  });
+
+  return Promise.all(downloadPromises);
+}
+
+function determineMediaType(url: string): 'image' | 'video' {
+  const extension = url.split('.').pop()?.toLowerCase() || '';
+  const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+  const videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'webm'];
+  
+  if (imageExtensions.includes(extension)) return 'image';
+  if (videoExtensions.includes(extension)) return 'video';
+  
+  // Default based on common patterns
+  return url.includes('video') || url.includes('.mp4') ? 'video' : 'image';
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { content, mediaUrl, mediaType } = await req.json();
+    const { content, mediaUrl, mediaType, mediaUrls } = await req.json();
     
-    console.log('TikTok posting request:', { content: content?.substring(0, 100), mediaUrl, mediaType });
+    console.log('TikTok posting request:', { 
+      content: content?.substring(0, 100), 
+      mediaUrl, 
+      mediaType,
+      mediaUrls: mediaUrls?.length || 0 
+    });
     
-    // TikTok requires video content
-    if (!mediaUrl || mediaType !== 'video') {
+    // TikTok requires video or photo content
+    if (!mediaUrl && (!mediaUrls || mediaUrls.length === 0)) {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'TikTok requires video content' 
+          error: 'TikTok requires media content (video or photos)' 
         }),
         { 
           status: 400,
@@ -340,109 +427,260 @@ serve(async (req) => {
 
     console.log('Using valid access token for TikTok API');
 
-    // Download the video file
-    console.log('Downloading video from:', mediaUrl);
-    const videoResponse = await fetch(mediaUrl);
-    if (!videoResponse.ok) {
-      throw new Error(`Failed to download video: ${videoResponse.statusText}`);
-    }
-    
-    const videoBuffer = await videoResponse.arrayBuffer();
-    const videoSize = videoBuffer.byteLength;
-    console.log('Video downloaded, size:', videoSize, 'bytes');
-
-    // Validate video size (TikTok limit is ~287MB)
-    const maxSize = 287 * 1024 * 1024;
-    if (videoSize > maxSize) {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `Video file too large: ${Math.round(videoSize / (1024 * 1024))}MB. Maximum allowed: 287MB` 
-        }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
     const title = content?.substring(0, 150) || 'Posted via Social Media Manager';
     const description = content || '';
 
-    // Try direct URL approach first (faster and more reliable)
-    console.log('Attempting TikTok video post using direct URL approach...');
-    try {
-      const directResult = await apiClient.createPostFromURL(accessToken, mediaUrl, title, description);
+    // Handle multiple photos (carousel post)
+    if (mediaUrls && mediaUrls.length > 0) {
+      console.log(`Processing ${mediaUrls.length} photos for carousel post`);
+
+      // Download all photos
+      const photoBuffers = await downloadMediaFiles(mediaUrls);
       
-      console.log('Direct URL post successful:', directResult);
+      // Validate photo sizes
+      const maxPhotoSize = 50 * 1024 * 1024; // 50MB per photo
+      const oversizedPhotos = photoBuffers.filter(buffer => buffer.byteLength > maxPhotoSize);
+      if (oversizedPhotos.length > 0) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: `${oversizedPhotos.length} photo(s) exceed the 50MB limit` 
+          }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      // Prepare photo metadata
+      const photos = photoBuffers.map((buffer, index) => ({
+        size: buffer.byteLength,
+        format: mediaUrls[index].split('.').pop()?.toLowerCase() || 'jpg'
+      }));
+
+      console.log('Initializing TikTok photo upload...');
+      const initResult = await apiClient.initializePhotoUpload(accessToken, photos, title, description);
       
+      const uploadUrls = initResult.data.upload_urls || [];
+      const publishId = initResult.data.publish_id;
+      
+      console.log('Upload URLs received, Publish ID:', publishId);
+
+      // Upload all photos
+      await apiClient.uploadPhotoFiles(uploadUrls, photoBuffers);
+
+      // Publish the photos
+      console.log('Publishing photos on TikTok...');
+      try {
+        await apiClient.publishContent(accessToken, publishId);
+        console.log('Photos published successfully');
+      } catch (publishError) {
+        console.log('Publish step had issues but upload completed:', publishError);
+      }
+
+      // Check final status
+      let finalStatus = 'UPLOADED';
+      try {
+        const statusResult = await apiClient.checkContentStatus(accessToken, publishId);
+        finalStatus = statusResult.data?.status || 'UPLOADED';
+        console.log('Final photo post status:', finalStatus);
+      } catch (statusError) {
+        console.log('Status check failed, but photos were processed:', statusError);
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
           data: {
-            publish_id: directResult.data?.publish_id || 'direct-post',
-            method: 'direct_url',
-            status: 'PROCESSING'
+            publish_id: publishId,
+            status: finalStatus,
+            method: 'photo_upload',
+            photo_count: photoBuffers.length
           },
-          message: 'Video posted to TikTok successfully using direct URL method!'
+          message: finalStatus === 'PUBLISHED' ? 
+            `${photoBuffers.length} photos uploaded and published to TikTok successfully!` :
+            `${photoBuffers.length} photos uploaded to TikTok successfully and are being processed!`
         }),
         { 
           status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
-    } catch (directError) {
-      console.log('Direct URL approach failed, trying file upload method...', directError);
     }
 
-    // Fallback to file upload method
-    console.log('Initializing TikTok video upload...');
-    const initResult = await apiClient.initializeVideoUpload(accessToken, videoSize, title, description);
+    // Handle single media (video or photo)
+    const actualMediaType = mediaType || determineMediaType(mediaUrl);
     
-    const uploadUrl = initResult.data.upload_url;
-    const publishId = initResult.data.publish_id;
+    // Download the media file
+    console.log('Downloading media from:', mediaUrl);
+    const mediaResponse = await fetch(mediaUrl);
+    if (!mediaResponse.ok) {
+      throw new Error(`Failed to download media: ${mediaResponse.statusText}`);
+    }
     
-    console.log('Upload URL received, Publish ID:', publishId);
+    const mediaBuffer = await mediaResponse.arrayBuffer();
+    const mediaSize = mediaBuffer.byteLength;
+    console.log('Media downloaded, size:', mediaSize, 'bytes, type:', actualMediaType);
 
-    // Upload video file
-    await apiClient.uploadVideoFile(uploadUrl, videoBuffer);
-
-    // Publish the video
-    console.log('Publishing video on TikTok...');
-    try {
-      await apiClient.publishVideo(accessToken, publishId);
-      console.log('Video published successfully');
-    } catch (publishError) {
-      console.log('Publish step had issues but upload completed:', publishError);
-    }
-
-    // Check final status
-    let finalStatus = 'UPLOADED';
-    try {
-      const statusResult = await apiClient.checkVideoStatus(accessToken, publishId);
-      finalStatus = statusResult.data?.status || 'UPLOADED';
-      console.log('Final video status:', finalStatus);
-    } catch (statusError) {
-      console.log('Status check failed, but video was processed:', statusError);
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        data: {
-          publish_id: publishId,
-          status: finalStatus,
-          method: 'file_upload'
-        },
-        message: finalStatus === 'PUBLISHED' ? 
-          'Video uploaded and published to TikTok successfully!' :
-          'Video uploaded to TikTok successfully and is being processed!'
-      }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    if (actualMediaType === 'video') {
+      // Handle video upload (existing logic)
+      const maxSize = 287 * 1024 * 1024;
+      if (mediaSize > maxSize) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: `Video file too large: ${Math.round(mediaSize / (1024 * 1024))}MB. Maximum allowed: 287MB` 
+          }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
       }
-    );
+
+      // Try direct URL approach first
+      console.log('Attempting TikTok video post using direct URL approach...');
+      try {
+        const directResult = await apiClient.createPostFromURL(accessToken, mediaUrl, title, description);
+        
+        console.log('Direct URL post successful:', directResult);
+        
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              publish_id: directResult.data?.publish_id || 'direct-post',
+              method: 'direct_url',
+              status: 'PROCESSING'
+            },
+            message: 'Video posted to TikTok successfully using direct URL method!'
+          }),
+          { 
+            status: 200, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      } catch (directError) {
+        console.log('Direct URL approach failed, trying file upload method...', directError);
+      }
+
+      // Fallback to file upload method for video
+      console.log('Initializing TikTok video upload...');
+      const initResult = await apiClient.initializeVideoUpload(accessToken, mediaSize, title, description);
+      
+      const uploadUrl = initResult.data.upload_url;
+      const publishId = initResult.data.publish_id;
+      
+      console.log('Upload URL received, Publish ID:', publishId);
+
+      // Upload video file
+      await apiClient.uploadVideoFile(uploadUrl, mediaBuffer);
+
+      // Publish the video
+      console.log('Publishing video on TikTok...');
+      try {
+        await apiClient.publishContent(accessToken, publishId);
+        console.log('Video published successfully');
+      } catch (publishError) {
+        console.log('Publish step had issues but upload completed:', publishError);
+      }
+
+      // Check final status
+      let finalStatus = 'UPLOADED';
+      try {
+        const statusResult = await apiClient.checkContentStatus(accessToken, publishId);
+        finalStatus = statusResult.data?.status || 'UPLOADED';
+        console.log('Final video status:', finalStatus);
+      } catch (statusError) {
+        console.log('Status check failed, but video was processed:', statusError);
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            publish_id: publishId,
+            status: finalStatus,
+            method: 'file_upload'
+          },
+          message: finalStatus === 'PUBLISHED' ? 
+            'Video uploaded and published to TikTok successfully!' :
+            'Video uploaded to TikTok successfully and is being processed!'
+        }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+
+    } else {
+      // Handle single photo upload
+      const maxPhotoSize = 50 * 1024 * 1024; // 50MB
+      if (mediaSize > maxPhotoSize) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: `Photo file too large: ${Math.round(mediaSize / (1024 * 1024))}MB. Maximum allowed: 50MB` 
+          }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      const photoFormat = mediaUrl.split('.').pop()?.toLowerCase() || 'jpg';
+      const photos = [{ size: mediaSize, format: photoFormat }];
+
+      console.log('Initializing TikTok single photo upload...');
+      const initResult = await apiClient.initializePhotoUpload(accessToken, photos, title, description);
+      
+      const uploadUrls = initResult.data.upload_urls || [];
+      const publishId = initResult.data.publish_id;
+      
+      console.log('Upload URL received, Publish ID:', publishId);
+
+      // Upload photo
+      await apiClient.uploadPhotoFiles(uploadUrls, [mediaBuffer]);
+
+      // Publish the photo
+      console.log('Publishing photo on TikTok...');
+      try {
+        await apiClient.publishContent(accessToken, publishId);
+        console.log('Photo published successfully');
+      } catch (publishError) {
+        console.log('Publish step had issues but upload completed:', publishError);
+      }
+
+      // Check final status
+      let finalStatus = 'UPLOADED';
+      try {
+        const statusResult = await apiClient.checkContentStatus(accessToken, publishId);
+        finalStatus = statusResult.data?.status || 'UPLOADED';
+        console.log('Final photo status:', finalStatus);
+      } catch (statusError) {
+        console.log('Status check failed, but photo was processed:', statusError);
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            publish_id: publishId,
+            status: finalStatus,
+            method: 'photo_upload'
+          },
+          message: finalStatus === 'PUBLISHED' ? 
+            'Photo uploaded and published to TikTok successfully!' :
+            'Photo uploaded to TikTok successfully and is being processed!'
+        }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
     
   } catch (error: any) {
     console.error('TikTok posting error:', error);

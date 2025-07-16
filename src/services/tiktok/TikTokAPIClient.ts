@@ -1,4 +1,3 @@
-
 import { TikTokConfig, TikTokTokenResponse, TikTokUserInfo } from './TikTokAPI';
 
 export interface TikTokAPIError {
@@ -10,6 +9,11 @@ export interface TikTokAPIError {
 export interface TikTokVideoUploadSession {
   publish_id: string;
   upload_url: string;
+}
+
+export interface TikTokPhotoUploadSession {
+  publish_id: string;
+  upload_urls: string[];
 }
 
 export interface TikTokPublishRequest {
@@ -30,6 +34,11 @@ export interface TikTokPublishRequest {
     chunk_size?: number;
     total_chunk_count?: number;
     video_url?: string;
+    photo_count?: number;
+    photos?: Array<{
+      photo_size: number;
+      photo_format: string;
+    }>;
   };
 }
 
@@ -37,6 +46,7 @@ export interface TikTokPublishResponse {
   data: {
     publish_id: string;
     upload_url?: string;
+    upload_urls?: string[];
   };
   error?: TikTokAPIError;
 }
@@ -146,6 +156,49 @@ export class TikTokAPIClient {
   }
 
   /**
+   * Initialize photo upload session
+   */
+  async initializePhotoUpload(
+    accessToken: string,
+    photos: Array<{ size: number; format: string }>,
+    title: string,
+    description?: string
+  ): Promise<TikTokPhotoUploadSession> {
+    const request: TikTokPublishRequest = {
+      post_info: {
+        title,
+        description: description || '',
+        privacy_level: 'SELF_ONLY',
+        disable_duet: false,
+        disable_comment: false,
+        disable_stitch: false,
+      },
+      source_info: {
+        source: 'FILE_UPLOAD',
+        photo_count: photos.length,
+        photos: photos.map(photo => ({
+          photo_size: photo.size,
+          photo_format: photo.format
+        }))
+      }
+    };
+
+    const response = await this.makeAPIRequest<TikTokPublishResponse>(
+      '/v2/post/publish/photo/init/',
+      {
+        method: 'POST',
+        accessToken,
+        body: request
+      }
+    );
+
+    return {
+      publish_id: response.data.publish_id,
+      upload_urls: response.data.upload_urls || []
+    };
+  }
+
+  /**
    * Upload video file to TikTok's servers
    */
   async uploadVideoFile(
@@ -178,9 +231,53 @@ export class TikTokAPIClient {
   }
 
   /**
-   * Publish the uploaded video
+   * Upload photo files to TikTok's servers
    */
-  async publishVideo(
+  async uploadPhotoFiles(
+    uploadUrls: string[],
+    photoBuffers: ArrayBuffer[],
+    onProgress?: (progress: number) => void
+  ): Promise<void> {
+    console.log(`Uploading ${photoBuffers.length} photos`);
+
+    if (uploadUrls.length !== photoBuffers.length) {
+      throw new Error('Mismatch between upload URLs and photo buffers');
+    }
+
+    const uploadPromises = uploadUrls.map(async (uploadUrl, index) => {
+      const photoBuffer = photoBuffers[index];
+      console.log(`Uploading photo ${index + 1} (${photoBuffer.byteLength} bytes)`);
+
+      const response = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Range': `bytes 0-${photoBuffer.byteLength - 1}/${photoBuffer.byteLength}`,
+          'Content-Length': photoBuffer.byteLength.toString(),
+        },
+        body: photoBuffer
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Photo ${index + 1} upload failed: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      console.log(`Photo ${index + 1} upload completed successfully`);
+    });
+
+    await Promise.all(uploadPromises);
+
+    if (onProgress) {
+      onProgress(100);
+    }
+
+    console.log('All photos uploaded successfully');
+  }
+
+  /**
+   * Publish the uploaded content (video or photos)
+   */
+  async publishContent(
     accessToken: string,
     publishId: string
   ): Promise<void> {
@@ -230,7 +327,7 @@ export class TikTokAPIClient {
   }
 
   /**
-   * Create post using direct URL method (alternative approach)
+   * Create post using direct URL method (alternative approach for videos)
    */
   async createPostFromURL(
     accessToken: string,
