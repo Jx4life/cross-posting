@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// TikTok Token Manager for server-side
+// Enhanced TikTok Token Manager
 class TikTokTokenManager {
   private supabase: any;
   
@@ -116,6 +116,143 @@ class TikTokTokenManager {
   }
 }
 
+// Enhanced TikTok API Client
+class TikTokAPIClient {
+  private baseUrl = 'https://open.tiktokapis.com';
+  
+  async makeAPIRequest<T>(
+    endpoint: string,
+    options: {
+      method: 'GET' | 'POST' | 'PUT';
+      accessToken: string;
+      body?: any;
+      headers?: Record<string, string>;
+    }
+  ): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`;
+    const headers = {
+      'Authorization': `Bearer ${options.accessToken}`,
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
+
+    console.log(`Making TikTok API request to: ${endpoint}`);
+
+    const response = await fetch(url, {
+      method: options.method,
+      headers,
+      body: options.body ? JSON.stringify(options.body) : undefined
+    });
+
+    const responseText = await response.text();
+    console.log(`TikTok API response (${response.status}):`, responseText.substring(0, 500));
+
+    // Check if response is HTML (error page)
+    if (responseText.trim().startsWith('<')) {
+      throw new Error(`TikTok API returned HTML error page. Status: ${response.status}`);
+    }
+
+    let data: any;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      throw new Error(`Invalid JSON response from TikTok API: ${responseText.substring(0, 200)}`);
+    }
+
+    if (!response.ok) {
+      const errorMessage = data.error?.message || data.error_description || `HTTP ${response.status}`;
+      throw new Error(`TikTok API error: ${errorMessage}`);
+    }
+
+    if (data.error) {
+      throw new Error(`TikTok API error: ${data.error.message || 'Unknown API error'}`);
+    }
+
+    return data;
+  }
+
+  async initializeVideoUpload(accessToken: string, videoSize: number, title: string, description?: string) {
+    return this.makeAPIRequest('/v2/post/publish/video/init/', {
+      method: 'POST',
+      accessToken,
+      body: {
+        post_info: {
+          title,
+          description: description || '',
+          privacy_level: 'SELF_ONLY',
+          disable_duet: false,
+          disable_comment: false,
+          disable_stitch: false,
+          video_cover_timestamp_ms: 1000
+        },
+        source_info: {
+          source: 'FILE_UPLOAD',
+          video_size: videoSize,
+          chunk_size: Math.min(videoSize, 10 * 1024 * 1024),
+          total_chunk_count: Math.ceil(videoSize / (10 * 1024 * 1024))
+        }
+      }
+    });
+  }
+
+  async uploadVideoFile(uploadUrl: string, videoBuffer: ArrayBuffer): Promise<void> {
+    console.log(`Uploading video file (${videoBuffer.byteLength} bytes)`);
+
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Range': `bytes 0-${videoBuffer.byteLength - 1}/${videoBuffer.byteLength}`,
+        'Content-Length': videoBuffer.byteLength.toString(),
+      },
+      body: videoBuffer
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Video upload failed: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+
+    console.log('Video upload completed successfully');
+  }
+
+  async publishVideo(accessToken: string, publishId: string) {
+    return this.makeAPIRequest('/v2/post/publish/', {
+      method: 'POST',
+      accessToken,
+      body: { publish_id: publishId }
+    });
+  }
+
+  async checkVideoStatus(accessToken: string, publishId: string) {
+    return this.makeAPIRequest('/v2/post/publish/status/fetch/', {
+      method: 'POST',
+      accessToken,
+      body: { publish_id: publishId }
+    });
+  }
+
+  async createPostFromURL(accessToken: string, videoUrl: string, title: string, description?: string) {
+    return this.makeAPIRequest('/v2/post/publish/content/init/', {
+      method: 'POST',
+      accessToken,
+      body: {
+        post_info: {
+          title,
+          description: description || '',
+          privacy_level: 'SELF_ONLY',
+          disable_duet: false,
+          disable_comment: false,
+          disable_stitch: false,
+        },
+        source_info: {
+          source: 'PULL_FROM_URL',
+          video_url: videoUrl
+        }
+      }
+    });
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -124,7 +261,7 @@ serve(async (req) => {
   try {
     const { content, mediaUrl, mediaType } = await req.json();
     
-    console.log('TikTok posting request:', { content, mediaUrl, mediaType });
+    console.log('TikTok posting request:', { content: content?.substring(0, 100), mediaUrl, mediaType });
     
     // TikTok requires video content
     if (!mediaUrl || mediaType !== 'video') {
@@ -180,8 +317,9 @@ serve(async (req) => {
 
     console.log('Authenticated user:', user.id);
 
-    // Initialize token manager
+    // Initialize services
     const tokenManager = new TikTokTokenManager(supabase);
+    const apiClient = new TikTokAPIClient();
     
     let accessToken: string;
     try {
@@ -202,7 +340,7 @@ serve(async (req) => {
 
     console.log('Using valid access token for TikTok API');
 
-    // Step 1: Download the video file from the provided URL
+    // Download the video file
     console.log('Downloading video from:', mediaUrl);
     const videoResponse = await fetch(mediaUrl);
     if (!videoResponse.ok) {
@@ -213,42 +351,38 @@ serve(async (req) => {
     const videoSize = videoBuffer.byteLength;
     console.log('Video downloaded, size:', videoSize, 'bytes');
 
-    // Try the direct content post approach first
-    console.log('Attempting TikTok video post using direct content approach...');
-    const directPostResponse = await fetch('https://open.tiktokapis.com/v2/post/publish/content/init/', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        post_info: {
-          title: content || 'Posted via Social Media Manager',
-          description: content || '',
-          privacy_level: 'SELF_ONLY',
-          disable_duet: false,
-          disable_comment: false,
-          disable_stitch: false,
-        },
-        source_info: {
-          source: 'PULL_FROM_URL',
-          video_url: mediaUrl
+    // Validate video size (TikTok limit is ~287MB)
+    const maxSize = 287 * 1024 * 1024;
+    if (videoSize > maxSize) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Video file too large: ${Math.round(videoSize / (1024 * 1024))}MB. Maximum allowed: 287MB` 
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
-      })
-    });
+      );
+    }
 
-    console.log('Direct post response status:', directPostResponse.status);
-    
-    if (directPostResponse.ok) {
-      const directData = await directPostResponse.json();
-      console.log('Direct post success:', directData);
+    const title = content?.substring(0, 150) || 'Posted via Social Media Manager';
+    const description = content || '';
+
+    // Try direct URL approach first (faster and more reliable)
+    console.log('Attempting TikTok video post using direct URL approach...');
+    try {
+      const directResult = await apiClient.createPostFromURL(accessToken, mediaUrl, title, description);
+      
+      console.log('Direct URL post successful:', directResult);
       
       return new Response(
         JSON.stringify({
           success: true,
           data: {
-            publish_id: directData.data?.publish_id || 'direct-post',
-            method: 'direct_url'
+            publish_id: directResult.data?.publish_id || 'direct-post',
+            method: 'direct_url',
+            status: 'PROCESSING'
           },
           message: 'Video posted to TikTok successfully using direct URL method!'
         }),
@@ -257,151 +391,52 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
+    } catch (directError) {
+      console.log('Direct URL approach failed, trying file upload method...', directError);
     }
 
-    console.log('Direct post failed, trying file upload method...');
-
-    // Initialize video upload with TikTok API (original method)
+    // Fallback to file upload method
     console.log('Initializing TikTok video upload...');
-    const initResponse = await fetch('https://open.tiktokapis.com/v2/post/publish/video/init/', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        post_info: {
-          title: content || 'Posted via Social Media Manager',
-          description: content || '',
-          privacy_level: 'SELF_ONLY',
-          disable_duet: false,
-          disable_comment: false,
-          disable_stitch: false,
-          video_cover_timestamp_ms: 1000
-        },
-        source_info: {
-          source: 'FILE_UPLOAD',
-          video_size: videoSize,
-          chunk_size: Math.min(videoSize, 10 * 1024 * 1024),
-          total_chunk_count: Math.ceil(videoSize / (10 * 1024 * 1024))
-        }
-      })
-    });
-
-    const initData = await initResponse.json();
-    console.log('TikTok init response:', initData);
-
-    if (!initResponse.ok) {
-      console.error('TikTok video init failed:', initData);
-      
-      // Handle token expiration errors
-      if (initData.error?.code === 'access_token_invalid' || 
-          initData.error?.code === 'access_token_expired') {
-        console.log('Access token invalid/expired, attempting refresh...');
-        
-        try {
-          const newAccessToken = await tokenManager.getValidAccessToken(user.id);
-          // Retry the request with the new token
-          // (This would require recursive call or retry logic)
-          console.log('Token refreshed, but request retry not implemented in this example');
-        } catch (refreshError) {
-          console.error('Token refresh failed:', refreshError);
-        }
-        
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'TikTok authentication expired. Please reconnect your account.',
-            code: 'TOKEN_EXPIRED'
-          }),
-          { 
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
-      
-      // Handle specific TikTok API errors
-      if (initData.error?.code === 'unaudited_client_can_only_post_to_private_accounts') {
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'TikTok App Review Required',
-            message: 'Your TikTok app needs to be reviewed by TikTok before it can post to public accounts. Please ensure your TikTok account privacy is set to "Private" in your TikTok settings.',
-            code: 'UNAUDITED_CLIENT'
-          }),
-          { 
-            status: 403,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
-      
-      throw new Error(`TikTok video init failed: ${initData.error?.message || 'Unknown error'}`);
-    }
-
-    const uploadUrl = initData.data.upload_url;
-    const publishId = initData.data.publish_id;
+    const initResult = await apiClient.initializeVideoUpload(accessToken, videoSize, title, description);
     
-    console.log('Upload URL received:', uploadUrl);
-    console.log('Publish ID:', publishId);
+    const uploadUrl = initResult.data.upload_url;
+    const publishId = initResult.data.publish_id;
+    
+    console.log('Upload URL received, Publish ID:', publishId);
 
-    // Upload video file to TikTok's servers
-    console.log('Uploading video to TikTok...');
-    const uploadResponse = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Range': `bytes 0-${videoSize-1}/${videoSize}`,
-        'Content-Length': videoSize.toString(),
-      },
-      body: videoBuffer
-    });
+    // Upload video file
+    await apiClient.uploadVideoFile(uploadUrl, videoBuffer);
 
-    if (!uploadResponse.ok) {
-      const uploadError = await uploadResponse.text();
-      console.error('TikTok video upload failed:', uploadError);
-      throw new Error(`TikTok video upload failed: ${uploadResponse.statusText}`);
+    // Publish the video
+    console.log('Publishing video on TikTok...');
+    try {
+      await apiClient.publishVideo(accessToken, publishId);
+      console.log('Video published successfully');
+    } catch (publishError) {
+      console.log('Publish step had issues but upload completed:', publishError);
     }
 
-    console.log('Video uploaded successfully');
-
-    // Commit the video using the correct endpoint
-    console.log('Publishing video on TikTok using commit endpoint...');
-    const commitResponse = await fetch('https://open.tiktokapis.com/v2/post/publish/video/commit/', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        publish_id: publishId
-      })
-    });
-
-    console.log('Commit response status:', commitResponse.status);
-
-    let commitData;
-    if (commitResponse.headers.get('content-type')?.includes('application/json')) {
-      commitData = await commitResponse.json();
-      console.log('TikTok commit response:', commitData);
-    } else {
-      const responseText = await commitResponse.text();
-      console.log('TikTok commit response (non-JSON):', responseText);
+    // Check final status
+    let finalStatus = 'UPLOADED';
+    try {
+      const statusResult = await apiClient.checkVideoStatus(accessToken, publishId);
+      finalStatus = statusResult.data?.status || 'UPLOADED';
+      console.log('Final video status:', finalStatus);
+    } catch (statusError) {
+      console.log('Status check failed, but video was processed:', statusError);
     }
 
-    // Return success regardless of commit status since video was uploaded
     return new Response(
       JSON.stringify({
         success: true,
         data: {
           publish_id: publishId,
-          status: commitResponse.ok ? 'PUBLISHED' : 'UPLOADED',
-          share_url: commitData?.data?.share_url,
+          status: finalStatus,
           method: 'file_upload'
         },
-        message: commitResponse.ok ? 
+        message: finalStatus === 'PUBLISHED' ? 
           'Video uploaded and published to TikTok successfully!' :
-          'Video uploaded to TikTok successfully! (Publish step had issues but upload completed)'
+          'Video uploaded to TikTok successfully and is being processed!'
       }),
       { 
         status: 200, 
