@@ -18,6 +18,7 @@ import {
 import { oauthManager } from '@/services/oauth/OAuthManager';
 import { FarcasterQRCode } from './FarcasterQRCode';
 import { supabase } from '@/integrations/supabase/client';
+import { FacebookConnectionCard } from './FacebookConnectionCard';
 
 interface ConnectionStatus {
   isConnected: boolean;
@@ -600,97 +601,116 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {platforms.map((platform) => {
-              const connection = connections[platform.id];
-              const PlatformIcon = platform.icon;
-              
-              return (
-                <div
-                  key={platform.id}
-                  className={`p-4 rounded-lg border ${platform.bgColor} transition-all hover:shadow-md`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-3">
-                      <PlatformIcon className={`h-6 w-6 ${platform.color}`} />
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <h3 className="font-medium">{platform.name}</h3>
-                          {platform.supportsOAuth && (
-                            <ExternalLink className="h-3 w-3 text-muted-foreground" />
+          <div className="grid grid-cols-1 gap-4">
+            {/* Enhanced Facebook Connection Card */}
+            <FacebookConnectionCard
+              isEnabled={connections.facebook.isEnabled}
+              onToggleEnabled={(enabled) => toggleEnabled('facebook')}
+              onStatusChange={(isConnected) => {
+                setConnections(prev => ({
+                  ...prev,
+                  facebook: {
+                    ...prev.facebook,
+                    isConnected,
+                    lastConnected: isConnected ? new Date().toISOString() : undefined
+                  }
+                }));
+              }}
+            />
+            
+            {/* Other Platform Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {platforms.filter(platform => platform.id !== 'facebook').map((platform) => {
+                const connection = connections[platform.id];
+                const PlatformIcon = platform.icon;
+                
+                return (
+                  <div
+                    key={platform.id}
+                    className={`p-4 rounded-lg border ${platform.bgColor} transition-all hover:shadow-md`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        <PlatformIcon className={`h-6 w-6 ${platform.color}`} />
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <h3 className="font-medium">{platform.name}</h3>
+                            {platform.supportsOAuth && (
+                              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                            )}
+                          </div>
+                          {connection.isConnected && (
+                            <div className="text-sm text-muted-foreground">
+                              {connection.username && <p>@{connection.username}</p>}
+                              {connection.fid && <p>FID: {connection.fid}</p>}
+                              {connection.displayName && <p>{connection.displayName}</p>}
+                            </div>
                           )}
                         </div>
-                        {connection.isConnected && (
-                          <div className="text-sm text-muted-foreground">
-                            {connection.username && <p>@{connection.username}</p>}
-                            {connection.fid && <p>FID: {connection.fid}</p>}
-                            {connection.displayName && <p>{connection.displayName}</p>}
-                          </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {connection.isConnected ? (
+                          <Badge variant="default" className="bg-green-500 text-white">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Connected
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            Not Connected
+                          </Badge>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          checked={connection.isEnabled}
+                          onCheckedChange={() => toggleEnabled(platform.id)}
+                          disabled={!connection.isConnected}
+                        />
+                        <span className="text-sm text-muted-foreground">
+                          Enable for posting
+                        </span>
+                      </div>
+                      
                       {connection.isConnected ? (
-                        <Badge variant="default" className="bg-green-500 text-white">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Connected
-                        </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDisconnect(platform.id)}
+                          disabled={connection.isConnecting}
+                        >
+                          Disconnect
+                        </Button>
                       ) : (
-                        <Badge variant="secondary">
-                          <AlertCircle className="h-3 w-3 mr-1" />
-                          Not Connected
-                        </Badge>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => handleConnect(platform.id)}
+                          disabled={connection.isConnecting}
+                        >
+                          {connection.isConnecting ? "Connecting..." : "Connect"}
+                        </Button>
                       )}
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        checked={connection.isEnabled}
-                        onCheckedChange={() => toggleEnabled(platform.id)}
-                        disabled={!connection.isConnected}
-                      />
-                      <span className="text-sm text-muted-foreground">
-                        Enable for posting
-                      </span>
-                    </div>
                     
-                    {connection.isConnected ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDisconnect(platform.id)}
-                        disabled={connection.isConnecting}
-                      >
-                        Disconnect
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => handleConnect(platform.id)}
-                        disabled={connection.isConnecting}
-                      >
-                        {connection.isConnecting ? "Connecting..." : "Connect"}
-                      </Button>
+                    {!platform.supportsOAuth && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Demo connection - OAuth integration pending
+                      </p>
+                    )}
+                    
+                    {connection.lastConnected && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Last connected: {new Date(connection.lastConnected).toLocaleDateString()}
+                      </p>
                     )}
                   </div>
-                  
-                  {!platform.supportsOAuth && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Demo connection - OAuth integration pending
-                    </p>
-                  )}
-                  
-                  {connection.lastConnected && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Last connected: {new Date(connection.lastConnected).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </CardContent>
       </Card>

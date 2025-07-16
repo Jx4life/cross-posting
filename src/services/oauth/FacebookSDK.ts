@@ -85,13 +85,39 @@ export class FacebookSDK implements FacebookSDKService {
           console.log('User is connected to Facebook with access token:', response.authResponse?.accessToken);
           
           // Track automatic login detection
-          this.trackEvent('fb_auto_login_detected');
+          this.trackEvent('fb_auto_login_detected', {
+            user_id: response.authResponse?.userID,
+            expires_in: response.authResponse?.expiresIn
+          });
+        } else if (response.status === 'not_authorized') {
+          console.log('User is logged into Facebook but has not authorized the app');
+          
+          // Track not authorized state
+          this.trackEvent('fb_not_authorized');
         } else {
-          console.log('User is not connected to Facebook, status:', response.status);
+          console.log('User is not logged into Facebook, status:', response.status);
+          
+          // Track unknown status
+          this.trackEvent('fb_status_unknown');
         }
         
         resolve(response);
       });
+    });
+  }
+
+  // Force refresh login status (useful after login attempts)
+  async refreshLoginStatus(): Promise<{ status: string; authResponse?: any }> {
+    await this.init();
+    
+    console.log('Refreshing Facebook login status...');
+    
+    return new Promise((resolve) => {
+      // Use true parameter to force fresh check from Facebook servers
+      window.FB.getLoginStatus((response: any) => {
+        console.log('Refreshed Facebook login status:', response);
+        resolve(response);
+      }, true);
     });
   }
 

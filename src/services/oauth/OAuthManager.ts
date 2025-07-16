@@ -71,7 +71,24 @@ export class OAuthManager {
   
   async initiateFacebookAuth(): Promise<string> {
     try {
-      // Try SDK login first (better UX)
+      // Check current connection status first
+      const connectionStatus = await this.facebook.checkConnectionStatus();
+      
+      if (connectionStatus.isConnected && connectionStatus.userData) {
+        // Already connected, store credentials
+        this.storeCredentials('facebook', {
+          accessToken: connectionStatus.authResponse?.accessToken,
+          expiresAt: connectionStatus.authResponse?.expiresIn ? 
+            Date.now() + (connectionStatus.authResponse.expiresIn * 1000) : undefined,
+          profileId: connectionStatus.userData.user?.id,
+          username: connectionStatus.userData.user?.name
+        });
+        
+        console.log('Facebook already connected, credentials updated');
+        return 'success';
+      }
+      
+      // Try SDK login (handles both not_authorized and unknown states)
       const credentials = await this.facebook.loginWithSDK();
       
       // Store credentials immediately
@@ -82,7 +99,7 @@ export class OAuthManager {
         username: credentials.user?.name
       });
 
-      // Return success message instead of URL since login is complete
+      console.log('Facebook SDK login successful, credentials stored');
       return 'success';
     } catch (error) {
       console.warn('SDK login failed, falling back to redirect flow:', error);

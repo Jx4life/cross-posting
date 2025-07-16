@@ -26,9 +26,31 @@ export class FacebookOAuth {
     return `https://www.facebook.com/v18.0/dialog/oauth?${params.toString()}`;
   }
 
-  // Enhanced login using Facebook SDK
-  async loginWithSDK(): Promise<{ accessToken: string; expiresAt?: number; user?: any; pages?: any[] }> {
+  // Enhanced login using Facebook SDK with status handling
+  async loginWithSDK(): Promise<{ accessToken: string; expiresAt?: number; user?: any; pages?: any[]; status: string }> {
     try {
+      // First check current status
+      const currentStatus = await facebookSDK.checkLoginStatus();
+      
+      if (currentStatus.status === 'connected') {
+        // User is already connected, get their data
+        const userData = await facebookSDK.getUserProfileAndPages();
+        
+        if (userData) {
+          facebookSDK.trackEvent('fb_already_connected');
+          
+          return {
+            accessToken: currentStatus.authResponse.accessToken,
+            expiresAt: currentStatus.authResponse.expiresIn ? 
+              Date.now() + (currentStatus.authResponse.expiresIn * 1000) : undefined,
+            user: userData.user,
+            pages: userData.pages,
+            status: 'connected'
+          };
+        }
+      }
+      
+      // Need to login or reauthorize
       const loginResponse = await facebookSDK.login();
       
       if (!loginResponse.authResponse) {
@@ -37,29 +59,80 @@ export class FacebookOAuth {
 
       const { accessToken, expiresIn } = loginResponse.authResponse;
       
-      // Get user info
-      const user = await facebookSDK.api('/me', { fields: 'id,name,picture' });
+      // Get fresh user data after login
+      const userData = await facebookSDK.getUserProfileAndPages();
       
-      // Get user's pages
-      let pages = [];
-      try {
-        const pagesResponse = await facebookSDK.api('/me/accounts');
-        pages = pagesResponse.data || [];
-      } catch (error) {
-        console.warn('Could not fetch user pages:', error);
+      if (!userData) {
+        throw new Error('Failed to fetch user data after login');
       }
 
-      // Track login event
-      facebookSDK.trackEvent('fb_login');
+      // Track login event with status
+      facebookSDK.trackEvent('fb_login_completed', {
+        previous_status: currentStatus.status,
+        user_id: userData.user.id,
+        pages_count: userData.pages.length
+      });
 
       return {
         accessToken,
         expiresAt: expiresIn ? Date.now() + (expiresIn * 1000) : undefined,
-        user,
-        pages
+        user: userData.user,
+        pages: userData.pages,
+        status: 'connected'
       };
     } catch (error) {
       console.error('Facebook SDK login error:', error);
+      
+      // Track login error with more context
+      facebookSDK.trackEvent('fb_login_error', {
+        error_message: error instanceof Error ? error.message : 'Unknown error'
+      });
+      
+      throw error;
+    }
+  }
+
+  // Check if user is currently connected
+  async checkConnectionStatus(): Promise<{ 
+    isConnected: boolean; 
+    status: 'connected' | 'not_authorized' | 'unknown';
+    userData?: { user: any; pages: any[] };
+    authResponse?: any;
+  }> {
+    try {
+      const statusResponse = await facebookSDK.checkLoginStatus();
+      
+      if (statusResponse.status === 'connected') {
+        const userData = await facebookSDK.getUserProfileAndPages();
+        
+        return {
+          isConnected: true,
+          status: 'connected',
+          userData,
+          authResponse: statusResponse.authResponse
+        };
+      }
+      
+      return {
+        isConnected: false,
+        status: statusResponse.status as 'not_authorized' | 'unknown'
+      };
+    } catch (error) {
+      console.error('Error checking Facebook connection status:', error);
+      return {
+        isConnected: false,
+        status: 'unknown'
+      };
+    }
+  }
+
+  // Logout and clear connection
+  async logout(): Promise<void> {
+    try {
+      await facebookSDK.logout();
+      facebookSDK.trackEvent('fb_logout_completed');
+    } catch (error) {
+      console.error('Facebook logout error:', error);
       throw error;
     }
   }
