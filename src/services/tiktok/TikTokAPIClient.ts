@@ -36,6 +36,7 @@ export interface TikTokPublishRequest {
 export interface TikTokPublishResponse {
   data: {
     publish_id: string;
+    upload_url?: string;
   };
   error?: TikTokAPIError;
 }
@@ -137,9 +138,10 @@ export class TikTokAPIClient {
       }
     );
 
+    // Handle the case where upload_url might not be in the response
     return {
       publish_id: response.data.publish_id,
-      upload_url: response.data.upload_url
+      upload_url: response.data.upload_url || ''
     };
   }
 
