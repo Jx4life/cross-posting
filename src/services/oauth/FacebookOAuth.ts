@@ -28,17 +28,33 @@ export class FacebookOAuth {
     return btoa(crypto.getRandomValues(new Uint8Array(32)).toString());
   }
   
-  async exchangeCodeForToken(code: string): Promise<{ access_token: string; expires_in?: number }> {
-    const response = await fetch('/api/auth/facebook/token', {
+  async exchangeCodeForToken(code: string): Promise<{ access_token: string; expires_in?: number; user?: any; pages?: any[] }> {
+    const response = await fetch('/functions/v1/facebook-exchange-code', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, redirect_uri: this.config.redirectUri })
+      body: JSON.stringify({ code, redirectUri: this.config.redirectUri })
     });
     
     if (!response.ok) {
-      throw new Error('Failed to exchange code for token');
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to exchange code for token');
     }
     
     return response.json();
+  }
+
+  async getAuthUrl(): Promise<string> {
+    const response = await fetch('/functions/v1/facebook-auth-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to get auth URL');
+    }
+    
+    const { authUrl } = await response.json();
+    return authUrl;
   }
 }

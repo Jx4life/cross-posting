@@ -70,7 +70,7 @@ export class OAuthManager {
   }
   
   async initiateFacebookAuth(): Promise<string> {
-    const authUrl = this.facebook.generateAuthUrl();
+    const authUrl = await this.facebook.getAuthUrl();
     this.storeAuthState('facebook', { timestamp: Date.now() });
     return authUrl;
   }

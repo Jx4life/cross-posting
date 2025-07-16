@@ -107,12 +107,42 @@ export const usePlatformPoster = () => {
     mediaUrl?: string | null,
     mediaType?: 'image' | 'video' | null
   ): Promise<PostResult> => {
-    // Facebook posting implementation would go here
-    return {
-      success: false,
-      platform: 'Facebook',
-      message: 'Facebook posting not yet implemented'
-    };
+    try {
+      // Get Facebook credentials from local storage
+      const credentials = JSON.parse(localStorage.getItem('facebook_credentials') || '{}');
+      
+      if (!credentials.accessToken) {
+        throw new Error('Facebook not connected. Please connect your Facebook account first.');
+      }
+
+      const { data, error } = await supabase.functions.invoke('post-to-facebook', {
+        body: {
+          content,
+          mediaUrl,
+          mediaType,
+          accessToken: credentials.accessToken,
+          pageId: credentials.selectedPageId // Optional: for posting to a specific page
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to post to Facebook');
+      }
+
+      return {
+        success: true,
+        platform: 'Facebook',
+        message: data.message || 'Posted successfully to Facebook',
+        id: data.postId
+      };
+    } catch (error) {
+      console.error('Facebook posting error:', error);
+      return {
+        success: false,
+        platform: 'Facebook',
+        message: error.message || 'Failed to post to Facebook'
+      };
+    }
   };
 
   const postToInstagram = async (
