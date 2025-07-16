@@ -219,6 +219,30 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
     };
     
     checkConnections();
+    
+    // Additional check for Facebook SDK auto-login after initial check
+    const checkFacebookSDK = async () => {
+      try {
+        console.log('Checking Facebook SDK connection...');
+        const facebookConnected = await oauthManager.checkFacebookConnection();
+        if (facebookConnected) {
+          setConnections(prev => ({
+            ...prev,
+            facebook: {
+              ...prev.facebook,
+              isConnected: true,
+              lastConnected: new Date().toISOString()
+            }
+          }));
+          console.log('Facebook is connected via SDK - auto-detected');
+        }
+      } catch (error) {
+        console.error('Error checking Facebook SDK connection:', error);
+      }
+    };
+    
+    // Check Facebook SDK after a small delay to ensure SDK is loaded
+    setTimeout(checkFacebookSDK, 1000);
   }, []);
 
   // Set up message listener for popup communication

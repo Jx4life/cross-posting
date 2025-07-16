@@ -323,6 +323,36 @@ export class OAuthManager {
     return !!this.getCredentials(platform);
   }
   
+  // New method to check Facebook connection status via SDK
+  async checkFacebookConnection(): Promise<boolean> {
+    try {
+      const { facebookSDK } = await import('./FacebookSDK');
+      const loginStatus = await facebookSDK.checkLoginStatus();
+      
+      if (loginStatus.status === 'connected' && loginStatus.authResponse) {
+        // Store the credentials automatically
+        const profileData = await facebookSDK.getUserProfileAndPages();
+        
+        if (profileData) {
+          this.storeCredentials('facebook', {
+            accessToken: loginStatus.authResponse.accessToken,
+            expiresAt: loginStatus.authResponse.expiresIn ? 
+              Date.now() + (loginStatus.authResponse.expiresIn * 1000) : undefined,
+            profileId: profileData.user.id,
+            username: profileData.user.name
+          });
+          
+          console.log('Auto-stored Facebook credentials from SDK login status');
+          return true;
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error checking Facebook connection:', error);
+      return false;
+    }
+  }
   // Method to store Farcaster signer data
   storeFarcasterSigner(signerData: any): void {
     console.log('Storing Farcaster signer:', signerData);

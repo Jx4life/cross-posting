@@ -49,16 +49,19 @@ export class FacebookSDK implements FacebookSDKService {
       // Wait for SDK to be ready
       if (window.FB) {
         this.isInitialized = true;
+        console.log('Facebook SDK already loaded');
         resolve();
       } else {
         window.addEventListener('fbSdkReady', () => {
           this.isInitialized = true;
+          console.log('Facebook SDK initialized via event');
           resolve();
         });
 
         // Timeout fallback
         setTimeout(() => {
           if (!this.isInitialized) {
+            console.error('Facebook SDK failed to load within timeout');
             reject(new Error('Facebook SDK failed to load'));
           }
         }, 10000);
@@ -66,6 +69,30 @@ export class FacebookSDK implements FacebookSDKService {
     });
 
     return this.initPromise;
+  }
+
+  // Check login status automatically on page load
+  async checkLoginStatus(): Promise<{ status: string; authResponse?: any }> {
+    await this.init();
+    
+    console.log('Checking Facebook login status...');
+    
+    return new Promise((resolve) => {
+      window.FB.getLoginStatus((response: any) => {
+        console.log('Facebook login status response:', response);
+        
+        if (response.status === 'connected') {
+          console.log('User is connected to Facebook with access token:', response.authResponse?.accessToken);
+          
+          // Track automatic login detection
+          this.trackEvent('fb_auto_login_detected');
+        } else {
+          console.log('User is not connected to Facebook, status:', response.status);
+        }
+        
+        resolve(response);
+      });
+    });
   }
 
   async login(): Promise<{ authResponse?: any; status: string }> {
@@ -102,6 +129,37 @@ export class FacebookSDK implements FacebookSDKService {
         resolve(response);
       });
     });
+  }
+
+  // Enhanced method to get user profile with pages if connected
+  async getUserProfileAndPages(): Promise<{ user: any; pages: any[] } | null> {
+    try {
+      const loginStatus = await this.getLoginStatus();
+      
+      if (loginStatus.status !== 'connected' || !loginStatus.authResponse) {
+        return null;
+      }
+
+      console.log('Fetching user profile and pages...');
+
+      // Get user info
+      const user = await this.api('/me', { fields: 'id,name,picture' });
+      
+      // Get user's pages
+      let pages = [];
+      try {
+        const pagesResponse = await this.api('/me/accounts');
+        pages = pagesResponse.data || [];
+        console.log('Found', pages.length, 'Facebook pages');
+      } catch (error) {
+        console.warn('Could not fetch user pages:', error);
+      }
+
+      return { user, pages };
+    } catch (error) {
+      console.error('Error fetching user profile and pages:', error);
+      return null;
+    }
   }
 
   async api(path: string, params: any = {}): Promise<any> {
