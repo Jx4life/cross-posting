@@ -22,9 +22,17 @@ export class FacebookSDK implements FacebookSDKService {
   private initPromise: Promise<void> | null = null;
 
   async init(): Promise<void> {
-    if (this.isInitialized) return;
-    if (this.initPromise) return this.initPromise;
+    if (this.isInitialized) {
+      console.log('Facebook SDK already initialized, skipping init');
+      return;
+    }
+    if (this.initPromise) {
+      console.log('Facebook SDK initialization already in progress, waiting');
+      return this.initPromise;
+    }
 
+    console.log('Starting Facebook SDK initialization process');
+    
     this.initPromise = new Promise((resolve, reject) => {
       // Set Facebook App ID globally for the SDK
       const setAppId = async () => {
@@ -41,25 +49,32 @@ export class FacebookSDK implements FacebookSDKService {
             console.log('Facebook App ID loaded successfully');
             window.FACEBOOK_APP_ID = value;
             
-            // Initialize Facebook SDK with the App ID
-            window.fbAsyncInit = function() {
+            // If FB is already loaded, initialize it with our App ID
+            if (window.FB) {
+              console.log('FB already loaded, initializing with our App ID');
               window.FB.init({
                 appId: value,
                 cookie: true,
                 xfbml: true,
                 version: 'v18.0'
               });
-            };
+            }
           } else if (response.status === 404) {
             console.error('❌ FACEBOOK_APP_ID secret not found in Supabase!');
             console.error('Please add FACEBOOK_APP_ID to your Supabase secrets.');
             console.error('The Facebook login button will not work without this secret.');
+            reject(new Error('FACEBOOK_APP_ID not found in secrets'));
+            return;
           } else {
             console.error('Failed to fetch Facebook App ID:', response.status, response.statusText);
+            reject(new Error('Failed to fetch Facebook App ID'));
+            return;
           }
         } catch (error) {
           console.error('Error fetching Facebook App ID:', error);
           console.error('Please add FACEBOOK_APP_ID to your Supabase secrets.');
+          reject(error);
+          return;
         }
       };
 
@@ -93,6 +108,23 @@ export class FacebookSDK implements FacebookSDKService {
       };
 
       setAppId();
+
+      // Listen for the Facebook SDK loaded event
+      window.addEventListener('fbSdkLoaded', () => {
+        console.log('Received fbSdkLoaded event');
+        // If we have the App ID and FB is loaded, initialize it
+        if (window.FACEBOOK_APP_ID && window.FB) {
+          console.log('Initializing Facebook SDK with App ID after load event');
+          window.FB.init({
+            appId: window.FACEBOOK_APP_ID,
+            cookie: true,
+            xfbml: true,
+            version: 'v18.0'
+          });
+          // Dispatch our own ready event
+          window.dispatchEvent(new CustomEvent('fbSdkReady'));
+        }
+      });
 
       // Check if SDK is already ready
       isSDKFullyReady().then((ready) => {

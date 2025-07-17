@@ -15,19 +15,13 @@
     <!-- Facebook SDK -->
     <script>
       window.fbAsyncInit = function() {
-        FB.init({
-          appId      : window.FACEBOOK_APP_ID || 'demo_app_id',
-          cookie     : true,
-          xfbml      : true,
-          version    : 'v18.0'
-        });
-          
-        FB.AppEvents.logPageView();   
-        
-        // Dispatch event when SDK is ready
-        window.dispatchEvent(new CustomEvent('fbSdkReady'));
+        // We'll initialize from FacebookSDK.ts once we have the App ID
+        console.log('Facebook SDK loaded, waiting for App ID...');
+        // Dispatch event when SDK is loaded (not initialized yet)
+        window.dispatchEvent(new CustomEvent('fbSdkLoaded'));
       };
 
+      // Load the SDK
       (function(d, s, id){
          var js, fjs = d.getElementsByTagName(s)[0];
          if (d.getElementById(id)) {return;}
