@@ -29,6 +29,7 @@ export class FacebookSDK implements FacebookSDKService {
       // Set Facebook App ID globally for the SDK
       const setAppId = async () => {
         try {
+          console.log('Fetching Facebook App ID from Supabase...');
           const response = await fetch('/functions/v1/get-secret', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -37,10 +38,28 @@ export class FacebookSDK implements FacebookSDKService {
           
           if (response.ok) {
             const { value } = await response.json();
+            console.log('Facebook App ID loaded successfully');
             window.FACEBOOK_APP_ID = value;
+            
+            // Initialize Facebook SDK with the App ID
+            window.fbAsyncInit = function() {
+              window.FB.init({
+                appId: value,
+                cookie: true,
+                xfbml: true,
+                version: 'v18.0'
+              });
+            };
+          } else if (response.status === 404) {
+            console.error('❌ FACEBOOK_APP_ID secret not found in Supabase!');
+            console.error('Please add FACEBOOK_APP_ID to your Supabase secrets.');
+            console.error('The Facebook login button will not work without this secret.');
+          } else {
+            console.error('Failed to fetch Facebook App ID:', response.status, response.statusText);
           }
         } catch (error) {
-          console.warn('Could not fetch Facebook App ID:', error);
+          console.error('Error fetching Facebook App ID:', error);
+          console.error('Please add FACEBOOK_APP_ID to your Supabase secrets.');
         }
       };
 
