@@ -37,9 +37,12 @@ export class FacebookSDK implements FacebookSDKService {
       try {
         // First, get the Facebook App ID
         console.log('Fetching Facebook App ID from Supabase...');
-        const response = await fetch('/functions/v1/get-secret', {
+        const response = await fetch('https://eppgmfcebxhjsyhosxtm.supabase.co/functions/v1/get-secret', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwcGdtZmNlYnhoanN5aG9zeHRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ4MTMwMjYsImV4cCI6MjA2MDM4OTAyNn0.WXymdCloDSNwlD4QrOoxxDyzXU4-vD6VS_RgfHErLqg'
+          },
           body: JSON.stringify({ name: 'FACEBOOK_APP_ID' })
         });
         
@@ -177,18 +180,31 @@ export class FacebookSDK implements FacebookSDKService {
   }
 
   async login(): Promise<{ authResponse?: any; status: string }> {
+    console.log('🔵 FacebookSDK: Starting login...');
     await this.init();
     
+    if (!window.FB) {
+      console.error('🔴 FacebookSDK: FB object not available after init');
+      throw new Error('Facebook SDK not loaded');
+    }
+    
+    console.log('🔵 FacebookSDK: FB object available, calling FB.login...');
+    
     return new Promise((resolve, reject) => {
-      window.FB.login((response: any) => {
-        if (response.authResponse) {
+      try {
+        window.FB.login((response: any) => {
+          console.log('🔵 FacebookSDK: FB.login response:', response);
+          
+          // Facebook login always returns a response, even on cancel/error
+          // We should resolve with the response, not reject
           resolve(response);
-        } else {
-          reject(new Error('Facebook login failed'));
-        }
-      }, { 
-        scope: 'pages_manage_posts,pages_read_engagement,pages_show_list,publish_to_groups' 
-      });
+        }, { 
+          scope: 'pages_manage_posts,pages_read_engagement,pages_show_list,publish_to_groups' 
+        });
+      } catch (error) {
+        console.error('🔴 FacebookSDK: Error calling FB.login:', error);
+        reject(error);
+      }
     });
   }
 
