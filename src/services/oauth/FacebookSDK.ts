@@ -33,135 +33,94 @@ export class FacebookSDK implements FacebookSDKService {
 
     console.log('Starting Facebook SDK initialization process');
     
-    this.initPromise = new Promise((resolve, reject) => {
-      // Set Facebook App ID globally for the SDK
-      const setAppId = async () => {
-        try {
-          console.log('Fetching Facebook App ID from Supabase...');
-          const response = await fetch('/functions/v1/get-secret', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: 'FACEBOOK_APP_ID' })
-          });
-          
-          if (response.ok) {
-            const { value } = await response.json();
-            console.log('Facebook App ID loaded successfully');
-            window.FACEBOOK_APP_ID = value;
-            
-            // If FB is already loaded, initialize it with our App ID
-            if (window.FB) {
-              console.log('FB already loaded, initializing with our App ID');
-              window.FB.init({
-                appId: value,
-                cookie: true,
-                xfbml: true,
-                version: 'v18.0'
-              });
-            }
-          } else if (response.status === 404) {
+    this.initPromise = new Promise(async (resolve, reject) => {
+      try {
+        // First, get the Facebook App ID
+        console.log('Fetching Facebook App ID from Supabase...');
+        const response = await fetch('/functions/v1/get-secret', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'FACEBOOK_APP_ID' })
+        });
+        
+        if (!response.ok) {
+          if (response.status === 404) {
             console.error('❌ FACEBOOK_APP_ID secret not found in Supabase!');
             console.error('Please add FACEBOOK_APP_ID to your Supabase secrets.');
             console.error('The Facebook login button will not work without this secret.');
             reject(new Error('FACEBOOK_APP_ID not found in secrets'));
-            return;
           } else {
             console.error('Failed to fetch Facebook App ID:', response.status, response.statusText);
             reject(new Error('Failed to fetch Facebook App ID'));
-            return;
           }
-        } catch (error) {
-          console.error('Error fetching Facebook App ID:', error);
-          console.error('Please add FACEBOOK_APP_ID to your Supabase secrets.');
-          reject(error);
-          return;
-        }
-      };
-
-      // More thorough SDK readiness check
-      const isSDKFullyReady = async () => {
-        try {
-          // Check if FB object exists and has all required methods
-          if (!window.FB) return false;
-          if (typeof window.FB.init !== 'function') return false;
-          if (typeof window.FB.login !== 'function') return false;
-          if (typeof window.FB.getLoginStatus !== 'function') return false;
-          
-          // Try to call getLoginStatus to verify SDK is actually initialized
-          return new Promise<boolean>((resolve) => {
-            try {
-              window.FB.getLoginStatus((response: any) => {
-                // If we get here without error, SDK is working
-                resolve(true);
-              });
-              
-              // Timeout in case getLoginStatus never responds
-              setTimeout(() => resolve(false), 1000);
-            } catch (error) {
-              resolve(false);
-            }
-          });
-        } catch (error) {
-          console.log('SDK readiness check failed:', error);
-          return false;
-        }
-      };
-
-      setAppId();
-
-      // Listen for the Facebook SDK loaded event
-      window.addEventListener('fbSdkLoaded', () => {
-        console.log('Received fbSdkLoaded event');
-        // If we have the App ID and FB is loaded, initialize it
-        if (window.FACEBOOK_APP_ID && window.FB) {
-          console.log('Initializing Facebook SDK with App ID after load event');
-          window.FB.init({
-            appId: window.FACEBOOK_APP_ID,
-            cookie: true,
-            xfbml: true,
-            version: 'v18.0'
-          });
-          // Dispatch our own ready event
-          window.dispatchEvent(new CustomEvent('fbSdkReady'));
-        }
-      });
-
-      // Check if SDK is already ready
-      isSDKFullyReady().then((ready) => {
-        if (ready) {
-          console.log('Facebook SDK is already fully ready');
-          this.isInitialized = true;
-          resolve();
           return;
         }
 
-        // Start periodic checking
-        let attempts = 0;
-        const maxAttempts = 100; // 10 seconds
-        
-        const checkSDK = async () => {
-          attempts++;
-          
-          const ready = await isSDKFullyReady();
-          if (ready) {
-            console.log('Facebook SDK is now fully ready after', attempts, 'attempts');
-            this.isInitialized = true;
-            resolve();
-            return;
-          }
-          
-          if (attempts >= maxAttempts) {
-            console.error('Facebook SDK failed to initialize after', maxAttempts, 'attempts');
-            reject(new Error('Facebook SDK initialization timeout'));
-            return;
-          }
-          
-          setTimeout(checkSDK, 100);
+        const { value: appId } = await response.json();
+        console.log('Facebook App ID loaded successfully');
+        window.FACEBOOK_APP_ID = appId;
+
+        // Wait for Facebook SDK to be loaded
+        const waitForFBSDK = () => {
+          return new Promise<void>((resolveSDK) => {
+            const checkSDK = () => {
+              if (window.FB && typeof window.FB.init === 'function') {
+                console.log('Facebook SDK is available, initializing with App ID:', appId);
+                
+                try {
+                  // Initialize Facebook SDK with proper configuration
+                  window.FB.init({
+                    appId: appId,
+                    cookie: true,
+                    xfbml: true,
+                    version: 'v18.0'
+                  });
+                  
+                  console.log('Facebook SDK initialized successfully');
+                  resolveSDK();
+                } catch (error) {
+                  console.error('Error initializing Facebook SDK:', error);
+                  reject(error);
+                }
+              } else {
+                // Check again in 100ms
+                setTimeout(checkSDK, 100);
+              }
+            };
+            
+            checkSDK();
+          });
         };
 
-        // Start checking
-        setTimeout(checkSDK, 100);
-      });
+        // Wait for SDK to be available and initialize it
+        await waitForFBSDK();
+
+        // Verify SDK is working by testing getLoginStatus
+        await new Promise<void>((resolveTest, rejectTest) => {
+          let testTimeout = setTimeout(() => {
+            rejectTest(new Error('Facebook SDK test timeout - getLoginStatus did not respond'));
+          }, 5000);
+
+          try {
+            window.FB.getLoginStatus((response: any) => {
+              clearTimeout(testTimeout);
+              console.log('Facebook SDK test successful, status:', response.status);
+              this.isInitialized = true;
+              resolveTest();
+            });
+          } catch (error) {
+            clearTimeout(testTimeout);
+            console.error('Facebook SDK test failed:', error);
+            rejectTest(error);
+          }
+        });
+
+        resolve();
+        
+      } catch (error) {
+        console.error('Error during Facebook SDK initialization:', error);
+        reject(error);
+      }
     });
 
     return this.initPromise;
