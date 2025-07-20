@@ -20,15 +20,23 @@ export const usePostIntegrations = () => {
     mediaType?: 'image' | 'video' | null,
     mediaUrls?: string[]
   ) => {
+    // Debug logging
+    console.log('🔍 Auth Debug - Starting crossPost');
+    console.log('🔍 Auth Debug - User:', user);
+    console.log('🔍 Auth Debug - Platforms:', platforms);
+    
     // Check if user has Facebook credentials for Facebook posting
     const facebookCredentials = JSON.parse(localStorage.getItem('facebook_credentials') || '{}');
     const hasFacebookAuth = facebookCredentials.accessToken;
+    console.log('🔍 Auth Debug - Facebook credentials:', { hasFacebookAuth, credentials: facebookCredentials });
     
     // Allow posting if user is logged in OR has Facebook auth and only posting to Facebook
     const onlyFacebookSelected = platforms.facebook && !platforms.twitter && !platforms.lens && 
                                 !platforms.farcaster && !platforms.instagram && !platforms.tiktok && !platforms.youtubeShorts;
+    console.log('🔍 Auth Debug - Only Facebook selected:', onlyFacebookSelected);
     
     if (!user && !(hasFacebookAuth && onlyFacebookSelected)) {
+      console.log('🔍 Auth Debug - Authentication failed');
       toast({
         title: "Authentication Required", 
         description: hasFacebookAuth 
@@ -38,6 +46,8 @@ export const usePostIntegrations = () => {
       });
       return [];
     }
+    
+    console.log('🔍 Auth Debug - Authentication passed, proceeding with post');
     
     if (!content.trim() && !mediaUrl && (!mediaUrls || mediaUrls.length === 0)) {
       toast({
