@@ -20,7 +20,7 @@ export const PostComposer = () => {
     twitter: true,
     lens: true,
     farcaster: true,
-    facebook: false,
+    facebook: true,
     instagram: false,
     tiktok: false,
     youtubeShorts: false
