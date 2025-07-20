@@ -20,10 +20,20 @@ export const usePostIntegrations = () => {
     mediaType?: 'image' | 'video' | null,
     mediaUrls?: string[]
   ) => {
-    if (!user) {
+    // Check if user has Facebook credentials for Facebook posting
+    const facebookCredentials = JSON.parse(localStorage.getItem('facebook_credentials') || '{}');
+    const hasFacebookAuth = facebookCredentials.accessToken;
+    
+    // Allow posting if user is logged in OR has Facebook auth and only posting to Facebook
+    const onlyFacebookSelected = platforms.facebook && !platforms.twitter && !platforms.lens && 
+                                !platforms.farcaster && !platforms.instagram && !platforms.tiktok && !platforms.youtubeShorts;
+    
+    if (!user && !(hasFacebookAuth && onlyFacebookSelected)) {
       toast({
-        title: "Authentication Required",
-        description: "You must be logged in to post",
+        title: "Authentication Required", 
+        description: hasFacebookAuth 
+          ? "Please enable only Facebook to post, or sign up for full access to all platforms"
+          : "You must be logged in to post",
         variant: "destructive"
       });
       return [];
@@ -141,10 +151,11 @@ export const usePostIntegrations = () => {
     mediaType?: 'image' | 'video' | null,
     mediaUrls?: string[]
   ): Promise<SchedulePostResult> => {
+    // Scheduling requires full Supabase authentication
     if (!user) {
       toast({
         title: "Authentication Required",
-        description: "You must be logged in to schedule posts",
+        description: "You must sign up to schedule posts",
         variant: "destructive"
       });
       return { success: false, message: "Authentication required" };
