@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { content, mediaUrl, mediaType, accessToken, pageId } = await req.json();
+    const { content, mediaUrl, mediaType, accessToken, pageId, pageAccessToken } = await req.json();
     
     if (!accessToken) {
       return new Response(
@@ -24,15 +24,26 @@ serve(async (req) => {
       );
     }
 
-    // Determine the endpoint - use page if pageId is provided, otherwise use user profile
-    const endpoint = pageId 
-      ? `https://graph.facebook.com/v18.0/${pageId}/feed`
-      : `https://graph.facebook.com/v18.0/me/feed`;
+    // For posting to Facebook, we need to use pages. Personal profile posting is largely deprecated.
+    if (!pageId || !pageAccessToken) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Page ID and Page Access Token are required for Facebook posting. Personal profile posting is not supported.' 
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
-    // Prepare the post data
+    // Use page endpoint with page access token
+    const endpoint = `https://graph.facebook.com/v18.0/${pageId}/feed`;
+
+    // Prepare the post data using page access token
     const postData: any = {
       message: content,
-      access_token: accessToken
+      access_token: pageAccessToken
     };
 
     // Add media if provided
@@ -40,10 +51,8 @@ serve(async (req) => {
       if (mediaType === 'image') {
         postData.link = mediaUrl;
       } else if (mediaType === 'video') {
-        // For videos, we need to use a different endpoint
-        const videoEndpoint = pageId 
-          ? `https://graph.facebook.com/v18.0/${pageId}/videos`
-          : `https://graph.facebook.com/v18.0/me/videos`;
+        // For videos, use the page video endpoint
+        const videoEndpoint = `https://graph.facebook.com/v18.0/${pageId}/videos`;
         
         const videoResponse = await fetch(videoEndpoint, {
           method: 'POST',
@@ -53,7 +62,7 @@ serve(async (req) => {
           body: JSON.stringify({
             description: content,
             file_url: mediaUrl,
-            access_token: accessToken
+            access_token: pageAccessToken
           })
         });
 

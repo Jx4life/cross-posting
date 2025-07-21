@@ -115,13 +115,28 @@ export const usePlatformPoster = () => {
         throw new Error('Facebook not connected. Please connect your Facebook account first.');
       }
 
+      // Check if user has pages
+      if (!credentials.pages || credentials.pages.length === 0) {
+        throw new Error('No Facebook pages found. You need to have a Facebook page to post content.');
+      }
+
+      // Use the first page if no specific page is selected
+      const selectedPage = credentials.selectedPageId 
+        ? credentials.pages.find((p: any) => p.id === credentials.selectedPageId)
+        : credentials.pages[0];
+
+      if (!selectedPage) {
+        throw new Error('No valid Facebook page found for posting.');
+      }
+
       const { data, error } = await supabase.functions.invoke('post-to-facebook', {
         body: {
           content,
           mediaUrl,
           mediaType,
           accessToken: credentials.accessToken,
-          pageId: credentials.selectedPageId // Optional: for posting to a specific page
+          pageId: selectedPage.id,
+          pageAccessToken: selectedPage.access_token
         }
       });
 
