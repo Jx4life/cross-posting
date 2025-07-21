@@ -24,35 +24,55 @@ serve(async (req) => {
       );
     }
 
-    // For posting to Facebook, we need to use pages. Personal profile posting is largely deprecated.
-    if (!pageId || !pageAccessToken) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'Page ID and Page Access Token are required for Facebook posting. Personal profile posting is not supported.' 
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+    let endpoint: string;
+    let postData: any;
+
+    // For posting to Facebook, we prefer pages but allow personal timeline as fallback
+    if (!pageId) {
+      console.log('No page ID provided, posting to personal timeline (limited functionality)');
+      
+      // Use personal timeline endpoint with user access token
+      endpoint = `https://graph.facebook.com/v18.0/me/feed`;
+      
+      // Prepare the post data using user access token
+      postData = {
+        message: content,
+        access_token: accessToken
+      };
+    } else {
+      if (!pageAccessToken) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Page Access Token is required when posting to a specific page' 
+          }),
+          { 
+            status: 400, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      // Use page endpoint with page access token
+      endpoint = `https://graph.facebook.com/v18.0/${pageId}/feed`;
+      
+      // Prepare the post data using page access token
+      postData = {
+        message: content,
+        access_token: pageAccessToken
+      };
     }
-
-    // Use page endpoint with page access token
-    const endpoint = `https://graph.facebook.com/v18.0/${pageId}/feed`;
-
-    // Prepare the post data using page access token
-    const postData: any = {
-      message: content,
-      access_token: pageAccessToken
-    };
 
     // Add media if provided
     if (mediaUrl) {
       if (mediaType === 'image') {
         postData.link = mediaUrl;
       } else if (mediaType === 'video') {
-        // For videos, use the page video endpoint
-        const videoEndpoint = `https://graph.facebook.com/v18.0/${pageId}/videos`;
+        // For videos, determine the correct endpoint and access token
+        const videoEndpoint = pageId 
+          ? `https://graph.facebook.com/v18.0/${pageId}/videos`
+          : `https://graph.facebook.com/v18.0/me/videos`;
+        
+        const videoAccessToken = pageAccessToken || accessToken;
         
         const videoResponse = await fetch(videoEndpoint, {
           method: 'POST',
@@ -62,7 +82,7 @@ serve(async (req) => {
           body: JSON.stringify({
             description: content,
             file_url: mediaUrl,
-            access_token: pageAccessToken
+            access_token: videoAccessToken
           })
         });
 

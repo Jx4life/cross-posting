@@ -115,18 +115,26 @@ export const usePlatformPoster = () => {
         throw new Error('Facebook not connected. Please connect your Facebook account first.');
       }
 
+      let pageId = null;
+      let pageAccessToken = null;
+
       // Check if user has pages
-      if (!credentials.pages || credentials.pages.length === 0) {
-        throw new Error('No Facebook pages found. You need to have a Facebook page to post content.');
+      if (credentials.pages && credentials.pages.length > 0) {
+        // Use page posting (recommended)
+        const selectedPage = credentials.selectedPageId 
+          ? credentials.pages.find((p: any) => p.id === credentials.selectedPageId)
+          : credentials.pages[0];
+
+        if (selectedPage) {
+          pageId = selectedPage.id;
+          pageAccessToken = selectedPage.access_token;
+        }
       }
 
-      // Use the first page if no specific page is selected
-      const selectedPage = credentials.selectedPageId 
-        ? credentials.pages.find((p: any) => p.id === credentials.selectedPageId)
-        : credentials.pages[0];
-
-      if (!selectedPage) {
-        throw new Error('No valid Facebook page found for posting.');
+      // If no pages available, we'll try posting to personal timeline
+      // Note: This has limited functionality and may not work for all content types
+      if (!pageId) {
+        console.warn('No Facebook pages found, attempting to post to personal timeline');
       }
 
       const { data, error } = await supabase.functions.invoke('post-to-facebook', {
@@ -135,8 +143,8 @@ export const usePlatformPoster = () => {
           mediaUrl,
           mediaType,
           accessToken: credentials.accessToken,
-          pageId: selectedPage.id,
-          pageAccessToken: selectedPage.access_token
+          pageId: pageId,
+          pageAccessToken: pageAccessToken || credentials.accessToken
         }
       });
 
