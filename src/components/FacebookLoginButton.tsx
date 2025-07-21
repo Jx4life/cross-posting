@@ -68,6 +68,18 @@ export const FacebookLoginButton: React.FC<FacebookLoginButtonProps> = ({
           setUserData(newUserData);
           onUserData?.(newUserData);
           
+          // Store Facebook credentials in localStorage for posting
+          const credentials = {
+            accessToken: response.authResponse.accessToken,
+            userID: response.authResponse.userID,
+            expiresIn: response.authResponse.expiresIn,
+            user: userProfileAndPages.user,
+            pages: userProfileAndPages.pages,
+            selectedPageId: null // User can select a page later
+          };
+          localStorage.setItem('facebook_credentials', JSON.stringify(credentials));
+          console.log('✅ Facebook credentials stored for posting:', credentials);
+          
           toast({
             title: "Connected to Facebook",
             description: `Logged in as ${userProfileAndPages.user.name}`,
@@ -189,6 +201,10 @@ export const FacebookLoginButton: React.FC<FacebookLoginButtonProps> = ({
       setUserData(null);
       onStatusChange?.({ status: 'unknown' });
       onUserData?.(null);
+      
+      // Clear stored credentials
+      localStorage.removeItem('facebook_credentials');
+      console.log('✅ Facebook credentials cleared from localStorage');
       
       toast({
         title: "Logged Out",
