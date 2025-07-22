@@ -12,9 +12,20 @@ serve(async (req) => {
   }
 
   try {
+    console.log('📨 Facebook post request received');
     const { content, mediaUrl, mediaType, accessToken, pageId, pageAccessToken } = await req.json();
     
+    console.log('📋 Request data:', { 
+      content: content?.substring(0, 50) + '...', 
+      mediaUrl: mediaUrl ? 'present' : 'none',
+      mediaType, 
+      accessToken: accessToken ? 'present' : 'missing',
+      pageId: pageId || 'none',
+      pageAccessToken: pageAccessToken ? 'present' : 'missing'
+    });
+    
     if (!accessToken) {
+      console.error('❌ No access token provided');
       return new Response(
         JSON.stringify({ error: 'Access token is required' }),
         { 
