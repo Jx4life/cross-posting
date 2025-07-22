@@ -32,6 +32,15 @@ image_transformation.enabled = true
 [functions.get-secret]
 verify_jwt = false
 
+[functions.post-to-facebook]
+verify_jwt = false
+
+[functions.facebook-auth-url]
+verify_jwt = false
+
+[functions.facebook-exchange-code]
+verify_jwt = false
+
 [functions.post-to-farcaster]
 verify_jwt = false
 
