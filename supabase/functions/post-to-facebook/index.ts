@@ -13,7 +13,22 @@ serve(async (req) => {
 
   try {
     console.log('📨 Facebook post request received');
-    const { content, mediaUrl, mediaType, accessToken, pageId, pageAccessToken } = await req.json();
+    
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      console.error('❌ Failed to parse request body:', parseError);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid request body' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    
+    const { content, mediaUrl, mediaType, accessToken, pageId, pageAccessToken } = requestBody;
     
     console.log('📋 Request data:', { 
       content: content?.substring(0, 50) + '...', 
