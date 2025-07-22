@@ -111,6 +111,8 @@ export const usePlatformPoster = () => {
       // Get Facebook credentials from local storage
       const credentials = JSON.parse(localStorage.getItem('facebook_credentials') || '{}');
       
+      console.log('Facebook credentials from localStorage:', credentials);
+      
       if (!credentials.accessToken) {
         throw new Error('Facebook not connected. Please connect your Facebook account first.');
       }
@@ -119,6 +121,7 @@ export const usePlatformPoster = () => {
       let pageAccessToken = null;
 
       // Check if user has pages
+      console.log('Checking for pages:', credentials.pages);
       if (credentials.pages && credentials.pages.length > 0) {
         // Use page posting (recommended)
         const selectedPage = credentials.selectedPageId 
