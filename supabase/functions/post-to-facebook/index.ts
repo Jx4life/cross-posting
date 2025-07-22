@@ -27,7 +27,7 @@ serve(async (req) => {
     if (!accessToken) {
       console.error('❌ No access token provided');
       return new Response(
-        JSON.stringify({ error: 'Access token is required' }),
+        JSON.stringify({ success: false, error: 'Access token is required' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -54,6 +54,7 @@ serve(async (req) => {
       if (!pageAccessToken) {
         return new Response(
           JSON.stringify({ 
+            success: false,
             error: 'Page Access Token is required when posting to a specific page' 
           }),
           { 
@@ -100,7 +101,17 @@ serve(async (req) => {
         const videoResult = await videoResponse.json();
         
         if (!videoResponse.ok) {
-          throw new Error(videoResult.error?.message || 'Failed to post video to Facebook');
+          console.error('❌ Video upload failed:', videoResult);
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              error: videoResult.error?.message || 'Failed to post video to Facebook'
+            }),
+            { 
+              status: 500, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
         }
 
         return new Response(
@@ -117,6 +128,9 @@ serve(async (req) => {
       }
     }
 
+    console.log('📤 Posting to Facebook endpoint:', endpoint);
+    console.log('📋 Post data:', { ...postData, access_token: 'hidden' });
+
     // Post to Facebook
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -127,9 +141,20 @@ serve(async (req) => {
     });
 
     const result = await response.json();
+    console.log('📥 Facebook API response:', response.status, result);
     
     if (!response.ok) {
-      throw new Error(result.error?.message || 'Failed to post to Facebook');
+      console.error('❌ Facebook API error:', result);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: result.error?.message || 'Failed to post to Facebook'
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     return new Response(
@@ -144,7 +169,7 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error('Facebook posting error:', error);
+    console.error('❌ Facebook posting error:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 
