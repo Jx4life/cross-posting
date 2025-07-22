@@ -151,7 +151,10 @@ export const usePlatformPoster = () => {
         }
       });
 
+      console.log('📤 Facebook post response:', { data, error });
+
       if (error) {
+        console.error('❌ Supabase function invoke error:', error);
         throw new Error(error.message || 'Failed to post to Facebook');
       }
 
