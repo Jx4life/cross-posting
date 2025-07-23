@@ -10,9 +10,11 @@ import {
   User, 
   ExternalLink,
   Settings,
-  Loader2
+  Loader2,
+  Building2
 } from 'lucide-react';
 import { FacebookLoginButton, FacebookLoginStatus, FacebookUserData } from './FacebookLoginButton';
+import { FacebookPageSelector } from './FacebookPageSelector';
 import { toast } from '@/hooks/use-toast';
 
 interface FacebookConnectionCardProps {
@@ -29,14 +31,46 @@ export const FacebookConnectionCard: React.FC<FacebookConnectionCardProps> = ({
   const [loginStatus, setLoginStatus] = useState<FacebookLoginStatus>({ status: 'loading' });
   const [userData, setUserData] = useState<FacebookUserData | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [showPageSelector, setShowPageSelector] = useState(false);
+  const [selectedTarget, setSelectedTarget] = useState<any>(null);
+
+  // Load saved Facebook target selection
+  useEffect(() => {
+    const savedTarget = localStorage.getItem('facebookPostTarget');
+    if (savedTarget) {
+      try {
+        setSelectedTarget(JSON.parse(savedTarget));
+      } catch (error) {
+        console.error('Error parsing saved Facebook target:', error);
+      }
+    }
+  }, []);
 
   const handleStatusChange = (status: FacebookLoginStatus) => {
     setLoginStatus(status);
     onStatusChange?.(status.status === 'connected');
+    
+    // Show page selector when first connected
+    if (status.status === 'connected' && userData && !selectedTarget) {
+      setShowPageSelector(true);
+    }
   };
 
   const handleUserData = (data: FacebookUserData | null) => {
     setUserData(data);
+    
+    // Show page selector when user data is available and no target is selected
+    if (data && loginStatus.status === 'connected' && !selectedTarget) {
+      setShowPageSelector(true);
+    }
+  };
+
+  const handlePageSelected = (pageData: { pageId: string; pageAccessToken: string; pageName: string } | null) => {
+    // Update the selected target state
+    const savedTarget = localStorage.getItem('facebookPostTarget');
+    if (savedTarget) {
+      setSelectedTarget(JSON.parse(savedTarget));
+    }
   };
 
   const getStatusColor = () => {
@@ -192,15 +226,55 @@ export const FacebookConnectionCard: React.FC<FacebookConnectionCardProps> = ({
           </div>
         )}
 
-        {/* Settings button for connected state */}
+        {/* Settings and page selection for connected state */}
         {loginStatus.status === 'connected' && (
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" className="gap-2">
-              <Settings className="h-4 w-4" />
-              Posting Settings
-            </Button>
+          <div className="space-y-2">
+            {/* Current posting target */}
+            {selectedTarget && (
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-2 text-sm">
+                  {selectedTarget.type === 'page' ? (
+                    <>
+                      <Building2 className="h-4 w-4 text-blue-600" />
+                      <span className="font-medium">Posting to:</span>
+                      <span>{selectedTarget.pageName}</span>
+                    </>
+                  ) : (
+                    <>
+                      <User className="h-4 w-4 text-blue-600" />
+                      <span className="font-medium">Posting to:</span>
+                      <span>Personal Timeline</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2"
+                onClick={() => setShowPageSelector(true)}
+              >
+                <Settings className="h-4 w-4" />
+                {selectedTarget ? 'Change Target' : 'Select Page'}
+              </Button>
+              <Button variant="outline" size="sm" className="gap-2">
+                <ExternalLink className="h-4 w-4" />
+                View on Facebook
+              </Button>
+            </div>
           </div>
         )}
+
+        {/* Page Selector Dialog */}
+        <FacebookPageSelector
+          isOpen={showPageSelector}
+          onClose={() => setShowPageSelector(false)}
+          onPageSelected={handlePageSelected}
+          userData={userData}
+        />
       </CardContent>
     </Card>
   );

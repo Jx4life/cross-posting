@@ -117,27 +117,41 @@ export const usePlatformPoster = () => {
         throw new Error('Facebook not connected. Please connect your Facebook account first.');
       }
 
+      // Get Facebook target selection from localStorage
+      const savedTarget = localStorage.getItem('facebookPostTarget');
       let pageId = null;
       let pageAccessToken = null;
+      
+      if (savedTarget) {
+        try {
+          const target = JSON.parse(savedTarget);
+          if (target.type === 'page') {
+            pageId = target.pageId;
+            pageAccessToken = target.pageAccessToken;
+            console.log('📄 Using saved Facebook page:', target.pageName);
+          } else {
+            console.log('👤 Using personal Facebook timeline');
+          }
+        } catch (error) {
+          console.error('Error parsing saved Facebook target:', error);
+        }
+      }
 
-      // Check if user has pages
-      console.log('Checking for pages:', credentials.pages);
-      if (credentials.pages && credentials.pages.length > 0) {
-        // Use page posting (recommended)
+      // Fallback: Check if user has pages available in credentials for backward compatibility
+      if (!pageId && credentials.pages && credentials.pages.length > 0) {
         const selectedPage = credentials.selectedPageId 
           ? credentials.pages.find((p: any) => p.id === credentials.selectedPageId)
           : credentials.pages[0];
 
-        if (selectedPage) {
+        if (selectedPage && selectedPage.access_token) {
           pageId = selectedPage.id;
           pageAccessToken = selectedPage.access_token;
+          console.log('📄 Using fallback Facebook page:', selectedPage.name);
+        } else {
+          console.warn('No valid Facebook page access token found, attempting personal timeline');
         }
-      }
-
-      // If no pages available, we'll try posting to personal timeline
-      // Note: This has limited functionality and may not work for all content types
-      if (!pageId) {
-        console.warn('No Facebook pages found, attempting to post to personal timeline');
+      } else if (!savedTarget) {
+        console.warn('No Facebook target selected and no pages available, posting to personal timeline');
       }
 
       const { data, error } = await supabase.functions.invoke('post-to-facebook', {
