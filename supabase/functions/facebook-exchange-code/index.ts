@@ -53,16 +53,28 @@ serve(async (req) => {
       throw new Error(userData.error?.message || 'Failed to get user info');
     }
 
-    // Get user's Facebook pages
+    // Get user's Facebook pages with detailed permissions and access tokens
     const pagesResponse = await fetch(
-      `https://graph.facebook.com/v18.0/me/accounts?access_token=${tokenData.access_token}`
+      `https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,category,tasks,perms&access_token=${tokenData.access_token}`
     );
     
     const pagesData = await pagesResponse.json();
     let pages = [];
     
+    console.log('Facebook pages response:', JSON.stringify(pagesData, null, 2));
+    
     if (pagesResponse.ok && pagesData.data) {
-      pages = pagesData.data;
+      pages = pagesData.data.map(page => ({
+        id: page.id,
+        name: page.name,
+        category: page.category || 'Unknown',
+        access_token: page.access_token,
+        tasks: page.tasks || [],
+        perms: page.perms || []
+      }));
+      console.log(`Found ${pages.length} Facebook pages for user`);
+    } else {
+      console.warn('No pages found or error fetching pages:', pagesData);
     }
 
     return new Response(
