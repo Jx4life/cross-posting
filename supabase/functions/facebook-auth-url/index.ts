@@ -29,7 +29,7 @@ serve(async (req) => {
     const params = new URLSearchParams({
       client_id: FACEBOOK_APP_ID,
       redirect_uri: redirectUri,
-      scope: 'pages_manage_posts,pages_read_engagement,pages_show_list,publish_to_groups',
+      scope: 'publish_to_groups,pages_manage_posts,pages_read_engagement,pages_show_list,user_posts',
       response_type: 'code',
       state: crypto.randomUUID()
     });
