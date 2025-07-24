@@ -44,8 +44,16 @@ export const FacebookPageSelector: React.FC<FacebookPageSelectorProps> = ({
     if (isOpen) {
       setSelectedPageId(null);
       setIsPersonalSelected(false);
+      
+      // Debug: Log what userData we received
+      console.log('FacebookPageSelector opened with userData:', userData);
+      console.log('Pages found:', userData?.pages?.length || 0);
+      
+      // Check localStorage for existing credentials
+      const storedCredentials = localStorage.getItem('facebook_credentials');
+      console.log('Stored Facebook credentials:', storedCredentials);
     }
-  }, [isOpen]);
+  }, [isOpen, userData]);
 
   const handleSelectPersonal = () => {
     setSelectedPageId(null);
