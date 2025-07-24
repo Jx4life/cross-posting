@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -127,6 +127,9 @@ export const FacebookPageSelector: React.FC<FacebookPageSelectorProps> = ({
             <Facebook className="h-5 w-5 text-blue-600" />
             Choose Where to Post
           </DialogTitle>
+          <DialogDescription>
+            Select where you'd like to share your posts on Facebook
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
