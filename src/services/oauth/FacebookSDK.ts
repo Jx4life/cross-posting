@@ -199,7 +199,7 @@ export class FacebookSDK implements FacebookSDKService {
           // We should resolve with the response, not reject
           resolve(response);
         }, { 
-          scope: 'pages_manage_posts,pages_read_engagement,pages_show_list,publish_to_groups' 
+          scope: 'pages_manage_posts,pages_read_engagement,pages_show_list,publish_to_groups,user_posts,business_management' 
         });
       } catch (error) {
         console.error('🔴 FacebookSDK: Error calling FB.login:', error);
@@ -242,14 +242,30 @@ export class FacebookSDK implements FacebookSDKService {
       // Get user info
       const user = await this.api('/me', { fields: 'id,name,picture' });
       
-      // Get user's pages
+      // Get user's pages with detailed permissions and access tokens
       let pages = [];
       try {
-        const pagesResponse = await this.api('/me/accounts');
-        pages = pagesResponse.data || [];
-        console.log('Found', pages.length, 'Facebook pages');
+        const pagesResponse = await this.api('/me/accounts', { 
+          fields: 'id,name,access_token,category,tasks,perms' 
+        });
+        
+        if (pagesResponse.data) {
+          pages = pagesResponse.data.map((page: any) => ({
+            id: page.id,
+            name: page.name,
+            category: page.category || 'Unknown',
+            access_token: page.access_token,
+            tasks: page.tasks || [],
+            perms: page.perms || []
+          }));
+          console.log('Found', pages.length, 'Facebook pages with detailed permissions');
+          console.log('Pages data:', JSON.stringify(pages, null, 2));
+        } else {
+          console.warn('No pages data in response:', pagesResponse);
+        }
       } catch (error) {
         console.warn('Could not fetch user pages:', error);
+        console.error('Pages fetch error details:', error);
       }
 
       return { user, pages };
