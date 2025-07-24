@@ -109,11 +109,14 @@ export const usePlatformPoster = () => {
   ): Promise<PostResult> => {
     try {
       // Get Facebook credentials from local storage
-      const credentials = JSON.parse(localStorage.getItem('facebook_credentials') || '{}');
+      const credentialsStr = localStorage.getItem('facebook_credentials');
+      console.log('Raw Facebook credentials string:', credentialsStr);
       
-      console.log('Facebook credentials from localStorage:', credentials);
+      const credentials = JSON.parse(credentialsStr || '{}');
+      console.log('Parsed Facebook credentials:', credentials);
       
       if (!credentials.accessToken) {
+        console.error('❌ No Facebook access token found. User needs to connect Facebook first.');
         throw new Error('Facebook not connected. Please connect your Facebook account first.');
       }
 
