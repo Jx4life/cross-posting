@@ -218,8 +218,11 @@ export const FacebookPageSelector: React.FC<FacebookPageSelectorProps> = ({
           {(!userData?.pages || userData.pages.length === 0) && (
             <div className="text-center py-4">
               <ExternalLink className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">
-                No Facebook pages found. You can still post to your personal timeline.
+              <p className="text-sm text-muted-foreground mb-2">
+                No Facebook pages found. 
+              </p>
+              <p className="text-xs text-blue-600 font-medium">
+                You can still post to your personal timeline using the option above.
               </p>
             </div>
           )}
