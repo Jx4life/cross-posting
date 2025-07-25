@@ -15,9 +15,9 @@
     <!-- Facebook SDK -->
     <script>
       window.fbAsyncInit = function() {
-        // We'll initialize from FacebookSDK.ts once we have the App ID
-        console.log('Facebook SDK loaded, waiting for App ID...');
-        // Dispatch event when SDK is loaded (not initialized yet)
+        console.log('Facebook SDK loaded and ready for initialization');
+        // The FacebookSDK.ts will handle actual initialization once it gets the App ID
+        // This just signals the SDK is loaded and ready
         window.dispatchEvent(new CustomEvent('fbSdkLoaded'));
       };
 

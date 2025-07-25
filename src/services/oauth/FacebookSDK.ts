@@ -71,18 +71,19 @@ export class FacebookSDK implements FacebookSDKService {
                 console.log('Facebook SDK is available, initializing with App ID:', appId);
                 
                 try {
-                  // Initialize Facebook SDK with proper configuration
+                  // Initialize Facebook SDK with proper configuration for pages access
                   window.FB.init({
                     appId: appId,
                     cookie: true,
                     xfbml: true,
-                    version: 'v18.0'
+                    version: 'v18.0',
+                    status: true // Check login status on load
                   });
                   
-                  console.log('Facebook SDK initialized successfully');
+                  console.log('✅ Facebook SDK initialized successfully with pages support');
                   resolveSDK();
                 } catch (error) {
-                  console.error('Error initializing Facebook SDK:', error);
+                  console.error('❌ Error initializing Facebook SDK:', error);
                   reject(error);
                 }
               } else {
