@@ -53,41 +53,29 @@ serve(async (req) => {
     let endpoint: string;
     let postData: any;
 
-    // For posting to Facebook, we prefer pages but allow personal timeline as fallback
-    if (!pageId) {
-      console.log('No page ID provided, posting to personal timeline (limited functionality)');
-      
-      // Use personal timeline endpoint with user access token
-      endpoint = `https://graph.facebook.com/v18.0/me/feed`;
-      
-      // Prepare the post data using user access token
-      postData = {
-        message: content,
-        access_token: accessToken
-      };
-    } else {
-      if (!pageAccessToken) {
-        return new Response(
-          JSON.stringify({ 
-            success: false,
-            error: 'Page Access Token is required when posting to a specific page' 
-          }),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
-      
-      // Use page endpoint with page access token
-      endpoint = `https://graph.facebook.com/v18.0/${pageId}/feed`;
-      
-      // Prepare the post data using page access token
-      postData = {
-        message: content,
-        access_token: pageAccessToken
-      };
+    // Facebook posting requires page access - personal timeline posting has strict limitations
+    if (!pageId || !pageAccessToken) {
+      console.error('❌ Missing page ID or page access token');
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Facebook page is required for posting. Personal timeline posting has strict permission requirements that are not available for most applications. Please select a Facebook page to post to.' 
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
+    
+    // Use page endpoint with page access token
+    endpoint = `https://graph.facebook.com/v18.0/${pageId}/feed`;
+    
+    // Prepare the post data using page access token
+    postData = {
+      message: content,
+      access_token: pageAccessToken
+    };
 
     // Add media if provided
     if (mediaUrl) {

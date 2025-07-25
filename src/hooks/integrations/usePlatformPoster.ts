@@ -110,13 +110,11 @@ export const usePlatformPoster = () => {
     try {
       // Get Facebook credentials from local storage
       const credentialsStr = localStorage.getItem('facebook_credentials');
-      console.log('Raw Facebook credentials string:', credentialsStr);
+      console.log('🔍 Checking Facebook credentials...');
       
       const credentials = JSON.parse(credentialsStr || '{}');
-      console.log('Parsed Facebook credentials:', credentials);
       
       if (!credentials.accessToken) {
-        console.error('❌ No Facebook access token found. User needs to connect Facebook first.');
         throw new Error('Facebook not connected. Please connect your Facebook account first.');
       }
 
@@ -128,12 +126,10 @@ export const usePlatformPoster = () => {
       if (savedTarget) {
         try {
           const target = JSON.parse(savedTarget);
-          if (target.type === 'page') {
+          if (target.type === 'page' && target.pageAccessToken) {
             pageId = target.pageId;
             pageAccessToken = target.pageAccessToken;
-            console.log('📄 Using saved Facebook page:', target.pageName);
-          } else {
-            console.log('👤 Using personal Facebook timeline');
+            console.log('✅ Using Facebook page:', target.pageName);
           }
         } catch (error) {
           console.error('Error parsing saved Facebook target:', error);
@@ -149,12 +145,13 @@ export const usePlatformPoster = () => {
         if (selectedPage && selectedPage.access_token) {
           pageId = selectedPage.id;
           pageAccessToken = selectedPage.access_token;
-          console.log('📄 Using fallback Facebook page:', selectedPage.name);
-        } else {
-          console.warn('No valid Facebook page access token found, attempting personal timeline');
+          console.log('✅ Using fallback Facebook page:', selectedPage.name);
         }
-      } else if (!savedTarget) {
-        console.warn('No Facebook target selected and no pages available, posting to personal timeline');
+      }
+
+      // Facebook requires page posting for most apps - personal timeline has strict limitations
+      if (!pageId || !pageAccessToken) {
+        throw new Error('Please select a Facebook page to post to. Personal timeline posting requires special app permissions that are not available for most applications.');
       }
 
       const { data, error } = await supabase.functions.invoke('post-to-facebook', {
