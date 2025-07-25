@@ -199,7 +199,9 @@ export class FacebookSDK implements FacebookSDKService {
           // We should resolve with the response, not reject
           resolve(response);
         }, { 
-          scope: 'pages_manage_posts,pages_read_engagement,pages_show_list,publish_to_groups,user_posts,business_management' 
+          scope: 'pages_manage_posts,pages_read_engagement,pages_show_list,publish_to_groups,user_posts,business_management',
+          return_scopes: true,
+          auth_type: 'rerequest'
         });
       } catch (error) {
         console.error('🔴 FacebookSDK: Error calling FB.login:', error);
