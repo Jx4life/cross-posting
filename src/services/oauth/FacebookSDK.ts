@@ -23,20 +23,20 @@ export class FacebookSDK implements FacebookSDKService {
 
   async init(): Promise<void> {
     if (this.isInitialized) {
-      console.log('Facebook SDK already initialized, skipping init');
+      console.log('🟢 Facebook SDK already initialized, skipping init');
       return;
     }
     if (this.initPromise) {
-      console.log('Facebook SDK initialization already in progress, waiting');
+      console.log('🟡 Facebook SDK initialization already in progress, waiting');
       return this.initPromise;
     }
 
-    console.log('Starting Facebook SDK initialization process');
+    console.log('🔵 Starting Facebook SDK initialization process');
     
     this.initPromise = new Promise(async (resolve, reject) => {
       try {
         // First, get the Facebook App ID
-        console.log('Fetching Facebook App ID from Supabase...');
+        console.log('🔵 Fetching Facebook App ID from Supabase...');
         const response = await fetch('https://eppgmfcebxhjsyhosxtm.supabase.co/functions/v1/get-secret', {
           method: 'POST',
           headers: { 
@@ -60,7 +60,7 @@ export class FacebookSDK implements FacebookSDKService {
         }
 
         const { value: appId } = await response.json();
-        console.log('Facebook App ID loaded successfully');
+        console.log('🟢 Facebook App ID loaded successfully:', appId);
         window.FACEBOOK_APP_ID = appId;
 
         // Wait for Facebook SDK to be loaded
@@ -68,7 +68,7 @@ export class FacebookSDK implements FacebookSDKService {
           return new Promise<void>((resolveSDK) => {
             const checkSDK = () => {
               if (window.FB && typeof window.FB.init === 'function') {
-                console.log('Facebook SDK is available, initializing with App ID:', appId);
+                console.log('🟢 Facebook SDK is available, initializing with App ID:', appId);
                 
                 try {
                   // Initialize Facebook SDK with proper configuration for pages access
@@ -88,6 +88,7 @@ export class FacebookSDK implements FacebookSDKService {
                 }
               } else {
                 // Check again in 100ms
+                console.log('🟡 Facebook SDK not ready yet, checking again in 100ms...');
                 setTimeout(checkSDK, 100);
               }
             };
@@ -141,7 +142,7 @@ export class FacebookSDK implements FacebookSDKService {
         console.log('Facebook login status response:', response);
         
         if (response.status === 'connected') {
-          console.log('User is connected to Facebook with access token:', response.authResponse?.accessToken);
+          console.log('🟢 User is connected to Facebook with access token:', response.authResponse?.accessToken);
           
           // Track automatic login detection
           this.trackEvent('fb_auto_login_detected', {
@@ -149,12 +150,12 @@ export class FacebookSDK implements FacebookSDKService {
             expires_in: response.authResponse?.expiresIn
           });
         } else if (response.status === 'not_authorized') {
-          console.log('User is logged into Facebook but has not authorized the app');
+          console.log('🟡 User is logged into Facebook but has not authorized the app');
           
           // Track not authorized state
           this.trackEvent('fb_not_authorized');
         } else {
-          console.log('User is not logged into Facebook, status:', response.status);
+          console.log('🔴 User is not logged into Facebook, status:', response.status);
           
           // Track unknown status
           this.trackEvent('fb_status_unknown');
@@ -248,6 +249,7 @@ export class FacebookSDK implements FacebookSDKService {
       // Get user's pages with detailed permissions and access tokens
       let pages = [];
       try {
+        console.log('🔵 Fetching user pages from Facebook API...');
         const pagesResponse = await this.api('/me/accounts', { 
           fields: 'id,name,access_token,category,tasks,perms' 
         });
@@ -261,14 +263,14 @@ export class FacebookSDK implements FacebookSDKService {
             tasks: page.tasks || [],
             perms: page.perms || []
           }));
-          console.log('Found', pages.length, 'Facebook pages with detailed permissions');
-          console.log('Pages data:', JSON.stringify(pages, null, 2));
+          console.log('🟢 Found', pages.length, 'Facebook pages with detailed permissions');
+          console.log('🔵 Pages data:', JSON.stringify(pages, null, 2));
         } else {
-          console.warn('No pages data in response:', pagesResponse);
+          console.warn('🟡 No pages data in response:', pagesResponse);
         }
       } catch (error) {
-        console.warn('Could not fetch user pages:', error);
-        console.error('Pages fetch error details:', error);
+        console.warn('🔴 Could not fetch user pages:', error);
+        console.error('🔴 Pages fetch error details:', error);
       }
 
       return { user, pages };
