@@ -194,7 +194,13 @@ export class FacebookSDK implements FacebookSDKService {
     
     return new Promise((resolve, reject) => {
       try {
+        // Add timeout to prevent hanging
+        const loginTimeout = setTimeout(() => {
+          reject(new Error('Facebook login timeout - please try again'));
+        }, 30000); // 30 second timeout
+
         window.FB.login((response: any) => {
+          clearTimeout(loginTimeout);
           console.log('🔵 FacebookSDK: FB.login response:', response);
           
           // Facebook login always returns a response, even on cancel/error
@@ -284,13 +290,21 @@ export class FacebookSDK implements FacebookSDKService {
     await this.init();
     
     return new Promise((resolve, reject) => {
-      window.FB.api(path, params, (response: any) => {
-        if (response.error) {
-          reject(new Error(response.error.message));
-        } else {
-          resolve(response);
-        }
-      });
+      try {
+        window.FB.api(path, params, (response: any) => {
+          if (response && response.error) {
+            console.error('🔴 Facebook API error:', response.error);
+            reject(new Error(response.error.message || 'Facebook API error'));
+          } else if (response) {
+            resolve(response);
+          } else {
+            reject(new Error('No response from Facebook API'));
+          }
+        });
+      } catch (error) {
+        console.error('🔴 Facebook API call failed:', error);
+        reject(error);
+      }
     });
   }
 
@@ -308,8 +322,13 @@ export class FacebookSDK implements FacebookSDKService {
   }
 
   trackEvent(eventName: string, parameters: any = {}): void {
-    if (this.isInitialized && window.FB) {
-      window.FB.AppEvents.logEvent(eventName, parameters);
+    try {
+      if (this.isInitialized && window.FB && window.FB.AppEvents) {
+        window.FB.AppEvents.logEvent(eventName, parameters);
+      }
+    } catch (error) {
+      // Silently fail - don't let tracking errors break the app
+      console.warn('🟡 Facebook tracking failed (non-critical):', error);
     }
   }
 }
