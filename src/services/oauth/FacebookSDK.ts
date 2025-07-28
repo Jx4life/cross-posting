@@ -199,15 +199,32 @@ export class FacebookSDK implements FacebookSDKService {
           reject(new Error('Facebook login timeout - please try again'));
         }, 30000); // 30 second timeout
 
+        // Try with full permissions first, fallback to basic permissions
+        const fullScopes = 'pages_manage_posts,pages_read_engagement,pages_show_list,publish_to_groups,user_posts,business_management';
+        const basicScopes = 'public_profile,email';
+        
         window.FB.login((response: any) => {
           clearTimeout(loginTimeout);
           console.log('🔵 FacebookSDK: FB.login response:', response);
           
-          // Facebook login always returns a response, even on cancel/error
-          // We should resolve with the response, not reject
-          resolve(response);
+          // If we get invalid scopes error, try with basic permissions only
+          if (response.error && response.error.message && response.error.message.includes('Invalid Scopes')) {
+            console.log('🟡 FacebookSDK: Invalid scopes detected, retrying with basic permissions...');
+            
+            window.FB.login((basicResponse: any) => {
+              console.log('🔵 FacebookSDK: Basic login response:', basicResponse);
+              resolve(basicResponse);
+            }, { 
+              scope: basicScopes,
+              return_scopes: true,
+              auth_type: 'rerequest'
+            });
+          } else {
+            // Facebook login always returns a response, even on cancel/error
+            resolve(response);
+          }
         }, { 
-          scope: 'pages_manage_posts,pages_read_engagement,pages_show_list,publish_to_groups,user_posts,business_management',
+          scope: fullScopes,
           return_scopes: true,
           auth_type: 'rerequest'
         });
