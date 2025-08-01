@@ -94,37 +94,14 @@ export class FarcasterQRAuth {
       
       console.log('Processed signer result:', result);
       
-      // If no approval URL was provided initially, try multiple times to get it
-      if (!result.signer_approval_url && result.status === 'generated') {
-        console.log('No approval URL in initial response, attempting multiple retries...');
+      // If no approval URL was provided, construct it manually using the signer UUID
+      if (!result.signer_approval_url && result.signer_uuid) {
+        console.log('No approval URL provided by API, constructing manually...');
+        const manualApprovalUrl = `https://warpcast.com/~/signer-approval?signer_uuid=${result.signer_uuid}`;
+        console.log('Manually constructed approval URL:', manualApprovalUrl);
         
-        for (let attempt = 1; attempt <= 5; attempt++) {
-          try {
-            const waitTime = attempt * 1000; // Wait 1s, 2s, 3s, 4s, 5s
-            console.log(`Retry attempt ${attempt}/5, waiting ${waitTime}ms...`);
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-            
-            const signerWithUrl = await this.getSigner(result.signer_uuid);
-            console.log(`Retry ${attempt} result:`, {
-              hasUrl: !!signerWithUrl.signer_approval_url,
-              status: signerWithUrl.status,
-              url: signerWithUrl.signer_approval_url ? signerWithUrl.signer_approval_url.substring(0, 50) + '...' : 'null'
-            });
-            
-            if (signerWithUrl.signer_approval_url) {
-              console.log(`✅ Got approval URL on retry attempt ${attempt}:`, signerWithUrl.signer_approval_url);
-              return {
-                ...result,
-                signer_approval_url: signerWithUrl.signer_approval_url,
-                status: signerWithUrl.status
-              };
-            }
-          } catch (retryError) {
-            console.warn(`Failed retry attempt ${attempt}:`, retryError);
-          }
-        }
-        
-        console.warn('❌ All retry attempts failed to get approval URL');
+        result.signer_approval_url = manualApprovalUrl;
+        console.log('✅ Using manually constructed approval URL');
       }
       
       return result;
