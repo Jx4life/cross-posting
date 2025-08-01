@@ -179,8 +179,18 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
           console.log('📱 Generated QR code URL:', qrCodeUrl);
         }
         
-        // Update the signer state with the latest data
-        setSigner(signerStatus);
+        // Update the signer state with the latest data, but preserve existing approval URL if new one is missing
+        setSigner(prevSigner => {
+          const updatedSigner = { ...signerStatus };
+          
+          // If the polled result doesn't have an approval URL but we had one before, keep the previous one
+          if (!updatedSigner.signer_approval_url && prevSigner?.signer_approval_url) {
+            console.log('⚠️ Preserving existing approval URL, polling result had none');
+            updatedSigner.signer_approval_url = prevSigner.signer_approval_url;
+          }
+          
+          return updatedSigner;
+        });
         setPollAttempts(currentAttempt);
         setEstimatedTimeLeft(calculateEstimatedTime(currentAttempt));
         
