@@ -97,11 +97,12 @@ export class FarcasterQRAuth {
       // If no approval URL was provided, construct it manually using the signer UUID
       if (!result.signer_approval_url && result.signer_uuid) {
         console.log('No approval URL provided by API, constructing manually...');
-        const manualApprovalUrl = `https://warpcast.com/~/signer-approval?signer_uuid=${result.signer_uuid}`;
-        console.log('Manually constructed approval URL:', manualApprovalUrl);
+        // Use the proper deep link format for mobile apps
+        const manualApprovalUrl = `farcaster://signer-approval?signer_uuid=${result.signer_uuid}`;
+        console.log('Manually constructed approval URL (deep link):', manualApprovalUrl);
         
         result.signer_approval_url = manualApprovalUrl;
-        console.log('✅ Using manually constructed approval URL');
+        console.log('✅ Using manually constructed deep link approval URL');
       }
       
       return result;
