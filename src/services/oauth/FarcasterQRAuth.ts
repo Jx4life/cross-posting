@@ -97,15 +97,15 @@ export class FarcasterQRAuth {
       // Log what the API actually returned
       console.log('API provided signer_approval_url:', result.signer_approval_url);
       
-      // If no approval URL was provided, construct the proper Warpcast approval URL
+      // If no approval URL was provided, construct the proper Warpcast deeplink URL
       if (!result.signer_approval_url && result.signer_uuid) {
-        console.log('No approval URL provided by API, constructing Warpcast approval URL...');
-        // This is the correct Warpcast URL format for signer approval
-        const warpcastApprovalUrl = `https://warpcast.com/~/signer-request?token=${result.signer_uuid}`;
-        console.log('Constructed Warpcast approval URL:', warpcastApprovalUrl);
+        console.log('No approval URL provided by API, constructing Warpcast deeplink URL...');
+        // Use the correct Warpcast deeplink format as per Neynar documentation
+        const warpcastApprovalUrl = `https://client.warpcast.com/deeplinks/signed-key-request?token=${result.signer_uuid}`;
+        console.log('Constructed Warpcast deeplink URL:', warpcastApprovalUrl);
         
         result.signer_approval_url = warpcastApprovalUrl;
-        console.log('✅ Using constructed Warpcast approval URL');
+        console.log('✅ Using constructed Warpcast deeplink URL');
       }
       
       return result;
