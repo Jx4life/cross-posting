@@ -116,7 +116,15 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
       }
       
       setSigner(signerResponse);
-      updateProgress('generating', 50);
+      
+      // Check if we have an approval URL and update progress accordingly
+      if (signerResponse.signer_approval_url) {
+        console.log('✅ Approval URL available, transitioning to waiting state');
+        updateProgress('waiting', 70);
+      } else {
+        console.log('⚠️ No approval URL yet, staying in generating state');
+        updateProgress('generating', 50);
+      }
       
       // Always start polling regardless of initial state
       console.log('🔄 Starting polling for signer approval...');
