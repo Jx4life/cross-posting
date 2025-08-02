@@ -97,12 +97,12 @@ export class FarcasterQRAuth {
       // If no approval URL was provided, construct it manually using the signer UUID
       if (!result.signer_approval_url && result.signer_uuid) {
         console.log('No approval URL provided by API, constructing manually...');
-        // Use the proper deep link format for mobile apps
-        const manualApprovalUrl = `farcaster://signer-approval?signer_uuid=${result.signer_uuid}`;
-        console.log('Manually constructed approval URL (deep link):', manualApprovalUrl);
+        // Use Warpcast web URL which works on both mobile and desktop
+        const manualApprovalUrl = `https://warpcast.com/~/add-cast-action?url=https://api.neynar.com/v2/farcaster/action/signer-approve?signer_uuid=${result.signer_uuid}`;
+        console.log('Manually constructed approval URL:', manualApprovalUrl);
         
         result.signer_approval_url = manualApprovalUrl;
-        console.log('✅ Using manually constructed deep link approval URL');
+        console.log('✅ Using manually constructed Warpcast approval URL');
       }
       
       return result;
