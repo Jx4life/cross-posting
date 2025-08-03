@@ -100,13 +100,20 @@ export class FarcasterQRAuth {
       // If no approval URL was provided, construct the proper Warpcast deeplink URL
       if (!result.signer_approval_url && result.public_key) {
         console.log('No approval URL provided by API, constructing Warpcast deeplink URL...');
-        console.log('Using public_key for token:', result.public_key);
-        // Use the public_key (which is in hex format) instead of signer_uuid
-        const warpcastApprovalUrl = `https://client.warpcast.com/deeplinks/signed-key-request?token=${result.public_key}`;
+        console.log('Raw public_key from API:', result.public_key);
+        
+        // Ensure the public_key has the correct hex format with 0x prefix
+        let formattedPublicKey = result.public_key;
+        if (!formattedPublicKey.startsWith('0x') && !formattedPublicKey.startsWith('0X')) {
+          formattedPublicKey = '0x' + formattedPublicKey;
+        }
+        console.log('Formatted public_key for Farcaster:', formattedPublicKey);
+        
+        const warpcastApprovalUrl = `https://client.warpcast.com/deeplinks/signed-key-request?token=${formattedPublicKey}`;
         console.log('Constructed Warpcast deeplink URL:', warpcastApprovalUrl);
         
         result.signer_approval_url = warpcastApprovalUrl;
-        console.log('✅ Using constructed Warpcast deeplink URL with public_key');
+        console.log('✅ Using constructed Warpcast deeplink URL with formatted public_key');
       }
       
       return result;
