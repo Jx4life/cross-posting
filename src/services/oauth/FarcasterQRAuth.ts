@@ -97,9 +97,10 @@ export class FarcasterQRAuth {
       // Log what the API actually returned
       console.log('API provided signer_approval_url:', result.signer_approval_url);
       
-      // If no approval URL was provided, construct the proper Warpcast deeplink URL
-      if (!result.signer_approval_url && result.public_key) {
-        console.log('No approval URL provided by API, constructing Warpcast deeplink URL...');
+      // Always construct the proper Warpcast deeplink URL using public_key
+      // The API-provided URL uses signer_uuid which doesn't work with Farcaster app
+      if (result.public_key) {
+        console.log('Overriding API URL with public_key-based URL...');
         console.log('Raw public_key from API:', result.public_key);
         
         // Ensure the public_key has the correct hex format with 0x prefix
