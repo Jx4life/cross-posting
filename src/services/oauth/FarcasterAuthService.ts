@@ -57,7 +57,8 @@ export class FarcasterAuthService {
     const config = {
       clientId: 'c8655842-2b6b-4763-bcc2-50119d871c23',
       redirectUri: `${window.location.origin}/auth/callback/farcaster`,
-      apiKey
+      apiKey,
+      appFid: '12345' // TODO: Get this from environment configuration
     };
     
     console.log('⚙️ Auth configuration:', {
