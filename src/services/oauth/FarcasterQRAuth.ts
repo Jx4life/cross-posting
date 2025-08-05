@@ -43,86 +43,12 @@ export class FarcasterQRAuth {
   }
   
   async createSigner(): Promise<FarcasterSignerResponse> {
-    console.log('=== FARCASTER CREATE SIGNER (Official API) ===');
-    console.log('Using official Farcaster API instead of Neynar');
+    console.log('=== FARCASTER CREATE SIGNER (Neynar Only) ===');
+    console.log('Using Neynar API directly - official Farcaster API requires complex EIP-712 signatures');
     
-    try {
-      // Step 1: Generate Ed25519 keypair
-      console.log('Step 1: Generating Ed25519 keypair...');
-      const privateKey = ed.utils.randomPrivateKey();
-      const publicKeyBytes = await ed.getPublicKey(privateKey);
-      const publicKeyHex = '0x' + Buffer.from(publicKeyBytes).toString('hex');
-      
-      console.log('Generated keypair:');
-      console.log('- Public key:', publicKeyHex);
-      console.log('- Private key length:', privateKey.length);
-      
-      // For now, we'll create a simple signed key request without the full EIP-712 signature
-      // This is a simplified version to test the basic flow
-      const farcasterApiUrl = 'https://api.farcaster.xyz';
-      
-      // Step 2: Create signed key request with the official Farcaster API
-      console.log('Step 2: Creating signed key request...');
-      
-      const requestBody = {
-        key: publicKeyHex,
-        requestFid: parseInt(this.config.appFid),
-        deadline: Math.floor(Date.now() / 1000) + 86400, // 24 hours
-        // Note: For a production app, you'd need to generate proper EIP-712 signature
-        // For testing, we'll use a simplified approach
-      };
-      
-      console.log('Request body:', requestBody);
-      
-      const response = await fetch(`${farcasterApiUrl}/v2/signed-key-requests`, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-      });
-      
-      console.log('Signed key request response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Signed key request error:', errorText);
-        
-        // If the official API fails, fall back to our previous approach temporarily
-        console.log('Official API failed, falling back to Neynar approach...');
-        return await this.createSignerWithNeynar();
-      }
-      
-      const data = await response.json();
-      console.log('Official Farcaster API response:', JSON.stringify(data, null, 2));
-      
-      const signedKeyRequest = data.result?.signedKeyRequest;
-      if (!signedKeyRequest) {
-        throw new Error('Invalid response from Farcaster API - missing signedKeyRequest');
-      }
-      
-      const result: FarcasterSignerResponse = {
-        token: signedKeyRequest.token,
-        deeplinkUrl: signedKeyRequest.deeplinkUrl,
-        public_key: signedKeyRequest.key,
-        privateKey: Buffer.from(privateKey).toString('hex'), // Store for later use
-        status: 'generated',
-        state: signedKeyRequest.state || 'pending',
-        signer_approval_url: signedKeyRequest.deeplinkUrl
-      };
-      
-      console.log('✅ Official Farcaster signer created successfully');
-      console.log('Deeplink URL:', result.deeplinkUrl);
-      
-      return result;
-      
-    } catch (error: any) {
-      console.error('Official Farcaster API error:', error);
-      console.log('Falling back to Neynar approach...');
-      return await this.createSignerWithNeynar();
-    }
+    // Skip the official API for now and go directly to Neynar
+    // The official API requires proper EIP-712 signatures which are complex to implement
+    return await this.createSignerWithNeynar();
   }
   
   // Fallback method using Neynar (our previous implementation)
@@ -189,9 +115,9 @@ export class FarcasterQRAuth {
         console.log('Need to construct Warpcast deeplink URL...');
         console.log('Using signer_uuid:', result.signer_uuid);
         
-        // The correct Warpcast deeplink format uses signer_uuid, not public_key
-        const warpcastApprovalUrl = `https://client.warpcast.com/deeplinks/signed-key-request?token=${result.signer_uuid}`;
-        console.log('Constructed Warpcast deeplink URL:', warpcastApprovalUrl);
+        // Use the public key with 0x prefix for the Warpcast deeplink
+        const warpcastApprovalUrl = `https://client.warpcast.com/deeplinks/signed-key-request?token=${result.public_key}`;
+        console.log('Constructed Warpcast deeplink URL with public key:', warpcastApprovalUrl);
         
         result.signer_approval_url = warpcastApprovalUrl;
         console.log('✅ Using constructed Warpcast deeplink URL with signer_uuid');
