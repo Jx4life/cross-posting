@@ -115,9 +115,9 @@ export class FarcasterQRAuth {
         console.log('Need to construct Warpcast deeplink URL...');
         console.log('Using signer_uuid:', result.signer_uuid);
         
-        // Use the public key with 0x prefix for the Warpcast deeplink
-        const warpcastApprovalUrl = `https://client.warpcast.com/deeplinks/signed-key-request?token=${result.public_key}`;
-        console.log('Constructed Warpcast deeplink URL with public key:', warpcastApprovalUrl);
+        // Use the signer_uuid for the Warpcast deeplink (not public_key)
+        const warpcastApprovalUrl = `https://client.warpcast.com/deeplinks/signed-key-request?token=${result.signer_uuid}`;
+        console.log('Constructed Warpcast deeplink URL with signer_uuid:', warpcastApprovalUrl);
         
         result.signer_approval_url = warpcastApprovalUrl;
         console.log('✅ Using constructed Warpcast deeplink URL with signer_uuid');
