@@ -179,24 +179,20 @@ export class FarcasterQRAuth {
       console.log('Processed signer result:', result);
       console.log('API provided signer_approval_url:', result.signer_approval_url);
       
-      // Always construct the proper Warpcast deeplink URL using public_key
-      // The API-provided URL uses signer_uuid which doesn't work with Farcaster app
-      if (result.public_key) {
-        console.log('Overriding API URL with public_key-based URL...');
-        console.log('Raw public_key from API:', result.public_key);
+      // If Neynar doesn't provide a proper Warpcast URL, we need to use the API-provided one
+      // or construct one with the signer_uuid (not public_key)
+      if (!result.signer_approval_url || !result.signer_approval_url.includes('warpcast.com')) {
+        console.log('Need to construct Warpcast deeplink URL...');
+        console.log('Using signer_uuid:', result.signer_uuid);
         
-        // Ensure the public_key has the correct hex format with 0x prefix
-        let formattedPublicKey = result.public_key;
-        if (!formattedPublicKey.startsWith('0x') && !formattedPublicKey.startsWith('0X')) {
-          formattedPublicKey = '0x' + formattedPublicKey;
-        }
-        console.log('Formatted public_key for Farcaster:', formattedPublicKey);
-        
-        const warpcastApprovalUrl = `https://client.warpcast.com/deeplinks/signed-key-request?token=${formattedPublicKey}`;
+        // The correct Warpcast deeplink format uses signer_uuid, not public_key
+        const warpcastApprovalUrl = `https://client.warpcast.com/deeplinks/signed-key-request?token=${result.signer_uuid}`;
         console.log('Constructed Warpcast deeplink URL:', warpcastApprovalUrl);
         
         result.signer_approval_url = warpcastApprovalUrl;
-        console.log('✅ Using constructed Warpcast deeplink URL with formatted public_key');
+        console.log('✅ Using constructed Warpcast deeplink URL with signer_uuid');
+      } else {
+        console.log('✅ Using API-provided approval URL:', result.signer_approval_url);
       }
       
       return result;
