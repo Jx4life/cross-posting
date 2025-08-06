@@ -44,16 +44,15 @@ export class FarcasterQRAuth {
   
   async createSigner(): Promise<FarcasterSignerResponse> {
     console.log('=== FARCASTER CREATE SIGNER (Neynar Only) ===');
-    console.log('Using Neynar API directly - official Farcaster API requires complex EIP-712 signatures');
+    console.log('Using Neynar API exclusively for consistent token management');
     
-    // Skip the official API for now and go directly to Neynar
-    // The official API requires proper EIP-712 signatures which are complex to implement
+    // Use Neynar API exclusively - this ensures consistent token format between creation and polling
     return await this.createSignerWithNeynar();
   }
   
-  // Fallback method using Neynar (our previous implementation)
+  // Primary method using Neynar for consistent token management
   private async createSignerWithNeynar(): Promise<FarcasterSignerResponse> {
-    console.log('=== FALLBACK: FARCASTER CREATE SIGNER (Neynar) ===');
+    console.log('=== FARCASTER CREATE SIGNER (Neynar) ===');
     console.log('API Key present:', !!this.config.apiKey);
     console.log('API Key length:', this.config.apiKey?.length);
     
@@ -92,6 +91,11 @@ export class FarcasterQRAuth {
       
       const data = await response.json();
       console.log('Create signer full response:', JSON.stringify(data, null, 2));
+      console.log('🔍 Detailed field analysis:');
+      console.log('  - signer_uuid:', data.signer_uuid, '(type:', typeof data.signer_uuid, ', length:', data.signer_uuid?.length, ')');
+      console.log('  - public_key:', data.public_key, '(type:', typeof data.public_key, ', length:', data.public_key?.length, ')');
+      console.log('  - status:', data.status);
+      console.log('  - signer_approval_url:', data.signer_approval_url);
       
       if (!data.signer_uuid || !data.public_key) {
         console.error('Missing required fields in response:', data);
@@ -171,6 +175,11 @@ export class FarcasterQRAuth {
       
       const data = await response.json();
       console.log('Get signer full response:', JSON.stringify(data, null, 2));
+      console.log('🔍 Polling response analysis:');
+      console.log('  - Request was for signer_uuid:', signerUuid);
+      console.log('  - Response signer_uuid:', data.signer_uuid, '(matches request:', data.signer_uuid === signerUuid, ')');
+      console.log('  - Response status:', data.status);
+      console.log('  - Response public_key:', data.public_key);
       
       const result = {
         signer_uuid: data.signer_uuid,
