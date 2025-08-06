@@ -16,7 +16,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { oauthManager } from '@/services/oauth/OAuthManager';
-import { FarcasterQRCode } from './FarcasterQRCode';
+import { FarcasterConnectQR } from './FarcasterConnectQR';
 import { supabase } from '@/integrations/supabase/client';
 import { FacebookConnectionCard } from './FacebookConnectionCard';
 
@@ -721,7 +721,7 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
           <DialogHeader>
             <DialogTitle>Connect to Farcaster</DialogTitle>
           </DialogHeader>
-          <FarcasterQRCode
+          <FarcasterConnectQR
             onSuccess={handleFarcasterQRSuccess}
             onError={handleFarcasterQRError}
             onClose={() => setShowFarcasterQR(false)}
