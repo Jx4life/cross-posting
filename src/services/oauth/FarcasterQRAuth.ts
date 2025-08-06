@@ -58,10 +58,12 @@ export class FarcasterQRAuth {
     
     try {
       const requestBody = {
-        deadline: Math.floor(Date.now() / 1000) + 86400 // 24 hours from now
+        deadline: Math.floor(Date.now() / 1000) + 86400, // 24 hours from now
+        sponsor_fid: parseInt(this.config.appFid) // Required for public authentication
       };
       
-      console.log('Request body:', requestBody);
+      console.log('Request body for PUBLIC authentication:', requestBody);
+      console.log('🌍 Using sponsor_fid for public user authentication');
       
       const response = await fetch('https://api.neynar.com/v2/farcaster/signer', {
         method: 'POST',

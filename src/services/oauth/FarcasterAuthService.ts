@@ -58,7 +58,7 @@ export class FarcasterAuthService {
       clientId: 'c8655842-2b6b-4763-bcc2-50119d871c23',
       redirectUri: `${window.location.origin}/auth/callback/farcaster`,
       apiKey,
-      appFid: '12345' // TODO: Get this from environment configuration
+      appFid: '327841' // Use Neynar's public app FID for general authentication
     };
     
     console.log('⚙️ Auth configuration:', {
