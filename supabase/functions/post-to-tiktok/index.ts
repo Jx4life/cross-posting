@@ -25,12 +25,16 @@ class TikTokTokenManager {
   }
   
   async refreshToken(refreshToken: string): Promise<any> {
-    const clientId = 'sbawjmn8p4yrizyuis';
-    const clientSecret = 'F51RS5h2sDaZUUxLbDWoe9p5TXEalKxj';
+    const TIKTOK_CLIENT_ID = Deno.env.get("TIKTOK_CLIENT_ID");
+    const TIKTOK_CLIENT_SECRET = Deno.env.get("TIKTOK_CLIENT_SECRET");
+    
+    if (!TIKTOK_CLIENT_ID || !TIKTOK_CLIENT_SECRET) {
+      throw new Error('TikTok credentials not configured');
+    }
     
     const params = new URLSearchParams({
-      client_key: clientId,
-      client_secret: clientSecret,
+      client_key: TIKTOK_CLIENT_ID,
+      client_secret: TIKTOK_CLIENT_SECRET,
       grant_type: 'refresh_token',
       refresh_token: refreshToken
     });

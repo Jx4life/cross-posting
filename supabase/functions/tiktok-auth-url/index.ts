@@ -16,17 +16,21 @@ serve(async (req) => {
     
     console.log('TikTok auth URL request:', { redirectUri });
     
-    // Use sandbox credentials
-    const clientId = 'sbawjmn8p4yrizyuis';
+    // Get TikTok client ID from secrets
+    const TIKTOK_CLIENT_ID = Deno.env.get("TIKTOK_CLIENT_ID");
     
-    console.log('Using sandbox client ID:', clientId);
+    if (!TIKTOK_CLIENT_ID) {
+      throw new Error('TikTok client ID not configured');
+    }
+    
+    console.log('Using client ID from secrets:', TIKTOK_CLIENT_ID.substring(0, 8) + '...');
     
     // Generate TikTok OAuth URL using the correct endpoint
     const scopes = ['user.info.basic', 'video.publish'];
     const state = crypto.randomUUID();
     
     const params = new URLSearchParams({
-      client_key: clientId,
+      client_key: TIKTOK_CLIENT_ID,
       scope: scopes.join(','),
       response_type: 'code',
       redirect_uri: redirectUri,
@@ -37,7 +41,7 @@ serve(async (req) => {
     const authUrl = `https://www.tiktok.com/v2/auth/authorize/?${params.toString()}`;
     
     console.log('Generated TikTok auth URL:', authUrl);
-    console.log('Client ID being used:', clientId);
+    console.log('Client ID being used:', TIKTOK_CLIENT_ID.substring(0, 8) + '...');
     console.log('Scopes:', scopes.join(','));
     console.log('Redirect URI:', redirectUri);
     

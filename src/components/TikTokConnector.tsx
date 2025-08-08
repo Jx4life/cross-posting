@@ -97,18 +97,19 @@ export const TikTokConnector = () => {
     
     setIsDisconnecting(true);
     try {
-      // Initialize TikTok OAuth service
-      const tikTokOAuth = new TikTokOAuth({
-        clientId: 'sbawjmn8p4yrizyuis',
-        clientSecret: 'F51RS5h2sDaZUUxLbDWoe9p5TXEalKxj',
-        redirectUri,
-        scopes: ['user.info.basic', 'video.publish']
-      });
+      // Note: TikTok credentials are now managed through Supabase secrets
+      // No need to initialize with hardcoded credentials
       
-      // Revoke access
-      await tikTokOAuth.revokeAccess(user.id);
-      
+      // Disable the connection in database
+      const { error: disableError } = await supabase
+        .from("post_configurations")
+        .update({ is_enabled: false })
+        .eq("platform", "tiktok");
+      if (disableError) {
+        throw new Error('Failed to disconnect TikTok account');
+      }
       setIsConnected(false);
+      
       toast({
         title: "TikTok Disconnected",
         description: "Your TikTok account has been successfully disconnected.",
@@ -131,23 +132,24 @@ export const TikTokConnector = () => {
     
     setIsVerifying(true);
     try {
-      // Initialize TikTok OAuth service
-      const tikTokOAuth = new TikTokOAuth({
-        clientId: 'sbawjmn8p4yrizyuis',
-        clientSecret: 'F51RS5h2sDaZUUxLbDWoe9p5TXEalKxj',
-        redirectUri,
-        scopes: ['user.info.basic', 'video.publish']
+      // Validate connection by checking if user can make API calls
+      const { data, error } = await supabase.functions.invoke('post-to-tiktok', {
+        body: { 
+          content: 'Connection test - this should not be posted',
+          mediaUrl: null,
+          mediaType: null
+        }
       });
       
-      // Get user info with token refresh
-      const userInfo = await tikTokOAuth.getUserInfoWithRefresh(user.id);
-      
-      toast({
-        title: "Connection Valid",
-        description: `TikTok account @${userInfo.username || userInfo.display_name} is connected and working properly.`,
-      });
-      
-      setIsConnected(true);
+      if (!error && data?.success !== false) {
+        toast({
+          title: "Connection Valid",
+          description: "TikTok account is connected and working properly.",
+        });
+        setIsConnected(true);
+      } else {
+        throw new Error(error?.message || data?.error || 'Connection validation failed');
+      }
       
     } catch (error: any) {
       console.error('TikTok validation error:', error);
@@ -241,68 +243,42 @@ export const TikTokConnector = () => {
         )}
       </div>
       
-      <div className="bg-red-500/20 p-4 rounded-md">
-        <h3 className="text-red-400 font-bold text-lg mb-3">🚨 CRITICAL: TikTok App Setup Required!</h3>
-        
-        <div className="bg-red-600/30 p-3 rounded-md mb-4">
-          <p className="text-red-300 font-semibold mb-2">❌ Your TikTok app is missing this redirect URI:</p>
-          <div className="bg-black/40 p-3 rounded font-mono text-sm text-green-400 break-all">
-            {redirectUri}
-          </div>
-        </div>
+      <div className="bg-blue-500/20 p-4 rounded-md">
+        <h3 className="text-blue-400 font-bold text-lg mb-3">🚀 TikTok Integration Setup</h3>
         
         <div className="space-y-3 text-sm">
-          <h4 className="text-red-300 font-semibold">📋 REQUIRED STEPS TO FIX:</h4>
-          <ol className="list-decimal pl-5 space-y-2 text-red-200">
-            <li>
-              <strong>Visit TikTok Developer Portal:</strong>
-              <br />
-              <a 
-                href="https://developers.tiktok.com/apps" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-blue-300 underline hover:text-blue-200"
-              >
-                https://developers.tiktok.com/apps
-              </a>
-            </li>
-            <li>
-              <strong>Find your app with Client ID:</strong> sbawjmn8p4yrizyuis
-            </li>
-            <li>
-              <strong>Go to:</strong> Login Kit → Settings → Redirect domain
-            </li>
-            <li>
-              <strong>Add this EXACT redirect URI:</strong>
+          <h4 className="text-blue-300 font-semibold">📋 Setup Required:</h4>
+          <ol className="list-decimal pl-5 space-y-2 text-blue-200">
+            <li>Create a TikTok Developer account at <a href="https://developers.tiktok.com/" target="_blank" rel="noopener noreferrer" className="text-blue-300 underline">developers.tiktok.com</a></li>
+            <li>Create a new app and configure Login Kit</li>
+            <li>Add this redirect URI to your app settings:
               <div className="bg-black/40 p-2 rounded font-mono text-xs text-green-400 mt-1 break-all">
                 {redirectUri}
               </div>
             </li>
-            <li>
-              <strong>Verify your domain</strong> using the meta tag (already added to your site)
-            </li>
-            <li>
-              <strong>Save settings</strong> and wait a few minutes for changes to propagate
-            </li>
-            <li>
-              <strong>Return here and try "Connect TikTok" again</strong>
+            <li>Verify your domain using the meta tag (already added to your site)</li>
+            <li>Update your TikTok credentials in Supabase secrets:
+              <ul className="list-disc pl-4 mt-1 text-xs">
+                <li>TIKTOK_CLIENT_ID (your TikTok Client Key)</li>
+                <li>TIKTOK_CLIENT_SECRET (your TikTok Client Secret)</li>
+              </ul>
             </li>
           </ol>
           
-          <div className="mt-4 p-3 bg-blue-500/20 rounded-md">
-            <h4 className="text-blue-300 font-semibold mb-2">✨ Enhanced Token Management:</h4>
-            <ul className="text-blue-200 text-xs space-y-1">
+          <div className="mt-4 p-3 bg-green-500/20 rounded-md">
+            <h4 className="text-green-300 font-semibold mb-2">✨ Features:</h4>
+            <ul className="text-green-200 text-xs space-y-1">
               <li>• Automatic token refresh when expired</li>
+              <li>• Support for video and photo carousel posts</li>
               <li>• Connection validation and health checks</li>
-              <li>• Better error handling for authentication issues</li>
-              <li>• Secure token storage and management</li>
+              <li>• Secure credential management via Supabase</li>
             </ul>
           </div>
         </div>
         
         <div className="mt-4 p-3 bg-yellow-500/20 rounded-md">
           <p className="text-yellow-400 font-medium text-xs">
-            💡 <strong>Important:</strong> The redirect URI must match EXACTLY. Even a small difference (like missing 'https://' or extra characters) will cause this error.
+            💡 <strong>Need Help?</strong> Contact support if you need assistance setting up your TikTok Developer account or configuring the integration.
           </p>
         </div>
         
