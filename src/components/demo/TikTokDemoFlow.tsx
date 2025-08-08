@@ -23,6 +23,7 @@ import { TikTokConnector } from '@/components/TikTokConnector';
 import { TikTokVideoValidator } from '@/components/TikTokVideoValidator';
 import { PostComposer } from '@/components/PostComposer';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/providers/AuthProvider';
 
 interface DemoStep {
   id: string;
@@ -72,11 +73,31 @@ interface TikTokAnalytics {
 const LoginDemo: React.FC<{ onComplete: (data: TikTokUserProfile) => void }> = ({ onComplete }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [userProfile, setUserProfile] = useState<TikTokUserProfile | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const { user } = useAuth();
 
+  // Check if TikTok is already connected
   useEffect(() => {
-    // Simulate fetching user profile after connection
-    const timer = setTimeout(() => {
-      if (isConnecting) {
+    if (user) {
+      checkConnectionStatus();
+    }
+  }, [user]);
+
+  const checkConnectionStatus = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("post_configurations")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("platform", "tiktok")
+        .eq("is_enabled", true)
+        .single();
+      
+      if (data && !error) {
+        setIsConnected(true);
+        // Mock profile data for demo
         const mockProfile: TikTokUserProfile = {
           open_id: 'demo_user_123',
           union_id: 'union_demo_456',
@@ -89,23 +110,48 @@ const LoginDemo: React.FC<{ onComplete: (data: TikTokUserProfile) => void }> = (
         };
         setUserProfile(mockProfile);
         onComplete(mockProfile);
-        setIsConnecting(false);
-        toast({
-          title: "Login Successful",
-          description: "Connected to TikTok with Login Kit - Retrieved profile data",
-        });
       }
-    }, 2000);
+    } catch (error) {
+      console.error('Error checking TikTok connection status:', error);
+    }
+  };
 
-    return () => clearTimeout(timer);
-  }, [isConnecting, onComplete]);
-
-  const handleConnect = () => {
+  const handleConnect = async () => {
     setIsConnecting(true);
-    toast({
-      title: "Login Kit Initiated",
-      description: "Securely signing in with TikTok...",
-    });
+    try {
+      // Use the actual TikTok OAuth flow
+      const currentUrl = window.location.origin;
+      const redirectUri = `${currentUrl}/oauth/tiktok/callback`;
+      
+      const { data, error } = await supabase.functions.invoke('tiktok-auth-url', {
+        body: { redirectUri }
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to generate TikTok authorization URL');
+      }
+      
+      if (data?.authUrl) {
+        toast({
+          title: "Login Kit Initiated",
+          description: "Redirecting to TikTok for authentication...",
+        });
+        // Small delay to show the toast
+        setTimeout(() => {
+          window.location.href = data.authUrl;
+        }, 1000);
+      } else {
+        throw new Error("Failed to generate TikTok authorization URL");
+      }
+    } catch (error: any) {
+      console.error("TikTok connection error:", error);
+      toast({
+        title: "Connection Error",
+        description: error.message || "Failed to connect to TikTok",
+        variant: "destructive"
+      });
+      setIsConnecting(false);
+    }
   };
 
   return (
@@ -131,14 +177,21 @@ const LoginDemo: React.FC<{ onComplete: (data: TikTokUserProfile) => void }> = (
               </div>
             </div>
             
-            {!userProfile && (
+            {!isConnected && !userProfile && (
               <Button 
                 onClick={handleConnect} 
                 disabled={isConnecting}
                 className="w-full"
               >
-                {isConnecting ? "Connecting..." : "Sign in with TikTok"}
+                {isConnecting ? "Redirecting to TikTok..." : "Sign in with TikTok (Real OAuth)"}
               </Button>
+            )}
+            
+            {isConnected && !userProfile && (
+              <div className="text-center">
+                <p className="text-green-400">✅ TikTok Connected!</p>
+                <p className="text-sm text-gray-400">Loading profile data...</p>
+              </div>
             )}
             
             {isConnecting && (
@@ -197,47 +250,84 @@ const ContentPostingDemo: React.FC<{ onComplete: (data: TikTokVideoPost[]) => vo
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [posts, setPosts] = useState<TikTokVideoPost[]>([]);
+  const { user } = useAuth();
 
-  const simulateVideoUpload = () => {
+  const testTikTokPosting = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please connect your TikTok account first",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsUploading(true);
     toast({
       title: "Content Posting API",
-      description: "Using video.publish and video.upload scopes",
+      description: "Testing actual TikTok API integration...",
     });
 
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 10;
-      setUploadProgress(progress);
-      
-      if (progress >= 100) {
-        clearInterval(interval);
-        const newPost: TikTokVideoPost = {
-          id: `post_${Date.now()}`,
-          title: "Demo Video Upload",
-          description: "This is a demo video uploaded through our platform using TikTok Content Posting API",
-          video_url: "https://example.com/video.mp4",
-          thumbnail_url: "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=300&h=400&fit=crop",
-          views: 1250,
-          likes: 89,
-          comments: 12,
-          shares: 23,
-          created_at: new Date().toISOString(),
-          status: 'published'
-        };
-        
-        const updatedPosts = [...posts, newPost];
-        setPosts(updatedPosts);
-        onComplete(updatedPosts);
-        setIsUploading(false);
-        setUploadProgress(0);
-        
-        toast({
-          title: "Video Published",
-          description: "Successfully posted to TikTok using Content Posting API",
-        });
+    try {
+      // Test the actual TikTok posting functionality
+      const { data, error } = await supabase.functions.invoke('post-to-tiktok', {
+        body: { 
+          content: 'Demo video test - This is a test of our TikTok integration using sandbox APIs',
+          title: 'Demo Video Upload via API',
+          mediaUrls: ['https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'], // Sample video
+          mediaType: 'video'
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to post to TikTok');
       }
-    }, 200);
+
+      // Simulate progress for demo purposes
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 20;
+        setUploadProgress(progress);
+        
+        if (progress >= 100) {
+          clearInterval(interval);
+          
+          const newPost: TikTokVideoPost = {
+            id: data?.publishId || `post_${Date.now()}`,
+            title: "Demo Video Upload",
+            description: "This video was uploaded through our platform using TikTok Content Posting API",
+            video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+            thumbnail_url: "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=300&h=400&fit=crop",
+            views: 1250,
+            likes: 89,
+            comments: 12,
+            shares: 23,
+            created_at: new Date().toISOString(),
+            status: data?.status || 'published'
+          };
+          
+          const updatedPosts = [...posts, newPost];
+          setPosts(updatedPosts);
+          onComplete(updatedPosts);
+          setIsUploading(false);
+          setUploadProgress(0);
+          
+          toast({
+            title: "Video Upload Initiated",
+            description: `Successfully initiated TikTok upload. Publish ID: ${data?.publishId || 'demo'}`,
+          });
+        }
+      }, 500);
+    } catch (error: any) {
+      console.error('TikTok posting error:', error);
+      setIsUploading(false);
+      setUploadProgress(0);
+      toast({
+        title: "Upload Test Failed",
+        description: error.message || "Failed to test TikTok posting",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -272,8 +362,8 @@ const ContentPostingDemo: React.FC<{ onComplete: (data: TikTokVideoPost[]) => vo
             }} />
             
             {!isUploading && (
-              <Button onClick={simulateVideoUpload} className="w-full">
-                Upload & Publish Demo Video
+              <Button onClick={testTikTokPosting} className="w-full">
+                Test Real TikTok API Upload
               </Button>
             )}
             
