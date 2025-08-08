@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { toast } from './ui/use-toast';
 import { Loader2, RefreshCw, CheckCircle, AlertCircle, ExternalLink, Clock } from 'lucide-react';
-import { FarcasterConnect, FarcasterConnectResult } from '@/services/oauth/FarcasterConnect';
+import { FarcasterAuthService } from '@/services/oauth/FarcasterAuthService';
 
 interface FarcasterConnectQRProps {
   onSuccess: (userData: any) => void;
@@ -21,10 +21,9 @@ export const FarcasterConnectQR: React.FC<FarcasterConnectQRProps> = ({
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pollAttempts, setPollAttempts] = useState(0);
-  const [nonce, setNonce] = useState<string>('');
+  const [signerUuid, setSignerUuid] = useState<string>('');
   const [qrCodeError, setQrCodeError] = useState(false);
-  
-  const farcasterConnect = new FarcasterConnect();
+  const [authService, setAuthService] = useState<FarcasterAuthService | null>(null);
   
   const initializeConnect = async () => {
     try {
@@ -33,65 +32,108 @@ export const FarcasterConnectQR: React.FC<FarcasterConnectQRProps> = ({
       setQrCodeError(false);
       setPollAttempts(0);
       
-      console.log('🚀 === FARCASTER CONNECT INITIALIZATION ===');
+      console.log('🚀 === FARCASTER NEYNAR INITIALIZATION ===');
       
-      const url = await farcasterConnect.createConnectUrl();
-      const connectNonce = farcasterConnect.getNonce();
+      // Initialize the auth service
+      const service = new FarcasterAuthService();
+      setAuthService(service);
       
-      setConnectUrl(url);
-      setNonce(connectNonce);
+      // Create signer
+      const signerResponse = await service.createSigner();
+      console.log('✅ Signer created:', signerResponse);
       
-      console.log('✅ Connect URL created:', url);
-      console.log('🎯 Nonce:', connectNonce);
+      setConnectUrl(signerResponse.signer_approval_url);
+      setSignerUuid(signerResponse.signer_uuid);
       
       // Start polling for authentication result
-      startPolling(connectNonce);
+      startPolling(signerResponse.signer_uuid);
       
     } catch (error: any) {
-      console.error('❌ Farcaster Connect initialization failed:', error);
-      setError(error.message || 'Failed to initialize Farcaster Connect');
-      onError(error.message || 'Failed to initialize Farcaster Connect');
+      console.error('❌ Farcaster initialization failed:', error);
+      setError(error.message || 'Failed to initialize Farcaster');
+      onError(error.message || 'Failed to initialize Farcaster');
     } finally {
       setIsLoading(false);
     }
   };
   
-  const startPolling = async (pollNonce: string) => {
+  const startPolling = async (uuid: string) => {
     setIsPolling(true);
     setPollAttempts(0);
     
-    console.log('🔄 Starting Farcaster Connect polling...');
+    console.log('🔄 Starting Farcaster Neynar polling...');
     
-    try {
-      const result = await farcasterConnect.pollForResult(pollNonce);
-      
-      console.log('🎉 Authentication successful:', result);
-      
-      toast({
-        title: "Authentication Successful",
-        description: `Connected as ${result.username}`,
-      });
-      
-      onSuccess({
-        fid: result.fid,
-        username: result.username,
-        displayName: result.displayName,
-        pfpUrl: result.pfpUrl,
-        platform: 'farcaster',
-        status: 'approved'
-      });
-      
-    } catch (error: any) {
-      console.error('❌ Farcaster Connect polling failed:', error);
-      setError(error.message);
-      setIsPolling(false);
-      
-      toast({
-        title: "Authentication Failed",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
+    const maxAttempts = 60; // 5 minutes at 5-second intervals
+    let attempts = 0;
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        attempts++;
+        setPollAttempts(attempts);
+        
+        if (!authService) {
+          console.error('❌ Auth service not initialized');
+          clearInterval(pollInterval);
+          setIsPolling(false);
+          return;
+        }
+        
+        console.log(`🔍 Poll attempt ${attempts}/${maxAttempts}`);
+        const signerData = await authService.getSigner(uuid);
+        
+        if (signerData.status === 'approved' && signerData.fid) {
+          console.log('🎉 Authentication successful:', signerData);
+          clearInterval(pollInterval);
+          setIsPolling(false);
+          
+          // Get full user data
+          const userData = await authService.getUserByFid(signerData.fid);
+          
+          toast({
+            title: "Authentication Successful",
+            description: `Connected as ${userData.username}`,
+          });
+          
+          onSuccess({
+            fid: signerData.fid,
+            username: userData.username,
+            displayName: userData.display_name,
+            pfpUrl: userData.pfp_url,
+            platform: 'farcaster',
+            status: 'approved',
+            signerUuid: uuid
+          });
+          return;
+        }
+        
+        if (attempts >= maxAttempts) {
+          console.log('❌ Polling timeout reached');
+          clearInterval(pollInterval);
+          setIsPolling(false);
+          setError('Authentication timed out - please try again');
+          
+          toast({
+            title: "Authentication Timeout",
+            description: "Please try again",
+            variant: "destructive"
+          });
+        }
+        
+      } catch (error: any) {
+        console.error('❌ Polling error:', error);
+        if (attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          setIsPolling(false);
+          setError(error.message);
+          
+          toast({
+            title: "Authentication Failed",
+            description: error.message,
+            variant: "destructive"
+          });
+        }
+      }
+    }, 5000);
   };
   
   const handleRefresh = () => {
