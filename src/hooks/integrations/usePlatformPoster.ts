@@ -77,11 +77,25 @@ export const usePlatformPoster = () => {
     mediaType?: 'image' | 'video' | null
   ): Promise<PostResult> => {
     try {
+      // Get the connected user's signer UUID from localStorage
+      let signerUuid: string | null = null;
+      try {
+        const farcasterCredentials = localStorage.getItem('farcaster_credentials');
+        if (farcasterCredentials) {
+          const credentials = JSON.parse(farcasterCredentials);
+          signerUuid = credentials.accessToken; // accessToken stores the signer_uuid
+          console.log('Using connected user signer UUID:', signerUuid?.substring(0, 8) + '...');
+        }
+      } catch (error) {
+        console.warn('Could not get Farcaster signer from localStorage:', error);
+      }
+
       const { data, error } = await supabase.functions.invoke('post-to-farcaster', {
         body: { 
           content, 
           mediaUrl, 
-          mediaType 
+          mediaType,
+          signer_uuid: signerUuid // Pass the connected user's signer UUID
         }
       });
       

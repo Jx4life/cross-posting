@@ -41,8 +41,8 @@ serve(async (req) => {
       );
     }
 
-    const { content, mediaUrl, mediaType } = await req.json();
-    console.log('Request payload:', { content, mediaUrl, mediaType });
+    const { content, mediaUrl, mediaType, signer_uuid } = await req.json();
+    console.log('Request payload:', { content, mediaUrl, mediaType, signer_uuid });
     
     if (!content && !mediaUrl) {
       console.error('No content or media provided');
@@ -58,9 +58,13 @@ serve(async (req) => {
       );
     }
 
+    // Use provided signer_uuid or fall back to default
+    const finalSignerUuid = signer_uuid || FARCASTER_SIGNER_UUID;
+    console.log('Using signer UUID:', finalSignerUuid.substring(0, 8) + '...');
+    
     // Prepare the cast payload
     const castPayload = {
-      signer_uuid: FARCASTER_SIGNER_UUID,
+      signer_uuid: finalSignerUuid,
       text: content || "",
     };
 
