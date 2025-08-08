@@ -104,26 +104,42 @@ export class FarcasterQRAuth {
         throw new Error('Invalid response from Neynar API - missing required fields');
       }
       
+      // Extract all possible URL fields from Neynar response
+      console.log('🔍 Full Neynar response analysis:');
+      console.log('  - signer_approval_url:', data.signer_approval_url);
+      console.log('  - approval_url:', data.approval_url);
+      console.log('  - deeplink_url:', data.deeplink_url);
+      console.log('  - warpcast_url:', data.warpcast_url);
+      console.log('  - All response keys:', Object.keys(data));
+      
+      // Try to get approval URL from various possible fields
+      let approvalUrl = data.signer_approval_url || data.approval_url || data.deeplink_url || data.warpcast_url;
+      
+      // If no URL provided by Neynar, construct the standard Warpcast URL
+      if (!approvalUrl) {
+        console.log('⚠️ No approval URL in Neynar response, constructing Warpcast URL');
+        
+        // Neynar signers use the public_key for Warpcast deeplinks
+        if (data.public_key) {
+          approvalUrl = `https://client.warpcast.com/deeplinks/signed-key-request?token=${data.public_key}`;
+          console.log('📱 Constructed Warpcast URL with public_key:', approvalUrl);
+        } else {
+          console.error('❌ No public_key available to construct URL');
+          throw new Error('Cannot create approval URL - no public_key in Neynar response');
+        }
+      } else {
+        console.log('✅ Using Neynar-provided approval URL:', approvalUrl);
+      }
+      
       const result = {
         signer_uuid: data.signer_uuid,
         public_key: data.public_key,
         status: data.status,
-        signer_approval_url: data.signer_approval_url,
+        signer_approval_url: approvalUrl,
         fid: data.fid
       };
       
-      console.log('Processed signer result:', result);
-      console.log('API provided signer_approval_url:', result.signer_approval_url);
-      
-      // Always use the API-provided approval URL from Neynar
-      // Neynar provides the correct Warpcast deeplink URL
-      if (result.signer_approval_url) {
-        console.log('✅ Using Neynar-provided approval URL:', result.signer_approval_url);
-      } else {
-        console.error('❌ No signer_approval_url provided by Neynar API');
-        throw new Error('No approval URL provided by Neynar API');
-      }
-      
+      console.log('📋 Final processed result:', result);
       return result;
       
     } catch (error: any) {
