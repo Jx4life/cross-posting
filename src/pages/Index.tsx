@@ -4,6 +4,7 @@ import { PostComposer } from '@/components/PostComposer';
 import PostsHistory from '@/components/PostsHistory';
 import PostAnalytics from '@/components/PostAnalytics';
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { SocialMediaConnections } from '@/components/SocialMediaConnections';
 import { PlatformConfigDialog } from '@/components/PlatformConfigDialog';
 import { useAuth } from '@/providers/AuthProvider';
@@ -31,6 +32,7 @@ const Index = () => {
             </Link>
           </div>
         </Card>
+        <Footer />
       </div>
     );
   }
@@ -60,6 +62,7 @@ const Index = () => {
       <PostComposer />
       <PostsHistory />
       <PostAnalytics />
+      <Footer />
     </div>
   );
 };
