@@ -13,6 +13,13 @@ const Footer = () => {
             Terms of Use
           </Link>
           <span className="text-gray-600">•</span>
+          <Link 
+            to="/privacy" 
+            className="hover:text-purple-400 transition-colors"
+          >
+            Privacy Policy
+          </Link>
+          <span className="text-gray-600">•</span>
           <a 
             href="mailto:insyncreators@gmail.com" 
             className="hover:text-purple-400 transition-colors"

@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Profile from "./pages/Profile";
 import TermsOfUse from "./pages/TermsOfUse";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import NotFound from "./pages/NotFound";
 import TikTokOAuthCallback from "./components/TikTokOAuthCallback";
 
@@ -24,6 +25,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/terms" element={<TermsOfUse />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/auth/callback/twitter" element={<OAuthCallback platform="twitter" />} />
             <Route path="/auth/callback/facebook" element={<OAuthCallback platform="facebook" />} />
             <Route path="/auth/callback/farcaster" element={<OAuthCallback platform="farcaster" />} />
