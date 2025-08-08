@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { TikTokConnector } from '@/components/TikTokConnector';
 import { TikTokVideoValidator } from '@/components/TikTokVideoValidator';
+import { TikTokQRAuth } from '@/components/TikTokQRAuth';
 import { PostComposer } from '@/components/PostComposer';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/providers/AuthProvider';
@@ -164,7 +165,7 @@ const LoginDemo: React.FC<{ onComplete: (data: TikTokUserProfile) => void }> = (
               TikTok Login Kit
             </CardTitle>
             <CardDescription>
-              Secure OAuth 2.0 authentication with scope permissions
+              Mobile-first QR code authentication with TikTok OAuth 2.0
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -173,18 +174,18 @@ const LoginDemo: React.FC<{ onComplete: (data: TikTokUserProfile) => void }> = (
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">user.info.basic</Badge>
                 <Badge variant="secondary">user.info.profile</Badge>
-                <Badge variant="secondary">user.info.stats</Badge>
+                <Badge variant="secondary">video.publish</Badge>
               </div>
             </div>
             
             {!isConnected && !userProfile && (
-              <Button 
-                onClick={handleConnect} 
-                disabled={isConnecting}
-                className="w-full"
-              >
-                {isConnecting ? "Redirecting to TikTok..." : "Sign in with TikTok (Real OAuth)"}
-              </Button>
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                <p className="text-blue-400 text-sm mb-2">📱 <strong>Mobile Authentication Flow:</strong></p>
+                <p className="text-blue-200 text-xs">
+                  This demo uses QR code authentication, just like popular apps. 
+                  You'll see a QR code that you can scan with your mobile device to authenticate.
+                </p>
+              </div>
             )}
             
             {isConnected && !userProfile && (
@@ -193,18 +194,43 @@ const LoginDemo: React.FC<{ onComplete: (data: TikTokUserProfile) => void }> = (
                 <p className="text-sm text-gray-400">Loading profile data...</p>
               </div>
             )}
-            
-            {isConnecting && (
-              <div className="space-y-2">
-                <Progress value={60} className="w-full" />
-                <p className="text-sm text-gray-400">Authenticating with TikTok...</p>
-              </div>
-            )}
           </CardContent>
         </Card>
 
+        {/* QR Authentication Component */}
+        <div className="md:col-span-1">
+          <TikTokQRAuth 
+            onSuccess={() => {
+              const mockProfile: TikTokUserProfile = {
+                open_id: 'demo_user_123',
+                union_id: 'union_demo_456',
+                avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+                display_name: 'Demo Creator',
+                username: '@democreator',
+                follower_count: 25400,
+                following_count: 189,
+                likes_count: 125000
+              };
+              setUserProfile(mockProfile);
+              setIsConnected(true);
+              onComplete(mockProfile);
+              toast({
+                title: "Login Successful",
+                description: "Connected to TikTok with Login Kit - Retrieved profile data",
+              });
+            }}
+            onError={(error) => {
+              toast({
+                title: "Authentication Failed",
+                description: error,
+                variant: "destructive"
+              });
+            }}
+          />
+        </div>
+
         {userProfile && (
-          <Card className="bg-white/5 backdrop-blur-sm border-green-500/20">
+          <Card className="bg-white/5 backdrop-blur-sm border-green-500/20 md:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-green-400" />
