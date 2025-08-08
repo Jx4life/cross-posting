@@ -58,13 +58,26 @@ serve(async (req) => {
       );
     }
 
-    // Use provided signer_uuid or fall back to default
-    const finalSignerUuid = signer_uuid || FARCASTER_SIGNER_UUID;
-    console.log('Using signer UUID:', finalSignerUuid.substring(0, 8) + '...');
+    // Require connected user's signer UUID - no fallback to default
+    if (!signer_uuid) {
+      console.error('No signer UUID provided - user must be connected to Farcaster');
+      return new Response(
+        JSON.stringify({ 
+          error: "Please connect your Farcaster account first",
+          success: false 
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
+    
+    console.log('Using connected user signer UUID:', signer_uuid.substring(0, 8) + '...');
     
     // Prepare the cast payload
     const castPayload = {
-      signer_uuid: finalSignerUuid,
+      signer_uuid: signer_uuid,
       text: content || "",
     };
 
