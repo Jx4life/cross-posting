@@ -373,10 +373,19 @@ export class OAuthManager {
   // Method to store Farcaster signer data
   storeFarcasterSigner(signerData: any): void {
     console.log('Storing Farcaster signer:', signerData);
-    localStorage.setItem('farcaster_signer', JSON.stringify({
-      ...signerData,
+    
+    const credentials = {
+      accessToken: signerData.signer_uuid || signerData.signerUuid,
+      username: signerData.username,
+      fid: signerData.fid,
+      displayName: signerData.displayName,
+      pfpUrl: signerData.pfpUrl,
       timestamp: Date.now()
-    }));
+    };
+    
+    localStorage.setItem('farcaster_signer', JSON.stringify(credentials));
+    localStorage.setItem('farcaster_credentials', JSON.stringify(credentials));
+    console.log('Farcaster signer data stored in localStorage');
   }
   
   // Method to get Farcaster signer data

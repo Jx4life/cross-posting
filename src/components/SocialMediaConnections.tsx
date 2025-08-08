@@ -16,7 +16,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { oauthManager } from '@/services/oauth/OAuthManager';
-import { FarcasterConnectQR } from './FarcasterConnectQR';
+import { FarcasterSIWN } from './FarcasterSIWN';
 import { supabase } from '@/integrations/supabase/client';
 import { FacebookConnectionCard } from './FacebookConnectionCard';
 
@@ -74,7 +74,7 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
     youtubeShorts: { isConnected: false, isEnabled: true },
   });
 
-  const [showFarcasterQR, setShowFarcasterQR] = useState(false);
+  const [showFarcasterSIWN, setShowFarcasterSIWN] = useState(false);
 
   const platforms = [
     {
@@ -409,12 +409,12 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
           }
           
         } else if (platformId === 'farcaster') {
-          console.log('=== INITIATING FARCASTER QR CONNECTION ===');
+          console.log('=== INITIATING FARCASTER SIWN CONNECTION ===');
           
-          // Show QR code dialog instead of popup
-          setShowFarcasterQR(true);
+          // Show SIWN dialog instead of popup
+          setShowFarcasterSIWN(true);
           
-          // Clear connecting state since we're showing the QR dialog
+          // Clear connecting state since we're showing the SIWN dialog
           setConnections(prev => ({
             ...prev,
             [platformId]: { ...prev[platformId], isConnecting: false }
@@ -482,11 +482,17 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
     }
   };
 
-  const handleFarcasterQRSuccess = (userData: any) => {
-    console.log('Farcaster QR authentication successful:', userData);
+  const handleFarcasterSIWNSuccess = (data: { signer_uuid: string; fid: number; user: any }) => {
+    console.log('Farcaster SIWN authentication successful:', data);
     
-    // Store signer data instead of OAuth credentials
-    oauthManager.storeFarcasterSigner(userData);
+    // Store signer data using the new SIWN format
+    oauthManager.storeFarcasterSigner({
+      signer_uuid: data.signer_uuid,
+      fid: data.fid,
+      username: data.user?.username || data.user?.handle || `fid:${data.fid}`,
+      displayName: data.user?.display_name || data.user?.displayName,
+      pfpUrl: data.user?.pfp_url || data.user?.pfpUrl
+    });
     
     // Update UI
     setConnections(prev => ({
@@ -494,29 +500,27 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
       farcaster: {
         ...prev.farcaster,
         isConnected: true,
-        username: userData.username,
-        fid: userData.fid,
-        displayName: userData.displayName,
+        username: data.user?.username || data.user?.handle || `fid:${data.fid}`,
+        fid: data.fid,
+        displayName: data.user?.display_name || data.user?.displayName,
         lastConnected: new Date().toISOString(),
         isConnecting: false
       }
     }));
     
-    setShowFarcasterQR(false);
+    // Close SIWN dialog
+    setShowFarcasterSIWN(false);
     
     toast({
       title: "Connected Successfully",
-      description: `Connected to Farcaster as ${userData.username || 'user'}`,
+      description: `Connected to Farcaster as ${data.user?.username || data.user?.displayName || `fid:${data.fid}`}`,
     });
   };
 
-  const handleFarcasterQRError = (error: string) => {
-    console.error('Farcaster QR authentication error:', error);
+  const handleFarcasterSIWNError = (error: string) => {
+    console.error('Farcaster SIWN authentication error:', error);
     
-    setConnections(prev => ({
-      ...prev,
-      farcaster: { ...prev.farcaster, isConnecting: false }
-    }));
+    setShowFarcasterSIWN(false);
     
     toast({
       title: "Connection Failed",
@@ -715,16 +719,16 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
         </CardContent>
       </Card>
 
-      {/* Farcaster QR Code Dialog */}
-      <Dialog open={showFarcasterQR} onOpenChange={setShowFarcasterQR}>
+      {/* Farcaster SIWN Dialog */}
+      <Dialog open={showFarcasterSIWN} onOpenChange={setShowFarcasterSIWN}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Connect to Farcaster</DialogTitle>
           </DialogHeader>
-          <FarcasterConnectQR
-            onSuccess={handleFarcasterQRSuccess}
-            onError={handleFarcasterQRError}
-            onClose={() => setShowFarcasterQR(false)}
+          <FarcasterSIWN
+            onSuccess={handleFarcasterSIWNSuccess}
+            onError={handleFarcasterSIWNError}
+            theme="dark"
           />
         </DialogContent>
       </Dialog>
