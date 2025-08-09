@@ -16,13 +16,9 @@ serve(async (req) => {
     
     console.log('TikTok token exchange request:', { code, redirectUri });
     
-    // Use your own TikTok app credentials from Supabase secrets
-    const TIKTOK_CLIENT_ID = Deno.env.get("TIKTOK_CLIENT_ID");
-    const TIKTOK_CLIENT_SECRET = Deno.env.get("TIKTOK_CLIENT_SECRET");
-    
-    if (!TIKTOK_CLIENT_ID || !TIKTOK_CLIENT_SECRET) {
-      throw new Error('Please add TIKTOK_CLIENT_ID and TIKTOK_CLIENT_SECRET to Supabase secrets - shared sandbox credentials are no longer valid');
-    }
+    // Use the provided TikTok credentials
+    const TIKTOK_CLIENT_ID = 'sbawjmn8p4yrizyuis';
+    const TIKTOK_CLIENT_SECRET = 'F51RS5h2sDaZUUxLbDWoe9p5TXEalKxj';
     
     console.log('Using client ID:', TIKTOK_CLIENT_ID.substring(0, 8) + '...');
     console.log('Using redirect URI:', redirectUri);
