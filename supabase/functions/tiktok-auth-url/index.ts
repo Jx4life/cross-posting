@@ -16,12 +16,10 @@ serve(async (req) => {
     
     console.log('TikTok auth URL request:', { redirectUri });
     
-    // Get YOUR TikTok app credentials from Supabase secrets
-    const TIKTOK_CLIENT_ID = Deno.env.get("TIKTOK_CLIENT_ID");
+    // Use the provided TikTok credentials
+    const TIKTOK_CLIENT_ID = 'sbawjmn8p4yrizyuis';
     
-    if (!TIKTOK_CLIENT_ID) {
-      throw new Error('TikTok client ID not configured - you need to add your real TikTok app credentials to Supabase secrets');
-    }
+    console.log('Using client ID:', TIKTOK_CLIENT_ID);
     
     // Generate TikTok OAuth URL using the correct endpoint
     const scopes = ['user.info.basic'];
