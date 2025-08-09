@@ -38,7 +38,7 @@ serve(async (req) => {
     });
     
     // Use the correct TikTok OAuth authorization endpoint
-    const authUrl = `https://www.tiktok.com/v2/auth/authorize/?${params.toString()}`;
+    const authUrl = `https://open-api.tiktok.com/platform/oauth/authorize/?${params.toString()}`;
     
     console.log('Generated TikTok auth URL:', authUrl);
     console.log('Client ID being used:', TIKTOK_CLIENT_ID.substring(0, 8) + '...');
