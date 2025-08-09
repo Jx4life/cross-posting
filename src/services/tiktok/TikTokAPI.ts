@@ -52,7 +52,7 @@ export class TikTokAPI {
       state: state || Math.random().toString(36).substring(7)
     });
     
-    return `https://www.tiktok.com/v2/auth/authorize/?${params.toString()}`;
+    return `https://www.tiktok.com/auth/authorize/?${params.toString()}`;
   }
   
   async exchangeCodeForToken(code: string): Promise<TikTokTokenResponse> {
