@@ -21,8 +21,8 @@ serve(async (req) => {
     
     console.log('Using client ID:', TIKTOK_CLIENT_ID);
     
-    // Generate TikTok OAuth URL using the correct endpoint
-    const scopes = ['user.info.basic'];
+    // Generate TikTok OAuth URL using the correct endpoint with video upload scope
+    const scopes = ['user.info.basic', 'video.upload'];
     const state = crypto.randomUUID();
     
     const params = new URLSearchParams({
