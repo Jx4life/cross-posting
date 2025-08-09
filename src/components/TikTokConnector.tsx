@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,11 +14,11 @@ export const TikTokConnector = () => {
   const { user } = useAuth();
 
   // Check connection status on component mount
-  useState(() => {
+  React.useEffect(() => {
     if (user) {
       checkConnectionStatus();
     }
-  });
+  }, [user]);
 
   const checkConnectionStatus = async () => {
     if (!user) return;
@@ -41,7 +41,7 @@ export const TikTokConnector = () => {
 
   // Use the exact current URL for redirect URI to ensure it matches TikTok app settings
   const currentUrl = window.location.origin;
-  const redirectUri = `${currentUrl}/oauth/tiktok/callback`;
+  const redirectUri = `${currentUrl}/auth/callback/tiktok`;
 
   const handleConnectTikTok = async () => {
     setIsConnecting(true);
@@ -243,48 +243,43 @@ export const TikTokConnector = () => {
         )}
       </div>
       
-      <div className="bg-blue-500/20 p-4 rounded-md">
-        <h3 className="text-blue-400 font-bold text-lg mb-3">🚀 TikTok Integration Setup</h3>
+      <div className="bg-green-500/20 p-4 rounded-md">
+        <h3 className="text-green-400 font-bold text-lg mb-3">🚀 TikTok Sandbox Ready!</h3>
         
         <div className="space-y-3 text-sm">
-          <h4 className="text-blue-300 font-semibold">📋 Setup Required:</h4>
-          <ol className="list-decimal pl-5 space-y-2 text-blue-200">
-            <li>Create a TikTok Developer account at <a href="https://developers.tiktok.com/" target="_blank" rel="noopener noreferrer" className="text-blue-300 underline">developers.tiktok.com</a></li>
-            <li>Create a new app and configure Login Kit</li>
-            <li>Add this redirect URI to your app settings:
-              <div className="bg-black/40 p-2 rounded font-mono text-xs text-green-400 mt-1 break-all">
-                {redirectUri}
-              </div>
-            </li>
-            <li>Verify your domain using the meta tag (already added to your site)</li>
-            <li>Update your TikTok credentials in Supabase secrets:
-              <ul className="list-disc pl-4 mt-1 text-xs">
-                <li>TIKTOK_CLIENT_ID (your TikTok Client Key)</li>
-                <li>TIKTOK_CLIENT_SECRET (your TikTok Client Secret)</li>
-              </ul>
-            </li>
-          </ol>
-          
-          <div className="mt-4 p-3 bg-green-500/20 rounded-md">
-            <h4 className="text-green-300 font-semibold mb-2">✨ Features:</h4>
+          <div className="p-3 bg-green-600/20 rounded-md">
+            <h4 className="text-green-300 font-semibold mb-2">✅ Ready to Test:</h4>
             <ul className="text-green-200 text-xs space-y-1">
+              <li>• Sandbox credentials are pre-configured</li>
+              <li>• Click "Connect TikTok" to start OAuth flow</li>
+              <li>• Test video/photo uploads immediately</li>
+              <li>• All API calls work with sandbox environment</li>
+            </ul>
+          </div>
+          
+          <div className="p-3 bg-blue-500/20 rounded-md">
+            <h4 className="text-blue-300 font-semibold mb-2">🔧 Current Redirect URI:</h4>
+            <div className="bg-black/40 p-2 rounded font-mono text-xs text-green-400 break-all">
+              {redirectUri}
+            </div>
+          </div>
+          
+          <div className="mt-4 p-3 bg-purple-500/20 rounded-md">
+            <h4 className="text-purple-300 font-semibold mb-2">✨ Features Available:</h4>
+            <ul className="text-purple-200 text-xs space-y-1">
               <li>• Automatic token refresh when expired</li>
               <li>• Support for video and photo carousel posts</li>
               <li>• Connection validation and health checks</li>
               <li>• Secure credential management via Supabase</li>
+              <li>• Real-time posting status updates</li>
             </ul>
           </div>
         </div>
         
         <div className="mt-4 p-3 bg-yellow-500/20 rounded-md">
           <p className="text-yellow-400 font-medium text-xs">
-            💡 <strong>Need Help?</strong> Contact support if you need assistance setting up your TikTok Developer account or configuring the integration.
+            🎯 <strong>Perfect for Demo:</strong> This sandbox setup allows you to record full TikTok functionality for your app review submission without needing production credentials.
           </p>
-        </div>
-        
-        <div className="mt-3 p-2 bg-black/20 rounded-md font-mono text-xs">
-          <p className="text-blue-400">Domain verification meta tag (already added):</p>
-          <p className="text-green-400 mt-1 break-all">&lt;meta name="tiktok-developers-site-verification" content="DdXHQR44CVq49tXdjR7GwN3eMFYaKfYN" /&gt;</p>
         </div>
       </div>
     </div>

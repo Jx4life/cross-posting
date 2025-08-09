@@ -31,6 +31,7 @@ const App = () => (
             <Route path="/auth/callback/twitter" element={<OAuthCallback platform="twitter" />} />
             <Route path="/auth/callback/facebook" element={<OAuthCallback platform="facebook" />} />
             <Route path="/auth/callback/farcaster" element={<OAuthCallback platform="farcaster" />} />
+            <Route path="/auth/callback/tiktok" element={<TikTokOAuthCallback />} />
             <Route path="/oauth/tiktok/callback" element={<TikTokOAuthCallback />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

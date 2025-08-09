@@ -22,7 +22,7 @@ export const PostComposer = () => {
     farcaster: true,
     facebook: true,
     instagram: false,
-    tiktok: false,
+    tiktok: true,
     youtubeShorts: false
   });
   const [scheduledAt, setScheduledAt] = useState<Date | null>(null);
