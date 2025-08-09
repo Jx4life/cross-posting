@@ -41,7 +41,7 @@ export const TikTokConnector = () => {
 
   // Use the exact current URL for redirect URI to ensure it matches TikTok app settings
   const currentUrl = window.location.origin;
-  const redirectUri = `${currentUrl}/auth/callback/tiktok`;
+  const redirectUri = `${currentUrl}/oauth/tiktok/callback`;
 
   const handleConnectTikTok = async () => {
     setIsConnecting(true);
@@ -281,16 +281,16 @@ export const TikTokConnector = () => {
             🎯 <strong>Perfect for Demo:</strong> This sandbox setup allows you to record full TikTok functionality for your app review submission without needing production credentials.
           </p>
           <p className="text-yellow-300 text-xs mt-2">
-            📱 <strong>Note:</strong> Sandbox apps can only post to private TikTok accounts. Make sure your test account is set to private for successful posting.
+            📱 <strong>CRITICAL:</strong> Your TikTok account MUST be set to PRIVATE for posting to work! Sandbox apps cannot post to public accounts.
           </p>
         </div>
         
-        <div className="mt-3 p-2 bg-orange-500/20 rounded-md">
-          <p className="text-orange-400 font-semibold text-xs mb-1">🔄 Troubleshooting Tips:</p>
-          <ul className="text-orange-300 text-xs space-y-1">
-            <li>• Ensure your TikTok account is set to private</li>
-            <li>• Try uploading both videos and photos</li>
-            <li>• Check connection status before posting</li>
+        <div className="mt-3 p-2 bg-red-500/20 rounded-md">
+          <p className="text-red-400 font-semibold text-xs mb-1">⚠️ If Posting Fails:</p>
+          <ul className="text-red-300 text-xs space-y-1">
+            <li>• <strong>Your TikTok account MUST be PRIVATE</strong></li>
+            <li>• Go to TikTok app → Profile → Settings → Privacy → Private account</li>
+            <li>• Disconnect and reconnect TikTok after making account private</li>
             <li>• Videos must be under 287MB, photos under 50MB</li>
           </ul>
         </div>
