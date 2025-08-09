@@ -478,21 +478,38 @@ serve(async (req) => {
 
       // Publish the photos
       console.log('Publishing photos on TikTok...');
+      let publishSuccess = false;
+      let publishError: any = null;
+      
       try {
-        await apiClient.publishContent(accessToken, publishId);
-        console.log('Photos published successfully');
-      } catch (publishError) {
-        console.log('Publish step had issues but upload completed:', publishError);
+        const publishResult = await apiClient.publishContent(accessToken, publishId);
+        console.log('Photos published successfully:', publishResult);
+        publishSuccess = true;
+      } catch (error) {
+        console.error('Publish step failed:', error);
+        publishError = error;
       }
 
       // Check final status
       let finalStatus = 'UPLOADED';
+      let statusResult: any = null;
+      
       try {
-        const statusResult = await apiClient.checkContentStatus(accessToken, publishId);
+        statusResult = await apiClient.checkContentStatus(accessToken, publishId);
         finalStatus = statusResult.data?.status || 'UPLOADED';
-        console.log('Final photo post status:', finalStatus);
+        console.log('Final photo post status:', finalStatus, 'Full result:', JSON.stringify(statusResult));
       } catch (statusError) {
-        console.log('Status check failed, but photos were processed:', statusError);
+        console.error('Status check failed:', statusError);
+        
+        // If both publish and status check failed, return error
+        if (!publishSuccess) {
+          throw new Error(`TikTok publish failed: ${publishError?.message || 'Unknown error'}. Status check also failed: ${statusError.message}`);
+        }
+      }
+
+      // If publish failed but we got here, it means status check worked
+      if (!publishSuccess && finalStatus !== 'PUBLISHED' && finalStatus !== 'PROCESSING') {
+        throw new Error(`TikTok publish failed: ${publishError?.message || 'Unknown error'}. Current status: ${finalStatus}`);
       }
 
       return new Response(
@@ -585,21 +602,38 @@ serve(async (req) => {
 
       // Publish the video
       console.log('Publishing video on TikTok...');
+      let publishSuccess = false;
+      let publishError: any = null;
+      
       try {
-        await apiClient.publishContent(accessToken, publishId);
-        console.log('Video published successfully');
-      } catch (publishError) {
-        console.log('Publish step had issues but upload completed:', publishError);
+        const publishResult = await apiClient.publishContent(accessToken, publishId);
+        console.log('Video published successfully:', publishResult);
+        publishSuccess = true;
+      } catch (error) {
+        console.error('Publish step failed:', error);
+        publishError = error;
       }
 
       // Check final status
       let finalStatus = 'UPLOADED';
+      let statusResult: any = null;
+      
       try {
-        const statusResult = await apiClient.checkContentStatus(accessToken, publishId);
+        statusResult = await apiClient.checkContentStatus(accessToken, publishId);
         finalStatus = statusResult.data?.status || 'UPLOADED';
-        console.log('Final video status:', finalStatus);
+        console.log('Final video status:', finalStatus, 'Full result:', JSON.stringify(statusResult));
       } catch (statusError) {
-        console.log('Status check failed, but video was processed:', statusError);
+        console.error('Status check failed:', statusError);
+        
+        // If both publish and status check failed, return error
+        if (!publishSuccess) {
+          throw new Error(`TikTok publish failed: ${publishError?.message || 'Unknown error'}. Status check also failed: ${statusError.message}`);
+        }
+      }
+
+      // If publish failed but we got here, it means status check worked
+      if (!publishSuccess && finalStatus !== 'PUBLISHED' && finalStatus !== 'PROCESSING') {
+        throw new Error(`TikTok publish failed: ${publishError?.message || 'Unknown error'}. Current status: ${finalStatus}`);
       }
 
       return new Response(
@@ -652,21 +686,38 @@ serve(async (req) => {
 
       // Publish the photo
       console.log('Publishing photo on TikTok...');
+      let publishSuccess = false;
+      let publishError: any = null;
+      
       try {
-        await apiClient.publishContent(accessToken, publishId);
-        console.log('Photo published successfully');
-      } catch (publishError) {
-        console.log('Publish step had issues but upload completed:', publishError);
+        const publishResult = await apiClient.publishContent(accessToken, publishId);
+        console.log('Photo published successfully:', publishResult);
+        publishSuccess = true;
+      } catch (error) {
+        console.error('Publish step failed:', error);
+        publishError = error;
       }
 
       // Check final status
       let finalStatus = 'UPLOADED';
+      let statusResult: any = null;
+      
       try {
-        const statusResult = await apiClient.checkContentStatus(accessToken, publishId);
+        statusResult = await apiClient.checkContentStatus(accessToken, publishId);
         finalStatus = statusResult.data?.status || 'UPLOADED';
-        console.log('Final photo status:', finalStatus);
+        console.log('Final photo status:', finalStatus, 'Full result:', JSON.stringify(statusResult));
       } catch (statusError) {
-        console.log('Status check failed, but photo was processed:', statusError);
+        console.error('Status check failed:', statusError);
+        
+        // If both publish and status check failed, return error
+        if (!publishSuccess) {
+          throw new Error(`TikTok publish failed: ${publishError?.message || 'Unknown error'}. Status check also failed: ${statusError.message}`);
+        }
+      }
+
+      // If publish failed but we got here, it means status check worked
+      if (!publishSuccess && finalStatus !== 'PUBLISHED' && finalStatus !== 'PROCESSING') {
+        throw new Error(`TikTok publish failed: ${publishError?.message || 'Unknown error'}. Current status: ${finalStatus}`);
       }
 
       return new Response(
