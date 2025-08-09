@@ -22,7 +22,7 @@ serve(async (req) => {
     console.log('Using sandbox client ID:', TIKTOK_CLIENT_ID.substring(0, 8) + '...');
     
     // Generate TikTok OAuth URL using the correct endpoint
-    const scopes = ['user.info.basic', 'video.publish'];
+    const scopes = ['user.info.basic', 'video.upload'];
     const state = crypto.randomUUID();
     
     const params = new URLSearchParams({
