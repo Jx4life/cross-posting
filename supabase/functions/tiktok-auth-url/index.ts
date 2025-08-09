@@ -17,12 +17,12 @@ serve(async (req) => {
     console.log('TikTok auth URL request:', { redirectUri });
     
     // Use the provided TikTok credentials
-    const TIKTOK_CLIENT_ID = 'sbawwup5buvyikd3wt';
+    const TIKTOK_CLIENT_ID = 'sbawjmn8p4yrizyuis';
     
     console.log('Using client ID:', TIKTOK_CLIENT_ID);
     
-    // Generate TikTok OAuth URL using the correct endpoint with video upload scope
-    const scopes = ['user.info.basic', 'video.upload'];
+    // Generate TikTok OAuth URL using the correct endpoint with all required scopes
+    const scopes = ['user.info.basic', 'video.upload', 'video.publish'];
     const state = crypto.randomUUID();
     
     const params = new URLSearchParams({
