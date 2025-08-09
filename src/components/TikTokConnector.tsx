@@ -5,12 +5,15 @@ import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { TikTokOAuth } from "@/services/oauth/TikTokOAuth";
 import { useAuth } from "@/providers/AuthProvider";
+import QRCode from "qrcode";
 
 export const TikTokConnector = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
   const { user } = useAuth();
 
   // Check connection status on component mount
@@ -88,6 +91,60 @@ export const TikTokConnector = () => {
       setIsConnecting(false);
     }
     // Note: Don't set isConnecting to false here as we're redirecting
+  };
+
+  const handleShowQRCode = async () => {
+    setIsConnecting(true);
+    try {
+      console.log('=== GENERATING QR CODE FOR TIKTOK ===');
+      
+      // Clear any existing TikTok credentials to ensure fresh connection
+      const { error: deleteError } = await supabase
+        .from("post_configurations")
+        .delete()
+        .eq("platform", "tiktok");
+      
+      if (deleteError) {
+        console.warn('Could not clear existing TikTok config:', deleteError);
+      }
+      
+      const { data, error } = await supabase.functions.invoke('tiktok-auth-url', {
+        body: { redirectUri }
+      });
+
+      if (error) {
+        console.error('TikTok auth URL generation error:', error);
+        throw new Error(error.message || 'Failed to generate TikTok authorization URL');
+      }
+      
+      if (data?.authUrl) {
+        console.log('Generated TikTok auth URL for QR:', data.authUrl);
+        
+        // Generate QR code
+        const qrDataUrl = await QRCode.toDataURL(data.authUrl, {
+          width: 256,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
+        });
+        
+        setQrCodeUrl(qrDataUrl);
+        setShowQRCode(true);
+      } else {
+        throw new Error("Failed to generate TikTok authorization URL - no URL returned");
+      }
+    } catch (error: any) {
+      console.error("=== TIKTOK QR CODE ERROR ===", error);
+      toast({
+        title: "QR Code Error",
+        description: error.message || "Failed to generate QR code for TikTok",
+        variant: "destructive"
+      });
+    } finally {
+      setIsConnecting(false);
+    }
   };
 
   const handleDisconnectTikTok = async () => {
@@ -197,49 +254,80 @@ export const TikTokConnector = () => {
         )}
       </div>
       
-      <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
-        {!isConnected ? (
-          <>
+      {showQRCode ? (
+        <div className="space-y-4">
+          <div className="flex flex-col items-center space-y-4 p-6 bg-background border rounded-lg">
+            <h3 className="text-lg font-semibold">Scan QR Code with Your Mobile Device</h3>
+            <img src={qrCodeUrl} alt="TikTok Login QR Code" className="border rounded-lg" />
+            <p className="text-sm text-muted-foreground text-center max-w-sm">
+              Open TikTok app on your mobile device and scan this QR code to authenticate
+            </p>
             <Button 
               variant="outline" 
-              onClick={handleConnectTikTok} 
-              disabled={isConnecting}
-              className="flex-1"
+              onClick={() => {
+                setShowQRCode(false);
+                setQrCodeUrl("");
+              }}
+              className="w-full max-w-xs"
             >
-              {isConnecting ? "Connecting..." : "Connect TikTok"}
+              Use Browser Login Instead
             </Button>
-            
-            <Button 
-              variant="secondary" 
-              onClick={verifyDomain} 
-              disabled={isVerifying}
-              className="flex-1"
-            >
-              Open TikTok Developer Portal
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button 
-              variant="outline" 
-              onClick={handleValidateConnection} 
-              disabled={isVerifying}
-              className="flex-1"
-            >
-              {isVerifying ? "Validating..." : "Validate Connection"}
-            </Button>
-            
-            <Button 
-              variant="destructive" 
-              onClick={handleDisconnectTikTok} 
-              disabled={isDisconnecting}
-              className="flex-1"
-            >
-              {isDisconnecting ? "Disconnecting..." : "Disconnect TikTok"}
-            </Button>
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
+          {!isConnected ? (
+            <>
+              <Button 
+                variant="outline" 
+                onClick={handleConnectTikTok} 
+                disabled={isConnecting}
+                className="flex-1"
+              >
+                {isConnecting ? "Connecting..." : "Connect TikTok (Browser)"}
+              </Button>
+              
+              <Button 
+                variant="default" 
+                onClick={handleShowQRCode} 
+                disabled={isConnecting}
+                className="flex-1"
+              >
+                {isConnecting ? "Generating..." : "Connect with QR Code"}
+              </Button>
+              
+              <Button 
+                variant="secondary" 
+                onClick={verifyDomain} 
+                disabled={isVerifying}
+                className="flex-1"
+              >
+                Open TikTok Developer Portal
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button 
+                variant="outline" 
+                onClick={handleValidateConnection} 
+                disabled={isVerifying}
+                className="flex-1"
+              >
+                {isVerifying ? "Validating..." : "Validate Connection"}
+              </Button>
+              
+              <Button 
+                variant="destructive" 
+                onClick={handleDisconnectTikTok} 
+                disabled={isDisconnecting}
+                className="flex-1"
+              >
+                {isDisconnecting ? "Disconnecting..." : "Disconnect TikTok"}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
       
       <div className="bg-green-500/20 p-4 rounded-md">
         <h3 className="text-green-400 font-bold text-lg mb-3">🚀 TikTok Sandbox Ready!</h3>
