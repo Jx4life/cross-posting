@@ -16,10 +16,12 @@ serve(async (req) => {
     
     console.log('TikTok auth URL request:', { redirectUri });
     
-    // Use sandbox credentials directly (no need for environment variables for sandbox)
-    const TIKTOK_CLIENT_ID = 'sbawjmn8p4yrizyuis'; // Sandbox client key
+    // Get YOUR TikTok app credentials from Supabase secrets
+    const TIKTOK_CLIENT_ID = Deno.env.get("TIKTOK_CLIENT_ID");
     
-    console.log('Using sandbox client ID:', TIKTOK_CLIENT_ID.substring(0, 8) + '...');
+    if (!TIKTOK_CLIENT_ID) {
+      throw new Error('TikTok client ID not configured - you need to add your real TikTok app credentials to Supabase secrets');
+    }
     
     // Generate TikTok OAuth URL using the correct endpoint
     const scopes = ['user.info.basic'];
