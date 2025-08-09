@@ -10,7 +10,7 @@ import Profile from "./pages/Profile";
 import TermsOfUse from "./pages/TermsOfUse";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import NotFound from "./pages/NotFound";
-import TikTokDemo from "./pages/TikTokDemo";
+
 import TikTokOAuthCallback from "./components/TikTokOAuthCallback";
 
 const queryClient = new QueryClient();
@@ -27,7 +27,7 @@ const App = () => (
             <Route path="/profile" element={<Profile />} />
             <Route path="/terms" element={<TermsOfUse />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/demo/tiktok" element={<TikTokDemo />} />
+            
             <Route path="/auth/callback/twitter" element={<OAuthCallback platform="twitter" />} />
             <Route path="/auth/callback/facebook" element={<OAuthCallback platform="facebook" />} />
             <Route path="/auth/callback/farcaster" element={<OAuthCallback platform="farcaster" />} />

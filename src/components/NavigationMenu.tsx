@@ -59,9 +59,6 @@ const NavigationMenu = () => {
 
   return (
     <div className="flex items-center gap-4">
-      <Button asChild variant="ghost" size="sm" className="text-purple-700 hover:bg-purple-100/50">
-        <Link to="/demo/tiktok">TikTok Demo</Link>
-      </Button>
       {user ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
