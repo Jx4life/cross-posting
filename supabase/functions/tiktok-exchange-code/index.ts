@@ -16,15 +16,11 @@ serve(async (req) => {
     
     console.log('TikTok token exchange request:', { code, redirectUri });
     
-    // Get TikTok credentials from secrets
-    const TIKTOK_CLIENT_ID = Deno.env.get("TIKTOK_CLIENT_ID");
-    const TIKTOK_CLIENT_SECRET = Deno.env.get("TIKTOK_CLIENT_SECRET");
+    // Use sandbox credentials directly
+    const TIKTOK_CLIENT_ID = 'sbawjmn8p4yrizyuis';
+    const TIKTOK_CLIENT_SECRET = 'F51RS5h2sDaZUUxLbDWoe9p5TXEalKxj';
     
-    if (!TIKTOK_CLIENT_ID || !TIKTOK_CLIENT_SECRET) {
-      throw new Error('TikTok credentials not configured');
-    }
-    
-    console.log('Using client ID from secrets:', TIKTOK_CLIENT_ID.substring(0, 8) + '...');
+    console.log('Using sandbox client ID:', TIKTOK_CLIENT_ID.substring(0, 8) + '...');
     console.log('Using redirect URI:', redirectUri);
     
     // Exchange code for access token using the correct endpoint
