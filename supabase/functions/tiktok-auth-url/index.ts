@@ -17,7 +17,7 @@ serve(async (req) => {
     console.log('TikTok auth URL request:', { redirectUri });
     
     // Use the provided TikTok credentials
-    const TIKTOK_CLIENT_ID = 'sbawjmn8p4yrizyuis';
+    const TIKTOK_CLIENT_ID = 'sbawwup5buvyikd3wt';
     
     console.log('Using client ID:', TIKTOK_CLIENT_ID);
     
