@@ -280,6 +280,19 @@ export const TikTokConnector = () => {
           <p className="text-yellow-400 font-medium text-xs">
             🎯 <strong>Perfect for Demo:</strong> This sandbox setup allows you to record full TikTok functionality for your app review submission without needing production credentials.
           </p>
+          <p className="text-yellow-300 text-xs mt-2">
+            📱 <strong>Note:</strong> Sandbox apps can only post to private TikTok accounts. Make sure your test account is set to private for successful posting.
+          </p>
+        </div>
+        
+        <div className="mt-3 p-2 bg-orange-500/20 rounded-md">
+          <p className="text-orange-400 font-semibold text-xs mb-1">🔄 Troubleshooting Tips:</p>
+          <ul className="text-orange-300 text-xs space-y-1">
+            <li>• Ensure your TikTok account is set to private</li>
+            <li>• Try uploading both videos and photos</li>
+            <li>• Check connection status before posting</li>
+            <li>• Videos must be under 287MB, photos under 50MB</li>
+          </ul>
         </div>
       </div>
     </div>

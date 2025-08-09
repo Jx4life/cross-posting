@@ -308,7 +308,9 @@ class TikTokAPIClient {
         source_info: {
           source: 'PULL_FROM_URL',
           video_url: videoUrl
-        }
+        },
+        media_type: 'VIDEO',
+        post_mode: 'DIRECT_POST'
       }
     });
   }
