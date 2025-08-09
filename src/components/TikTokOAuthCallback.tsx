@@ -109,8 +109,7 @@ export const TikTokOAuthCallback = () => {
         console.log('User ID:', currentUser.id);
 
         // Use the exact same redirect URI that was used for the auth request
-        const currentUrl = window.location.origin;
-        const redirectUri = `${currentUrl}/oauth/tiktok/callback`;
+        const redirectUri = `${window.location.origin}/oauth/tiktok/callback`;
         
         console.log('Using redirect URI for token exchange:', redirectUri);
 

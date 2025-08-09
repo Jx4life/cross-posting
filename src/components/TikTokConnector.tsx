@@ -42,8 +42,8 @@ export const TikTokConnector = () => {
     }
   };
 
-  // Use the registered domain from TikTok app settings
-  const redirectUri = `https://insync.xyz/oauth/tiktok/callback`;
+  // Use the current domain for redirect URI to match the callback component
+  const redirectUri = `${window.location.origin}/oauth/tiktok/callback`;
 
   const handleConnectTikTok = async () => {
     setIsConnecting(true);
@@ -348,6 +348,9 @@ export const TikTokConnector = () => {
             <div className="bg-black/40 p-2 rounded font-mono text-xs text-green-400 break-all">
               {redirectUri}
             </div>
+            <p className="text-blue-200 text-xs mt-2">
+              ⚠️ This MUST match exactly in your TikTok Developer Portal app settings
+            </p>
           </div>
           
           <div className="mt-4 p-3 bg-purple-500/20 rounded-md">
