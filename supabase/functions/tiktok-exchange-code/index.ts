@@ -17,8 +17,8 @@ serve(async (req) => {
     console.log('TikTok token exchange request:', { code, redirectUri });
     
     // Use the provided TikTok credentials
-    const TIKTOK_CLIENT_ID = 'sbawjmn8p4yrizyuis';
-    const TIKTOK_CLIENT_SECRET = 'F51RS5h2sDaZUUxLbDWoe9p5TXEalKxj';
+    const TIKTOK_CLIENT_ID = 'sbawwup5buvyikd3wt';
+    const TIKTOK_CLIENT_SECRET = 'BuLt0A8gvRj3bjXLfDRJFVFZKWJ9RhrJ';
     
     console.log('Using client ID:', TIKTOK_CLIENT_ID.substring(0, 8) + '...');
     console.log('Using redirect URI:', redirectUri);
