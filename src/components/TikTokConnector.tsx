@@ -49,7 +49,11 @@ export const TikTokConnector = () => {
     setIsConnecting(true);
     try {
       console.log('=== STARTING TIKTOK CONNECTION ===');
-      console.log('Redirect URI:', redirectUri);
+      console.log('Current URL origin:', window.location.origin);
+      console.log('Redirect URI that will be used:', redirectUri);
+      console.log('IMPORTANT: This EXACT URL must be in your TikTok Developer Portal');
+      console.log('=== COPY THIS EXACT URL TO TIKTOK DEVELOPER PORTAL ===');
+      console.log(redirectUri);
       
       // Clear any existing TikTok credentials to ensure fresh connection
       const { error: deleteError } = await supabase
