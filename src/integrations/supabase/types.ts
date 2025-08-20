@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -171,10 +171,49 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      secure_post_configurations: {
+        Row: {
+          access_token: string | null
+          created_at: string | null
+          id: string | null
+          is_enabled: boolean | null
+          platform: Database["public"]["Enums"]["platform_type"] | null
+          refresh_token: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_enabled?: boolean | null
+          platform?: Database["public"]["Enums"]["platform_type"] | null
+          refresh_token?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_enabled?: boolean | null
+          platform?: Database["public"]["Enums"]["platform_type"] | null
+          refresh_token?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      decrypt_token: {
+        Args: { encrypted_token: string; encryption_key: string }
+        Returns: string
+      }
+      encrypt_token: {
+        Args: { encryption_key: string; token: string }
+        Returns: string
+      }
     }
     Enums: {
       platform_type: "twitter" | "farcaster" | "lens" | "tiktok"
