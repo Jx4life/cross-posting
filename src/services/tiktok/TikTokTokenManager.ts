@@ -35,41 +35,52 @@ export class TikTokTokenManager {
   async getValidAccessToken(userId: string): Promise<string> {
     console.log('Getting valid access token for user:', userId);
     
-    // Get current token from database
-    const { data: config, error } = await supabase
-      .from('post_configurations')
-      .select('access_token, refresh_token, created_at')
-      .eq('user_id', userId)
-      .eq('platform', 'tiktok')
-      .eq('is_enabled', true)
-      .single();
+    // Import encryption utility
+    const { getDecryptedTokens, storeEncryptedTokens } = await import('@/utils/tokenEncryption');
     
-    if (error || !config) {
-      throw new Error('TikTok account not connected');
+    try {
+      const tokens = await getDecryptedTokens(userId, 'tiktok');
+      
+      if (!tokens || !tokens.accessToken || !tokens.refreshToken) {
+        throw new Error('TikTok account not connected');
+      }
+
+      // Get the configuration for token expiry check
+      const { data: config, error } = await supabase
+        .from('post_configurations')
+        .select('created_at')
+        .eq('user_id', userId)
+        .eq('platform', 'tiktok')
+        .eq('is_enabled', true)
+        .single();
+
+      if (error || !config) {
+        throw new Error('TikTok account not connected');
+      }
+
+      // Parse token info for expiry check
+      const tokenInfo: TikTokTokenInfo = {
+        access_token: tokens.accessToken,
+        refresh_token: tokens.refreshToken,
+        expires_in: 24 * 60 * 60, // 24 hours default
+        created_at: config.created_at ? new Date(config.created_at).getTime() / 1000 : 0,
+        open_id: '',
+        scope: ''
+      };
+
+      // Check if token needs refresh
+      if (this.isTokenExpired(tokenInfo)) {
+        console.log('Access token expired, refreshing...');
+        return await this.refreshAccessToken(userId, tokens.refreshToken);
+      }
+
+      console.log('Access token is still valid');
+      return tokens.accessToken;
+      
+    } catch (error) {
+      console.error('Error getting valid access token:', error);
+      throw error;
     }
-    
-    if (!config.access_token || !config.refresh_token) {
-      throw new Error('TikTok tokens not found');
-    }
-    
-    // Parse token info (assuming we store creation time)
-    const tokenInfo: TikTokTokenInfo = {
-      access_token: config.access_token,
-      refresh_token: config.refresh_token,
-      expires_in: 24 * 60 * 60, // 24 hours default
-      created_at: config.created_at ? new Date(config.created_at).getTime() / 1000 : 0,
-      open_id: '',
-      scope: ''
-    };
-    
-    // Check if token needs refresh
-    if (this.isTokenExpired(tokenInfo)) {
-      console.log('Access token expired, refreshing...');
-      return await this.refreshAccessToken(userId, config.refresh_token);
-    }
-    
-    console.log('Access token is still valid');
-    return config.access_token;
   }
   
   /**
@@ -81,21 +92,14 @@ export class TikTokTokenManager {
       
       const tokenResponse = await this.api.refreshToken(refreshToken);
       
-      // Update database with new tokens
-      const { error: updateError } = await supabase
-        .from('post_configurations')
-        .update({
-          access_token: tokenResponse.access_token,
-          refresh_token: tokenResponse.refresh_token || refreshToken, // Some APIs don't return new refresh token
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', userId)
-        .eq('platform', 'tiktok');
-      
-      if (updateError) {
-        console.error('Failed to update tokens in database:', updateError);
-        throw new Error('Failed to save refreshed tokens');
-      }
+      // Import encryption utility and store new encrypted tokens
+      const { storeEncryptedTokens } = await import('@/utils/tokenEncryption');
+      await storeEncryptedTokens(
+        userId,
+        'tiktok',
+        tokenResponse.access_token,
+        tokenResponse.refresh_token || refreshToken
+      );
       
       console.log('Successfully refreshed and saved TikTok access token');
       return tokenResponse.access_token;

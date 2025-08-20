@@ -143,14 +143,16 @@ export const TikTokOAuthCallback = () => {
 
         console.log('TikTok token exchange successful');
 
-        // Store the TikTok configuration in the database with user_id
-        const { error: saveError } = await supabase.from("post_configurations").upsert({
-          user_id: currentUser.id,
-          platform: "tiktok" as any,
-          access_token: data.access_token,
-          refresh_token: data.refresh_token,
-          is_enabled: true,
-        });
+        // Import encryption utility and store encrypted tokens
+        const { storeEncryptedTokens } = await import('@/utils/tokenEncryption');
+        await storeEncryptedTokens(
+          currentUser.id,
+          'tiktok',
+          data.access_token,
+          data.refresh_token
+        );
+        
+        const saveError = null; // No error if we reach here
 
         if (saveError) {
           console.error('Error saving TikTok configuration:', saveError);

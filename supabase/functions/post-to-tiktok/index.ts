@@ -60,63 +60,141 @@ class TikTokTokenManager {
   async getValidAccessToken(userId: string): Promise<string> {
     console.log('Getting valid access token for user:', userId);
     
-    const { data: config, error } = await this.supabase
-      .from('post_configurations')
-      .select('access_token, refresh_token, created_at')
-      .eq('user_id', userId)
-      .eq('platform', 'tiktok')
-      .eq('is_enabled', true)
-      .single();
-    
-    if (error || !config) {
-      throw new Error('TikTok account not connected');
-    }
-    
-    if (!config.access_token || !config.refresh_token) {
-      throw new Error('TikTok tokens not found');
-    }
-    
-    // Check if token needs refresh
-    if (await this.isTokenExpired(config)) {
-      console.log('Access token expired, refreshing...');
+    try {
+      // Get encrypted tokens
+      const { data: config, error } = await this.supabase
+        .from('post_configurations')
+        .select('access_token, refresh_token, created_at')
+        .eq('user_id', userId)
+        .eq('platform', 'tiktok')
+        .eq('is_enabled', true)
+        .single();
       
-      try {
-        const tokenResponse = await this.refreshToken(config.refresh_token);
-        
-        // Update database with new tokens
-        const { error: updateError } = await this.supabase
-          .from('post_configurations')
-          .update({
-            access_token: tokenResponse.access_token,
-            refresh_token: tokenResponse.refresh_token || config.refresh_token,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', userId)
-          .eq('platform', 'tiktok');
-        
-        if (updateError) {
-          throw new Error('Failed to save refreshed tokens');
-        }
-        
-        console.log('Successfully refreshed TikTok access token');
-        return tokenResponse.access_token;
-        
-      } catch (refreshError: any) {
-        console.error('Token refresh failed:', refreshError);
-        
-        // Mark token as invalid
-        await this.supabase
-          .from('post_configurations')
-          .update({ is_enabled: false })
-          .eq('user_id', userId)
-          .eq('platform', 'tiktok');
-        
-        throw new Error('TikTok authentication expired. Please reconnect your account.');
+      if (error || !config) {
+        throw new Error('TikTok account not connected');
       }
+
+      if (!config.access_token || !config.refresh_token) {
+        throw new Error('TikTok tokens not found');
+      }
+
+      // Decrypt tokens using server-side function
+      const encryptionKey = Deno.env.get('TOKEN_ENCRYPTION_KEY');
+      if (!encryptionKey) {
+        throw new Error('Encryption key not configured');
+      }
+
+      const { data: decryptedAccessToken, error: decryptError1 } = await this.supabase
+        .rpc('decrypt_token', {
+          encrypted_token: config.access_token,
+          encryption_key: encryptionKey
+        });
+
+      const { data: decryptedRefreshToken, error: decryptError2 } = await this.supabase
+        .rpc('decrypt_token', {
+          encrypted_token: config.refresh_token,
+          encryption_key: encryptionKey
+        });
+
+      if (decryptError1 || decryptError2) {
+        throw new Error('Failed to decrypt tokens');
+      }
+
+      // Simple client-side decryption (reverse of the encryption process)
+      const clientKey = encryptionKey.substring(0, 16);
+      const accessToken = this.simpleDecrypt(decryptedAccessToken, clientKey);
+      const refreshToken = this.simpleDecrypt(decryptedRefreshToken, clientKey);
+
+      // Check if token needs refresh
+      if (await this.isTokenExpired(config)) {
+        console.log('Access token expired, refreshing...');
+        
+        try {
+          const tokenResponse = await this.refreshToken(refreshToken);
+          
+          // Re-encrypt and store new tokens
+          const newEncryptedAccess = await this.encryptToken(tokenResponse.access_token, encryptionKey);
+          const newEncryptedRefresh = await this.encryptToken(
+            tokenResponse.refresh_token || refreshToken, 
+            encryptionKey
+          );
+          
+          // Update database with new encrypted tokens
+          const { error: updateError } = await this.supabase
+            .from('post_configurations')
+            .update({
+              access_token: newEncryptedAccess,
+              refresh_token: newEncryptedRefresh,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', userId)
+            .eq('platform', 'tiktok');
+          
+          if (updateError) {
+            throw updateError;
+          }
+          
+          console.log('Successfully refreshed TikTok access token');
+          return tokenResponse.access_token;
+          
+        } catch (refreshError: any) {
+          console.error('Token refresh failed:', refreshError);
+          
+          // Mark token as invalid
+          await this.supabase
+            .from('post_configurations')
+            .update({ is_enabled: false })
+            .eq('user_id', userId)
+            .eq('platform', 'tiktok');
+          
+          throw new Error('TikTok authentication expired. Please reconnect your account.');
+        }
+      }
+      
+      console.log('Access token is still valid');
+      return accessToken;
+      
+    } catch (error) {
+      console.error('Error getting valid access token:', error);
+      throw error;
+    }
+  }
+
+  // Helper methods for client-side encryption/decryption
+  private simpleEncrypt(text: string, key: string): string {
+    let encrypted = '';
+    for (let i = 0; i < text.length; i++) {
+      const charCode = text.charCodeAt(i) ^ key.charCodeAt(i % key.length);
+      encrypted += String.fromCharCode(charCode);
+    }
+    return btoa(encrypted);
+  }
+
+  private simpleDecrypt(encryptedText: string, key: string): string {
+    const encrypted = atob(encryptedText);
+    let decrypted = '';
+    for (let i = 0; i < encrypted.length; i++) {
+      const charCode = encrypted.charCodeAt(i) ^ key.charCodeAt(i % key.length);
+      decrypted += String.fromCharCode(charCode);
+    }
+    return decrypted;
+  }
+
+  private async encryptToken(token: string, encryptionKey: string): Promise<string> {
+    // Client-side encryption layer
+    const clientEncrypted = this.simpleEncrypt(token, encryptionKey.substring(0, 16));
+    
+    // Server-side encryption
+    const { data, error } = await this.supabase.rpc('encrypt_token', {
+      token: clientEncrypted,
+      encryption_key: encryptionKey
+    });
+    
+    if (error) {
+      throw new Error('Failed to encrypt token');
     }
     
-    console.log('Access token is still valid');
-    return config.access_token;
+    return data;
   }
 }
 
