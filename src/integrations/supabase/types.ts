@@ -171,39 +171,7 @@ export type Database = {
       }
     }
     Views: {
-      secure_post_configurations: {
-        Row: {
-          access_token: string | null
-          created_at: string | null
-          id: string | null
-          is_enabled: boolean | null
-          platform: Database["public"]["Enums"]["platform_type"] | null
-          refresh_token: string | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          access_token?: string | null
-          created_at?: string | null
-          id?: string | null
-          is_enabled?: boolean | null
-          platform?: Database["public"]["Enums"]["platform_type"] | null
-          refresh_token?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          access_token?: string | null
-          created_at?: string | null
-          id?: string | null
-          is_enabled?: boolean | null
-          platform?: Database["public"]["Enums"]["platform_type"] | null
-          refresh_token?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       decrypt_token: {
