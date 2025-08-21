@@ -34,15 +34,20 @@ serve(async (req) => {
       state: state
     });
     
-    // Use the correct TikTok Login Kit authorization endpoint
-    const authUrl = `https://www.tiktok.com/v2/auth/authorize/?${params.toString()}`;
+    // Based on TikTok documentation, construct the URL manually to ensure proper formatting
+    let authUrl = "https://www.tiktok.com/v2/auth/authorize/";
+    authUrl += "?client_key=" + encodeURIComponent(TIKTOK_CLIENT_ID);
+    authUrl += "&scope=" + encodeURIComponent(scopes.join(','));
+    authUrl += "&response_type=code";
+    authUrl += "&redirect_uri=" + encodeURIComponent(redirectUri);
+    authUrl += "&state=" + encodeURIComponent(state);
     
     console.log('=== FINAL DEBUG ===');
     console.log('CLIENT_KEY:', TIKTOK_CLIENT_ID);
     console.log('REDIRECT_URI:', redirectUri);
     console.log('SCOPES:', scopes.join(','));
     console.log('FULL AUTH URL:', authUrl);
-    console.log('URL PARAMS:', params.toString());
+    console.log('URL PARAMS MANUAL:', `client_key=${TIKTOK_CLIENT_ID}&scope=${scopes.join(',')}&response_type=code&redirect_uri=${redirectUri}&state=${state}`);
     
     return new Response(
       JSON.stringify({ authUrl, state }),
