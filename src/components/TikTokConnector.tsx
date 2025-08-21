@@ -42,8 +42,8 @@ export const TikTokConnector = () => {
     }
   };
 
-  // Use localhost for development as required by TikTok
-  const redirectUri = `${window.location.origin}/oauth/tiktok/callback`;
+  // Use the exact redirect URI registered in TikTok Developer Console
+  const redirectUri = `https://insyncapp.xyz/oauth/tiktok/callback`;
 
   const handleConnectTikTok = async () => {
     setIsConnecting(true);
