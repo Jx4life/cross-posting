@@ -42,7 +42,7 @@ export class OAuthManager {
     this.tiktok = new TikTokOAuth({
       clientId: import.meta.env.VITE_TIKTOK_CLIENT_ID || 'demo_client_id',
       clientSecret: import.meta.env.VITE_TIKTOK_CLIENT_SECRET || 'demo_secret',
-      redirectUri: `${window.location.origin}/auth/callback/tiktok`,
+      redirectUri: `https://insyncapp.xyz/oauth/tiktok/callback`,
       scopes: ['user.info.basic', 'video.publish']
     });
     

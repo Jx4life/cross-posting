@@ -231,7 +231,7 @@ export const TikTokOAuthCallback = () => {
               <div className="bg-red-500/20 p-4 rounded-md text-left">
                 <h3 className="text-red-400 font-medium mb-2">Common Solutions:</h3>
                 <ul className="text-red-300 text-sm space-y-1 list-disc pl-4">
-                  <li>Verify your TikTok app redirect URI matches exactly: <code className="bg-black/30 px-1 rounded">{window.location.origin}/oauth/tiktok/callback</code></li>
+                  <li>Verify your TikTok app redirect URI matches exactly: <code className="bg-black/30 px-1 rounded">https://insyncapp.xyz/oauth/tiktok/callback</code></li>
                   <li>Check that your domain is verified in the TikTok Developer Portal</li>
                   <li>Ensure you're using the correct TikTok app credentials (sandbox vs production)</li>
                   <li>Make sure your TikTok app has the required scopes: user.info.basic, video.publish</li>
