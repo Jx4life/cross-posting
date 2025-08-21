@@ -174,6 +174,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      audit_token_security: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          likely_encrypted: number
+          likely_plaintext: number
+          platform: string
+          security_status: string
+          total_tokens: number
+        }[]
+      }
       decrypt_token: {
         Args: { encrypted_token: string; encryption_key: string }
         Returns: string
