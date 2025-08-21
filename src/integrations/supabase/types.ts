@@ -192,6 +192,16 @@ export type Database = {
         Args: { encryption_key: string; token: string }
         Returns: string
       }
+      test_encryption: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          decrypted_text: string
+          encrypted_text: string
+          encryption_working: boolean
+          original_text: string
+          test_name: string
+        }[]
+      }
     }
     Enums: {
       platform_type: "twitter" | "farcaster" | "lens" | "tiktok" | "facebook"
