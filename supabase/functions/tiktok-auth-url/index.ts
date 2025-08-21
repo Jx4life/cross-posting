@@ -16,16 +16,12 @@ serve(async (req) => {
     
     console.log('TikTok auth URL request:', { redirectUri });
     
-    // Get TikTok credentials from Supabase secrets instead of hardcoding
-    const TIKTOK_CLIENT_ID = Deno.env.get('TIKTOK_CLIENT_ID');
+    // Use sandbox client ID directly since we're in sandbox mode
+    const TIKTOK_CLIENT_ID = 'sbawwup5buvyikd3wt';
     
-    if (!TIKTOK_CLIENT_ID) {
-      throw new Error('TIKTOK_CLIENT_ID not configured in Supabase secrets');
-    }
+    console.log('Using sandbox client ID:', TIKTOK_CLIENT_ID);
     
-    console.log('Using client ID from secrets:', TIKTOK_CLIENT_ID.substring(0, 8) + '...');
-    
-    // Generate TikTok OAuth URL using the correct endpoint with video upload scope
+    // Generate TikTok OAuth URL using correct Login Kit format
     const scopes = ['user.info.basic', 'video.upload', 'video.publish'];
     const state = crypto.randomUUID();
     
@@ -37,7 +33,7 @@ serve(async (req) => {
       state: state
     });
     
-    // Use the correct TikTok OAuth authorization endpoint according to official docs
+    // Use Login Kit authorization URL format from TikTok docs
     const authUrl = `https://www.tiktok.com/v2/auth/authorize/?${params.toString()}`;
     
     console.log('=== DEBUG CLIENT_KEY ===');
