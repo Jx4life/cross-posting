@@ -16,14 +16,10 @@ serve(async (req) => {
     
     console.log('TikTok auth URL request:', { redirectUri });
     
-    // Get client ID from Supabase secrets - THIS MUST BE YOUR REAL TIKTOK APP CLIENT KEY
-    const TIKTOK_CLIENT_ID = Deno.env.get('TIKTOK_CLIENT_ID');
+    // Use your sandbox client ID
+    const TIKTOK_CLIENT_ID = 'sbawwup5buvyikd3wt';
     
-    if (!TIKTOK_CLIENT_ID) {
-      throw new Error('TIKTOK_CLIENT_ID secret not configured. Please set your actual TikTok app client key in Supabase secrets.');
-    }
-    
-    console.log('Using client ID from secrets:', TIKTOK_CLIENT_ID.substring(0, 8) + '...');
+    console.log('Using sandbox client ID:', TIKTOK_CLIENT_ID);
     
     // TikTok OAuth scopes
     const scopes = ['user.info.basic', 'video.upload', 'video.publish'];
