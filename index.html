@@ -5,30 +5,11 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="tiktok-developers-site-verification" content="cNCyUX8NHzWCEUUaawFpxbz1AEDuy3qb" />
+    <meta name="tiktok-developers-site-verification" content="DdXHQR44CVq49tXdjR7GwN3eMFYaKfYN" />
     <title>Social Media Manager</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    
-    <!-- Facebook SDK -->
-    <script>
-      window.fbAsyncInit = function() {
-        console.log('Facebook SDK loaded and ready for initialization');
-        // The FacebookSDK.ts will handle actual initialization once it gets the App ID
-        // This just signals the SDK is loaded and ready
-        window.dispatchEvent(new CustomEvent('fbSdkLoaded'));
-      };
-
-      // Load the SDK
-      (function(d, s, id){
-         var js, fjs = d.getElementsByTagName(s)[0];
-         if (d.getElementById(id)) {return;}
-         js = d.createElement(s); js.id = id;
-         js.src = "https://connect.facebook.net/en_US/sdk.js";
-         fjs.parentNode.insertBefore(js, fjs);
-       }(document, 'script', 'facebook-jssdk'));
-    </script>
   </body>
 </html>

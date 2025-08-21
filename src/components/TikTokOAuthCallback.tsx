@@ -108,8 +108,9 @@ export const TikTokOAuthCallback = () => {
         console.log('State parameter:', state);
         console.log('User ID:', currentUser.id);
 
-        // Use the exact redirect URI registered in TikTok Developer Console
-        const redirectUri = `https://insyncapp.xyz/oauth/tiktok/callback`;
+        // Use the exact same redirect URI that was used for the auth request
+        const currentUrl = window.location.origin;
+        const redirectUri = `${currentUrl}/oauth/tiktok/callback`;
         
         console.log('Using redirect URI for token exchange:', redirectUri);
 
@@ -143,16 +144,14 @@ export const TikTokOAuthCallback = () => {
 
         console.log('TikTok token exchange successful');
 
-        // Import encryption utility and store encrypted tokens
-        const { storeEncryptedTokens } = await import('@/utils/tokenEncryption');
-        await storeEncryptedTokens(
-          currentUser.id,
-          'tiktok',
-          data.access_token,
-          data.refresh_token
-        );
-        
-        const saveError = null; // No error if we reach here
+        // Store the TikTok configuration in the database with user_id
+        const { error: saveError } = await supabase.from("post_configurations").upsert({
+          user_id: currentUser.id,
+          platform: "tiktok" as any,
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+          is_enabled: true,
+        });
 
         if (saveError) {
           console.error('Error saving TikTok configuration:', saveError);
@@ -231,7 +230,7 @@ export const TikTokOAuthCallback = () => {
               <div className="bg-red-500/20 p-4 rounded-md text-left">
                 <h3 className="text-red-400 font-medium mb-2">Common Solutions:</h3>
                 <ul className="text-red-300 text-sm space-y-1 list-disc pl-4">
-                  <li>Verify your TikTok app redirect URI matches exactly: <code className="bg-black/30 px-1 rounded">https://insyncapp.xyz/oauth/tiktok/callback</code></li>
+                  <li>Verify your TikTok app redirect URI matches exactly: <code className="bg-black/30 px-1 rounded">{window.location.origin}/oauth/tiktok/callback</code></li>
                   <li>Check that your domain is verified in the TikTok Developer Portal</li>
                   <li>Ensure you're using the correct TikTok app credentials (sandbox vs production)</li>
                   <li>Make sure your TikTok app has the required scopes: user.info.basic, video.publish</li>

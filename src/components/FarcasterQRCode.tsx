@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -78,76 +79,29 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
       setPollAttempts(0);
       updateProgress('initializing', 10);
       
-      console.log('🚀 === FARCASTER INITIALIZATION STARTING ===');
-      console.log('🔧 Component mounted and ready');
+      console.log('=== INITIALIZING FARCASTER SIGNER ===');
       
       updateProgress('generating', 30);
-      
-      console.log('📡 Calling farcasterService.createSigner()...');
       const signerResponse = await farcasterService.createSigner();
-      
-      console.log('✅ === SIGNER CREATED SUCCESSFULLY ===');
-      console.log('📋 Full signer response:', JSON.stringify(signerResponse, null, 2));
-      console.log('🔑 Signer UUID:', signerResponse.signer_uuid);
-      console.log('🔐 Public key:', signerResponse.public_key);
-      console.log('📊 Status:', signerResponse.status);
-      console.log('🌐 Approval URL:', signerResponse.signer_approval_url || 'NOT PROVIDED');
-      console.log('👤 FID:', signerResponse.fid || 'NOT PROVIDED');
-      
-      // Generate and log QR code data
-      if (signerResponse.signer_approval_url) {
-        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(signerResponse.signer_approval_url)}`;
-        console.log('🎯 === QR CODE GENERATION ===');
-        console.log('📱 QR Code URL:', qrCodeUrl);
-        console.log('🔗 Original approval URL:', signerResponse.signer_approval_url);
-        console.log('📏 Approval URL length:', signerResponse.signer_approval_url.length);
-        
-        // Test if the approval URL is valid
-        try {
-          new URL(signerResponse.signer_approval_url);
-          console.log('✅ Approval URL is valid');
-        } catch (urlError) {
-          console.error('❌ Approval URL is invalid:', urlError);
-        }
-      } else {
-        console.log('⚠️ === NO APPROVAL URL PROVIDED ===');
-        console.log('🔍 This means the QR code cannot be generated yet');
-        console.log('⏱️ Will need to poll for approval URL...');
-      }
+      console.log('Signer response received:', signerResponse);
       
       setSigner(signerResponse);
-      
-      // Check if we have an approval URL and update progress accordingly
-      if (signerResponse.signer_approval_url) {
-        console.log('✅ Approval URL available, transitioning to waiting state');
-        updateProgress('waiting', 70);
-      } else {
-        console.log('⚠️ No approval URL yet, staying in generating state');
-        updateProgress('generating', 50);
-      }
+      updateProgress('generating', 50);
       
       // Always start polling regardless of initial state
-      console.log('🔄 Starting polling for signer approval...');
+      console.log('Starting polling for signer approval');
       startPolling(signerResponse.signer_uuid);
       
     } catch (error: any) {
-      console.error('❌ === FARCASTER INITIALIZATION FAILED ===');
-      console.error('💥 Error object:', error);
-      console.error('📝 Error message:', error.message);
-      console.error('🔍 Error stack:', error.stack);
+      console.error('Failed to initialize Farcaster signer:', error);
       
       let errorMessage = error.message || 'Failed to initialize authentication';
       
       // Provide more specific error messages
       if (error.message?.includes('API key')) {
         errorMessage = 'Invalid API key. Please check your Neynar API configuration.';
-        console.error('🔑 API key issue detected');
       } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
         errorMessage = 'Network error. Please check your internet connection and try again.';
-        console.error('🌐 Network issue detected');
-      } else if (error.message?.includes('unauthorized') || error.message?.includes('401')) {
-        errorMessage = 'Authentication failed. Please check your Neynar API key.';
-        console.error('🚫 Authorization issue detected');
       }
       
       setError(errorMessage);
@@ -163,42 +117,16 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
     setPollAttempts(0);
     updateProgress('waiting', 60);
     
-    console.log('🔄 === STARTING POLLING PROCESS ===');
-    console.log('🎯 Target signer UUID:', signerUuid);
-    console.log('⏱️ Polling interval: 2 seconds');
-    console.log('🔢 Max attempts:', MAX_POLL_ATTEMPTS);
-    
     const interval = setInterval(async () => {
       try {
         const currentAttempt = pollAttempts + 1;
-        console.log(`🔍 === POLLING ATTEMPT ${currentAttempt}/${MAX_POLL_ATTEMPTS} ===`);
+        console.log(`=== POLLING SIGNER STATUS (Attempt ${currentAttempt}/${MAX_POLL_ATTEMPTS}) ===`);
         
         const signerStatus = await farcasterService.getSigner(signerUuid);
+        console.log('Polling result:', signerStatus);
         
-        console.log('📋 Poll result:', JSON.stringify(signerStatus, null, 2));
-        console.log('📊 Current status:', signerStatus.status);
-        console.log('🌐 Approval URL now available:', !!signerStatus.signer_approval_url);
-        
-        if (signerStatus.signer_approval_url && !signer?.signer_approval_url) {
-          console.log('🎉 === APPROVAL URL NOW AVAILABLE ===');
-          console.log('🔗 New approval URL:', signerStatus.signer_approval_url);
-          
-          const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(signerStatus.signer_approval_url)}`;
-          console.log('📱 Generated QR code URL:', qrCodeUrl);
-        }
-        
-        // Update the signer state with the latest data, but preserve existing approval URL if new one is missing
-        setSigner(prevSigner => {
-          const updatedSigner = { ...signerStatus };
-          
-          // If the polled result doesn't have an approval URL but we had one before, keep the previous one
-          if (!updatedSigner.signer_approval_url && prevSigner?.signer_approval_url) {
-            console.log('⚠️ Preserving existing approval URL, polling result had none');
-            updatedSigner.signer_approval_url = prevSigner.signer_approval_url;
-          }
-          
-          return updatedSigner;
-        });
+        // Update the signer state with the latest data
+        setSigner(signerStatus);
         setPollAttempts(currentAttempt);
         setEstimatedTimeLeft(calculateEstimatedTime(currentAttempt));
         
@@ -207,7 +135,6 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
         updateProgress('waiting', progressPercent);
         
         if (signerStatus.status === 'approved') {
-          console.log('🎉 === AUTHENTICATION APPROVED ===');
           clearInterval(interval);
           setPollInterval(null);
           setIsPolling(false);
@@ -217,12 +144,15 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
           let userData = signerStatus.user;
           
           if (signerStatus.fid && !userData) {
-            console.log('👤 Fetching user data for FID:', signerStatus.fid);
             userData = await farcasterService.getUserByFid(signerStatus.fid);
-            console.log('👤 User data retrieved:', userData);
           }
           
-          const finalUserData = {
+          toast({
+            title: "Authentication Successful",
+            description: `Connected as ${userData?.username || 'Farcaster user'}`,
+          });
+          
+          onSuccess({
             signer_uuid: signerStatus.signer_uuid,
             public_key: signerStatus.public_key,
             fid: signerStatus.fid,
@@ -230,19 +160,9 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
             displayName: userData?.display_name,
             pfpUrl: userData?.pfp_url,
             status: 'approved'
-          };
-          
-          console.log('🏁 Final user data being passed to onSuccess:', finalUserData);
-          
-          toast({
-            title: "Authentication Successful",
-            description: `Connected as ${userData?.username || 'Farcaster user'}`,
           });
           
-          onSuccess(finalUserData);
-          
         } else if (signerStatus.status === 'revoked') {
-          console.log('❌ === AUTHENTICATION REVOKED ===');
           clearInterval(interval);
           setPollInterval(null);
           setIsPolling(false);
@@ -255,10 +175,7 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
             variant: "destructive"
           });
         } else if (currentAttempt >= MAX_POLL_ATTEMPTS) {
-          console.log('⏰ === POLLING TIMEOUT REACHED ===');
-          console.log('🔢 Total attempts made:', currentAttempt);
-          console.log('⏱️ Time elapsed:', (currentAttempt * 2), 'seconds');
-          
+          // Timeout reached
           clearInterval(interval);
           setPollInterval(null);
           setIsPolling(false);
@@ -274,18 +191,12 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
         }
         
       } catch (error: any) {
-        console.error('❌ === POLLING ERROR ===');
-        console.error('💥 Poll error:', error);
-        console.error('📝 Error message:', error.message);
-        
+        console.error('Polling error:', error);
         const currentAttempt = pollAttempts + 1;
         setPollAttempts(currentAttempt);
         
         // If we've had too many consecutive errors, stop polling
         if (currentAttempt >= 5) {
-          console.error('🛑 === TOO MANY POLLING ERRORS ===');
-          console.error('🔢 Error count:', currentAttempt);
-          
           clearInterval(interval);
           setPollInterval(null);
           setIsPolling(false);
@@ -299,8 +210,6 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
   };
 
   const handleRefresh = () => {
-    console.log('🔄 === REFRESH INITIATED ===');
-    
     if (pollInterval) {
       clearInterval(pollInterval);
       setPollInterval(null);
@@ -314,11 +223,11 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
   };
 
   const handleOpenInApp = () => {
-    console.log('📱 === OPENING FARCASTER APP ===');
-    console.log('🔗 Signer approval URL:', signer?.signer_approval_url);
+    console.log('=== OPENING FARCASTER APP ===');
+    console.log('Signer approval URL:', signer?.signer_approval_url);
     
     if (!signer?.signer_approval_url) {
-      console.error('❌ No signer approval URL available');
+      console.error('No signer approval URL available');
       toast({
         title: "Error",
         description: "No authentication URL available. Please refresh and try again.",
@@ -328,24 +237,22 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
     }
 
     try {
-      console.log('🚀 Attempting to open URL:', signer.signer_approval_url);
-      
       // Try to open the URL
       const opened = window.open(signer.signer_approval_url, '_blank', 'noopener,noreferrer');
       
       if (!opened) {
-        console.error('❌ Failed to open popup window, trying fallback...');
+        console.error('Failed to open popup window');
         // Fallback: try to navigate in the same window
         window.location.href = signer.signer_approval_url;
       } else {
-        console.log('✅ Successfully opened Farcaster app');
+        console.log('Successfully opened Farcaster app');
         toast({
           title: "Opening Farcaster App",
           description: "Complete the authentication in the opened window.",
         });
       }
     } catch (error) {
-      console.error('❌ Error opening Farcaster app:', error);
+      console.error('Error opening Farcaster app:', error);
       toast({
         title: "Error",
         description: "Failed to open Farcaster app. Please try copying the URL manually.",
@@ -355,28 +262,23 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
   };
 
   const handleQrCodeError = () => {
-    console.log('❌ === QR CODE ERROR ===');
-    console.log('🖼️ QR Code image failed to load');
-    console.log('🔗 Attempted URL:', signer?.signer_approval_url);
+    console.log('=== QR CODE ERROR ===');
+    console.log('QR Code image failed to load');
+    console.log('Attempted URL:', signer?.signer_approval_url);
     setQrCodeError(true);
   };
 
   const handleQrCodeLoad = () => {
-    console.log('✅ === QR CODE LOADED SUCCESSFULLY ===');
-    console.log('🖼️ QR code rendered successfully');
+    console.log('=== QR CODE LOADED ===');
+    console.log('QR code loaded successfully');
     setQrCodeError(false);
   };
 
   useEffect(() => {
-    console.log('🎬 === COMPONENT MOUNTED ===');
-    console.log('⚛️ FarcasterQRCode component initialized');
-    
     initializeSigner();
     
     return () => {
-      console.log('🧹 === COMPONENT CLEANUP ===');
       if (pollInterval) {
-        console.log('🔄 Clearing polling interval');
         clearInterval(pollInterval);
       }
     };
@@ -590,9 +492,6 @@ export const FarcasterQRCode: React.FC<FarcasterQRCodeProps> = ({
                 <p><strong>UUID:</strong> {signer.signer_uuid}</p>
                 <p><strong>QR Error:</strong> {qrCodeError ? 'Yes' : 'No'}</p>
                 <p><strong>URL:</strong> {signer.signer_approval_url || 'Not available yet'}</p>
-                {signer.signer_approval_url && (
-                  <p><strong>QR Generated:</strong> <a href={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(signer.signer_approval_url)}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View QR Code</a></p>
-                )}
               </div>
             </details>
           </>

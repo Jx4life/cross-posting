@@ -16,22 +16,18 @@ serve(async (req) => {
     
     console.log('TikTok token exchange request:', { code, redirectUri });
     
-    // Get TikTok credentials from Supabase secrets
-    const TIKTOK_CLIENT_ID = Deno.env.get('TIKTOK_CLIENT_ID');
-    const TIKTOK_CLIENT_SECRET = Deno.env.get('TIKTOK_CLIENT_SECRET');
+    // Use sandbox credentials
+    const clientId = 'sbawjmn8p4yrizyuis';
+    const clientSecret = 'F51RS5h2sDaZUUxLbDWoe9p5TXEalKxj';
     
-    if (!TIKTOK_CLIENT_ID || !TIKTOK_CLIENT_SECRET) {
-      throw new Error('TikTok credentials not configured in Supabase secrets');
-    }
-    
-    console.log('Using client ID from secrets:', TIKTOK_CLIENT_ID.substring(0, 8) + '...');
+    console.log('Using sandbox client ID:', clientId);
     console.log('Using redirect URI:', redirectUri);
     
     // Exchange code for access token using the correct endpoint
     const tokenUrl = 'https://open.tiktokapis.com/v2/oauth/token/';
     const params = new URLSearchParams({
-      client_key: TIKTOK_CLIENT_ID,
-      client_secret: TIKTOK_CLIENT_SECRET,
+      client_key: clientId,
+      client_secret: clientSecret,
       code,
       grant_type: 'authorization_code',
       redirect_uri: redirectUri
@@ -40,7 +36,7 @@ serve(async (req) => {
     console.log('Making token exchange request to TikTok...');
     console.log('Token URL:', tokenUrl);
     console.log('Request params (without secret):', {
-      client_key: TIKTOK_CLIENT_ID.substring(0, 8) + '...',
+      client_key: clientId,
       code,
       grant_type: 'authorization_code',
       redirect_uri: redirectUri

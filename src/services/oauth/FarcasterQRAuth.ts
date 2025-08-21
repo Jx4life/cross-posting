@@ -1,19 +1,13 @@
-import * as ed from '@noble/ed25519';
-import { sha512 } from '@noble/hashes/sha512';
-
-// Configure the hash function for web environments
-ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
 
 export interface FarcasterQRAuthConfig {
   clientId: string;
   redirectUri: string;
   apiKey: string;
-  appFid: string; // Required for proper Farcaster signed key requests
 }
 
 export interface FarcasterAuthResponse {
-  signer_uuid?: string;
-  public_key?: string;
+  signer_uuid: string;
+  public_key: string;
   status: 'generated' | 'pending_approval' | 'approved' | 'revoked';
   signer_approval_url?: string;
   fid?: number;
@@ -25,15 +19,15 @@ export interface FarcasterAuthResponse {
     custody_address?: string;
     verification_addresses?: string[];
   };
-  // New fields for official Farcaster API
-  token?: string;
-  deeplinkUrl?: string;
-  privateKey?: string; // Store privately generated key
-  state?: 'pending' | 'approved' | 'completed';
-  userFid?: number;
 }
 
-export interface FarcasterSignerResponse extends FarcasterAuthResponse {}
+export interface FarcasterSignerResponse {
+  signer_uuid: string;
+  public_key: string;
+  status: 'generated' | 'pending_approval' | 'approved' | 'revoked';
+  signer_approval_url?: string;
+  fid?: number;
+}
 
 export class FarcasterQRAuth {
   private config: FarcasterQRAuthConfig;
@@ -43,27 +37,16 @@ export class FarcasterQRAuth {
   }
   
   async createSigner(): Promise<FarcasterSignerResponse> {
-    console.log('=== FARCASTER CREATE SIGNER (Neynar Only) ===');
-    console.log('Using Neynar API exclusively for consistent token management');
-    
-    // Use Neynar API exclusively - this ensures consistent token format between creation and polling
-    return await this.createSignerWithNeynar();
-  }
-  
-  // Primary method using Neynar for consistent token management
-  private async createSignerWithNeynar(): Promise<FarcasterSignerResponse> {
-    console.log('=== FARCASTER CREATE SIGNER (Neynar) ===');
+    console.log('=== FARCASTER CREATE SIGNER ===');
     console.log('API Key present:', !!this.config.apiKey);
     console.log('API Key length:', this.config.apiKey?.length);
     
     try {
       const requestBody = {
-        deadline: Math.floor(Date.now() / 1000) + 86400, // 24 hours from now
-        sponsor_fid: parseInt(this.config.appFid) // Required for public authentication
+        deadline: Math.floor(Date.now() / 1000) + 86400 // 24 hours from now
       };
       
-      console.log('Request body for PUBLIC authentication:', requestBody);
-      console.log('🌍 Using sponsor_fid for public user authentication');
+      console.log('Request body:', requestBody);
       
       const response = await fetch('https://api.neynar.com/v2/farcaster/signer', {
         method: 'POST',
@@ -82,6 +65,7 @@ export class FarcasterQRAuth {
         const errorText = await response.text();
         console.error('Create signer error response:', errorText);
         
+        // Try to parse as JSON first
         try {
           const errorJson = JSON.parse(errorText);
           console.error('Parsed error:', errorJson);
@@ -93,53 +77,45 @@ export class FarcasterQRAuth {
       
       const data = await response.json();
       console.log('Create signer full response:', JSON.stringify(data, null, 2));
-      console.log('🔍 Detailed field analysis:');
-      console.log('  - signer_uuid:', data.signer_uuid, '(type:', typeof data.signer_uuid, ', length:', data.signer_uuid?.length, ')');
-      console.log('  - public_key:', data.public_key, '(type:', typeof data.public_key, ', length:', data.public_key?.length, ')');
-      console.log('  - status:', data.status);
-      console.log('  - signer_approval_url:', data.signer_approval_url);
       
+      // Validate required fields
       if (!data.signer_uuid || !data.public_key) {
         console.error('Missing required fields in response:', data);
         throw new Error('Invalid response from Neynar API - missing required fields');
-      }
-      
-      // Extract all possible URL fields from Neynar response
-      console.log('🔍 Full Neynar response analysis:');
-      console.log('  - signer_approval_url:', data.signer_approval_url);
-      console.log('  - approval_url:', data.approval_url);
-      console.log('  - deeplink_url:', data.deeplink_url);
-      console.log('  - warpcast_url:', data.warpcast_url);
-      console.log('  - All response keys:', Object.keys(data));
-      
-      // Try to get approval URL from various possible fields
-      let approvalUrl = data.signer_approval_url || data.approval_url || data.deeplink_url || data.warpcast_url;
-      
-      // If no URL provided by Neynar, construct the standard Warpcast URL
-      if (!approvalUrl) {
-        console.log('⚠️ No approval URL in Neynar response, constructing Warpcast URL');
-        
-        // Neynar signers use the public_key for Warpcast deeplinks
-        if (data.public_key) {
-          approvalUrl = `https://client.warpcast.com/deeplinks/signed-key-request?token=${data.public_key}`;
-          console.log('📱 Constructed Warpcast URL with public_key:', approvalUrl);
-        } else {
-          console.error('❌ No public_key available to construct URL');
-          throw new Error('Cannot create approval URL - no public_key in Neynar response');
-        }
-      } else {
-        console.log('✅ Using Neynar-provided approval URL:', approvalUrl);
       }
       
       const result = {
         signer_uuid: data.signer_uuid,
         public_key: data.public_key,
         status: data.status,
-        signer_approval_url: approvalUrl,
+        signer_approval_url: data.signer_approval_url,
         fid: data.fid
       };
       
-      console.log('📋 Final processed result:', result);
+      console.log('Processed signer result:', result);
+      
+      // If no approval URL was provided initially, try to get it immediately
+      if (!result.signer_approval_url && result.status === 'generated') {
+        console.log('No approval URL in initial response, attempting immediate fetch...');
+        
+        try {
+          // Wait a moment then try to get the signer again
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const signerWithUrl = await this.getSigner(result.signer_uuid);
+          
+          if (signerWithUrl.signer_approval_url) {
+            console.log('Got approval URL on immediate retry:', signerWithUrl.signer_approval_url);
+            return {
+              ...result,
+              signer_approval_url: signerWithUrl.signer_approval_url,
+              status: signerWithUrl.status
+            };
+          }
+        } catch (retryError) {
+          console.warn('Failed to get approval URL on immediate retry:', retryError);
+        }
+      }
+      
       return result;
       
     } catch (error: any) {
@@ -186,11 +162,6 @@ export class FarcasterQRAuth {
       
       const data = await response.json();
       console.log('Get signer full response:', JSON.stringify(data, null, 2));
-      console.log('🔍 Polling response analysis:');
-      console.log('  - Request was for signer_uuid:', signerUuid);
-      console.log('  - Response signer_uuid:', data.signer_uuid, '(matches request:', data.signer_uuid === signerUuid, ')');
-      console.log('  - Response status:', data.status);
-      console.log('  - Response public_key:', data.public_key);
       
       const result = {
         signer_uuid: data.signer_uuid,
@@ -240,50 +211,6 @@ export class FarcasterQRAuth {
     } catch (error: any) {
       console.error('Farcaster get user error:', error);
       throw new Error(`Failed to get user data: ${error.message}`);
-    }
-  }
-  
-  // Method to poll signed key request status using official Farcaster API
-  async pollSignedKeyRequest(token: string): Promise<FarcasterAuthResponse> {
-    console.log('=== POLLING SIGNED KEY REQUEST ===');
-    console.log('Token:', token);
-    
-    try {
-      const response = await fetch(`https://api.farcaster.xyz/v2/signed-key-request?token=${token}`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-      
-      console.log('Poll response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Poll error:', errorText);
-        throw new Error(`Failed to poll signed key request: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      console.log('Poll response:', JSON.stringify(data, null, 2));
-      
-      const signedKeyRequest = data.result?.signedKeyRequest;
-      if (!signedKeyRequest) {
-        throw new Error('Invalid poll response - missing signedKeyRequest');
-      }
-      
-      return {
-        token: signedKeyRequest.token,
-        deeplinkUrl: signedKeyRequest.deeplinkUrl,
-        public_key: signedKeyRequest.key,
-        state: signedKeyRequest.state,
-        status: signedKeyRequest.state === 'completed' ? 'approved' : 'pending_approval',
-        userFid: signedKeyRequest.userFid
-      };
-      
-    } catch (error: any) {
-      console.error('Poll signed key request error:', error);
-      throw new Error(`Failed to poll signed key request: ${error.message}`);
     }
   }
 }

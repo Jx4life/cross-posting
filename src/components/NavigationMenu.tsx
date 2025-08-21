@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User, Settings, LogOut, FileText } from 'lucide-react';
+import { User, Settings, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -95,12 +95,6 @@ const NavigationMenu = () => {
               <Link to="/profile" className="flex cursor-pointer items-center">
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Profile Settings</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to="/terms" className="flex cursor-pointer items-center">
-                <FileText className="mr-2 h-4 w-4" />
-                <span>Terms of Use</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />

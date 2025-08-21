@@ -41,8 +41,8 @@ serve(async (req) => {
       );
     }
 
-    const { content, mediaUrl, mediaType, signer_uuid } = await req.json();
-    console.log('Request payload:', { content, mediaUrl, mediaType, signer_uuid });
+    const { content, mediaUrl, mediaType } = await req.json();
+    console.log('Request payload:', { content, mediaUrl, mediaType });
     
     if (!content && !mediaUrl) {
       console.error('No content or media provided');
@@ -58,26 +58,9 @@ serve(async (req) => {
       );
     }
 
-    // Require connected user's signer UUID - no fallback to default
-    if (!signer_uuid) {
-      console.error('No signer UUID provided - user must be connected to Farcaster');
-      return new Response(
-        JSON.stringify({ 
-          error: "Please connect your Farcaster account first",
-          success: false 
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        }
-      );
-    }
-    
-    console.log('Using connected user signer UUID:', signer_uuid.substring(0, 8) + '...');
-    
     // Prepare the cast payload
     const castPayload = {
-      signer_uuid: signer_uuid,
+      signer_uuid: FARCASTER_SIGNER_UUID,
       text: content || "",
     };
 

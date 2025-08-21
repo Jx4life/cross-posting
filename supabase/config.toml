@@ -32,15 +32,6 @@ image_transformation.enabled = true
 [functions.get-secret]
 verify_jwt = false
 
-[functions.post-to-facebook]
-verify_jwt = false
-
-[functions.facebook-auth-url]
-verify_jwt = false
-
-[functions.facebook-exchange-code]
-verify_jwt = false
-
 [functions.post-to-farcaster]
 verify_jwt = false
 
@@ -63,9 +54,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.tiktok-exchange-code]
-verify_jwt = false
-
-[functions.verify-tiktok-secrets]
 verify_jwt = false
 
 [edge-runtime]

@@ -16,38 +16,30 @@ serve(async (req) => {
     
     console.log('TikTok auth URL request:', { redirectUri });
     
-    // Use your correct sandbox client ID - sbawwup5buvyikd3wt
-    const TIKTOK_CLIENT_ID = 'sbawwup5buvyikd3wt';
+    // Use sandbox credentials
+    const clientId = 'sbawjmn8p4yrizyuis';
     
-    console.log('Using correct sandbox client ID:', TIKTOK_CLIENT_ID);
+    console.log('Using sandbox client ID:', clientId);
     
-    // TikTok OAuth scopes
-    const scopes = ['user.info.basic', 'video.upload', 'video.publish'];
+    // Generate TikTok OAuth URL using the correct endpoint
+    const scopes = ['user.info.basic', 'video.publish'];
     const state = crypto.randomUUID();
     
-    // Build OAuth URL with correct parameter name
     const params = new URLSearchParams({
-      client_key: TIKTOK_CLIENT_ID,  // TikTok uses 'client_key' not 'client_id'
+      client_key: clientId,
       scope: scopes.join(','),
       response_type: 'code',
       redirect_uri: redirectUri,
       state: state
     });
     
-    // Based on TikTok documentation, construct the URL manually to ensure proper formatting
-    let authUrl = "https://www.tiktok.com/v2/auth/authorize/";
-    authUrl += "?client_key=" + encodeURIComponent(TIKTOK_CLIENT_ID);
-    authUrl += "&scope=" + encodeURIComponent(scopes.join(','));
-    authUrl += "&response_type=code";
-    authUrl += "&redirect_uri=" + encodeURIComponent(redirectUri);
-    authUrl += "&state=" + encodeURIComponent(state);
+    // Use the correct TikTok OAuth authorization endpoint
+    const authUrl = `https://www.tiktok.com/v2/auth/authorize/?${params.toString()}`;
     
-    console.log('=== FINAL DEBUG ===');
-    console.log('CLIENT_KEY:', TIKTOK_CLIENT_ID);
-    console.log('REDIRECT_URI:', redirectUri);
-    console.log('SCOPES:', scopes.join(','));
-    console.log('FULL AUTH URL:', authUrl);
-    console.log('URL PARAMS MANUAL:', `client_key=${TIKTOK_CLIENT_ID}&scope=${scopes.join(',')}&response_type=code&redirect_uri=${redirectUri}&state=${state}`);
+    console.log('Generated TikTok auth URL:', authUrl);
+    console.log('Client ID being used:', clientId);
+    console.log('Scopes:', scopes.join(','));
+    console.log('Redirect URI:', redirectUri);
     
     return new Response(
       JSON.stringify({ authUrl, state }),
@@ -59,13 +51,10 @@ serve(async (req) => {
     
   } catch (error) {
     console.error('TikTok auth URL error:', error);
-    console.error('Error stack:', error.stack);
-    console.error('Error details:', JSON.stringify(error, null, 2));
     
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Failed to generate TikTok auth URL',
-        details: error.stack || 'No stack trace available'
+        error: error.message || 'Failed to generate TikTok auth URL' 
       }),
       { 
         status: 500, 

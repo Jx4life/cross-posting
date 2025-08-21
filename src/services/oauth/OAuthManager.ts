@@ -42,7 +42,7 @@ export class OAuthManager {
     this.tiktok = new TikTokOAuth({
       clientId: import.meta.env.VITE_TIKTOK_CLIENT_ID || 'demo_client_id',
       clientSecret: import.meta.env.VITE_TIKTOK_CLIENT_SECRET || 'demo_secret',
-      redirectUri: `https://insyncapp.xyz/oauth/tiktok/callback`,
+      redirectUri: `${window.location.origin}/auth/callback/tiktok`,
       scopes: ['user.info.basic', 'video.publish']
     });
     
@@ -70,45 +70,9 @@ export class OAuthManager {
   }
   
   async initiateFacebookAuth(): Promise<string> {
-    try {
-      // Check current connection status first
-      const connectionStatus = await this.facebook.checkConnectionStatus();
-      
-      if (connectionStatus.isConnected && connectionStatus.userData) {
-        // Already connected, store credentials
-        this.storeCredentials('facebook', {
-          accessToken: connectionStatus.authResponse?.accessToken,
-          expiresAt: connectionStatus.authResponse?.expiresIn ? 
-            Date.now() + (connectionStatus.authResponse.expiresIn * 1000) : undefined,
-          profileId: connectionStatus.userData.user?.id,
-          username: connectionStatus.userData.user?.name
-        });
-        
-        console.log('Facebook already connected, credentials updated');
-        return 'success';
-      }
-      
-      // Try SDK login (handles both not_authorized and unknown states)
-      const credentials = await this.facebook.loginWithSDK();
-      
-      // Store credentials immediately
-      this.storeCredentials('facebook', {
-        accessToken: credentials.accessToken,
-        expiresAt: credentials.expiresAt,
-        profileId: credentials.user?.id,
-        username: credentials.user?.name
-      });
-
-      console.log('Facebook SDK login successful, credentials stored');
-      return 'success';
-    } catch (error) {
-      console.warn('SDK login failed, falling back to redirect flow:', error);
-      
-      // Fallback to traditional OAuth flow
-      const authUrl = await this.facebook.getAuthUrl();
-      this.storeAuthState('facebook', { timestamp: Date.now() });
-      return authUrl;
-    }
+    const authUrl = this.facebook.generateAuthUrl();
+    this.storeAuthState('facebook', { timestamp: Date.now() });
+    return authUrl;
   }
 
   async initiateTikTokAuth(): Promise<string> {
@@ -340,52 +304,13 @@ export class OAuthManager {
     return !!this.getCredentials(platform);
   }
   
-  // New method to check Facebook connection status via SDK
-  async checkFacebookConnection(): Promise<boolean> {
-    try {
-      const { facebookSDK } = await import('./FacebookSDK');
-      const loginStatus = await facebookSDK.checkLoginStatus();
-      
-      if (loginStatus.status === 'connected' && loginStatus.authResponse) {
-        // Store the credentials automatically
-        const profileData = await facebookSDK.getUserProfileAndPages();
-        
-        if (profileData) {
-          this.storeCredentials('facebook', {
-            accessToken: loginStatus.authResponse.accessToken,
-            expiresAt: loginStatus.authResponse.expiresIn ? 
-              Date.now() + (loginStatus.authResponse.expiresIn * 1000) : undefined,
-            profileId: profileData.user.id,
-            username: profileData.user.name
-          });
-          
-          console.log('Auto-stored Facebook credentials from SDK login status');
-          return true;
-        }
-      }
-      
-      return false;
-    } catch (error) {
-      console.error('Error checking Facebook connection:', error);
-      return false;
-    }
-  }
   // Method to store Farcaster signer data
   storeFarcasterSigner(signerData: any): void {
     console.log('Storing Farcaster signer:', signerData);
-    
-    const credentials = {
-      accessToken: signerData.signer_uuid || signerData.signerUuid,
-      username: signerData.username,
-      fid: signerData.fid,
-      displayName: signerData.displayName,
-      pfpUrl: signerData.pfpUrl,
+    localStorage.setItem('farcaster_signer', JSON.stringify({
+      ...signerData,
       timestamp: Date.now()
-    };
-    
-    localStorage.setItem('farcaster_signer', JSON.stringify(credentials));
-    localStorage.setItem('farcaster_credentials', JSON.stringify(credentials));
-    console.log('Farcaster signer data stored in localStorage');
+    }));
   }
   
   // Method to get Farcaster signer data
