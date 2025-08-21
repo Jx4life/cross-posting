@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -174,10 +174,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      audit_token_security: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          likely_encrypted: number
+          likely_plaintext: number
+          platform: string
+          security_status: string
+          total_tokens: number
+        }[]
+      }
+      decrypt_token: {
+        Args: { encrypted_token: string; encryption_key: string }
+        Returns: string
+      }
+      encrypt_token: {
+        Args: { encryption_key: string; token: string }
+        Returns: string
+      }
+      test_encryption: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          decrypted_text: string
+          encrypted_text: string
+          encryption_working: boolean
+          original_text: string
+          test_name: string
+        }[]
+      }
     }
     Enums: {
-      platform_type: "twitter" | "farcaster" | "lens" | "tiktok"
+      platform_type: "twitter" | "farcaster" | "lens" | "tiktok" | "facebook"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -305,7 +332,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      platform_type: ["twitter", "farcaster", "lens", "tiktok"],
+      platform_type: ["twitter", "farcaster", "lens", "tiktok", "facebook"],
     },
   },
 } as const

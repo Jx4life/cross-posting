@@ -16,8 +16,9 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { oauthManager } from '@/services/oauth/OAuthManager';
-import { FarcasterQRCode } from './FarcasterQRCode';
+import { FarcasterSIWN } from './FarcasterSIWN';
 import { supabase } from '@/integrations/supabase/client';
+import { FacebookConnectionCard } from './FacebookConnectionCard';
 
 interface ConnectionStatus {
   isConnected: boolean;
@@ -73,7 +74,7 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
     youtubeShorts: { isConnected: false, isEnabled: true },
   });
 
-  const [showFarcasterQR, setShowFarcasterQR] = useState(false);
+  const [showFarcasterSIWN, setShowFarcasterSIWN] = useState(false);
 
   const platforms = [
     {
@@ -219,6 +220,30 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
     };
     
     checkConnections();
+    
+    // Additional check for Facebook SDK auto-login after initial check
+    const checkFacebookSDK = async () => {
+      try {
+        console.log('Checking Facebook SDK connection...');
+        const facebookConnected = await oauthManager.checkFacebookConnection();
+        if (facebookConnected) {
+          setConnections(prev => ({
+            ...prev,
+            facebook: {
+              ...prev.facebook,
+              isConnected: true,
+              lastConnected: new Date().toISOString()
+            }
+          }));
+          console.log('Facebook is connected via SDK - auto-detected');
+        }
+      } catch (error) {
+        console.error('Error checking Facebook SDK connection:', error);
+      }
+    };
+    
+    // Check Facebook SDK after a small delay to ensure SDK is loaded
+    setTimeout(checkFacebookSDK, 1000);
   }, []);
 
   // Set up message listener for popup communication
@@ -295,9 +320,8 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
         console.warn('Could not clear existing TikTok config:', deleteError);
       }
       
-      // Use the exact same redirect URI format as the connector
-      const currentUrl = window.location.origin;
-      const redirectUri = `${currentUrl}/oauth/tiktok/callback`;
+      // Use the exact redirect URI registered in TikTok Developer Console
+      const redirectUri = `https://insyncapp.xyz/oauth/tiktok/callback`;
       
       console.log('Using redirect URI:', redirectUri);
       
@@ -360,21 +384,36 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
           });
           
         } else if (platformId === 'facebook') {
-          const authUrl = await oauthManager.initiateFacebookAuth();
-          window.open(authUrl, '_blank', 'width=600,height=700');
+          const authResult = await oauthManager.initiateFacebookAuth();
           
-          toast({
-            title: "Authentication Started",
-            description: "Complete the authentication in the popup window.",
-          });
+          if (authResult === 'success') {
+            // SDK login completed immediately
+            setConnections(prev => ({
+              ...prev,
+              [platformId]: { ...prev[platformId], isConnected: true, isEnabled: true }
+            }));
+            
+            toast({
+              title: "Connected Successfully",
+              description: "Successfully connected to Facebook!",
+            });
+          } else {
+            // Traditional OAuth flow
+            window.open(authResult, '_blank', 'width=600,height=700');
+            
+            toast({
+              title: "Authentication Started",
+              description: "Complete the authentication in the popup window.",
+            });
+          }
           
         } else if (platformId === 'farcaster') {
-          console.log('=== INITIATING FARCASTER QR CONNECTION ===');
+          console.log('=== INITIATING FARCASTER SIWN CONNECTION ===');
           
-          // Show QR code dialog instead of popup
-          setShowFarcasterQR(true);
+          // Show SIWN dialog instead of popup
+          setShowFarcasterSIWN(true);
           
-          // Clear connecting state since we're showing the QR dialog
+          // Clear connecting state since we're showing the SIWN dialog
           setConnections(prev => ({
             ...prev,
             [platformId]: { ...prev[platformId], isConnecting: false }
@@ -442,11 +481,17 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
     }
   };
 
-  const handleFarcasterQRSuccess = (userData: any) => {
-    console.log('Farcaster QR authentication successful:', userData);
+  const handleFarcasterSIWNSuccess = (data: { signer_uuid: string; fid: number; user: any }) => {
+    console.log('Farcaster SIWN authentication successful:', data);
     
-    // Store signer data instead of OAuth credentials
-    oauthManager.storeFarcasterSigner(userData);
+    // Store signer data using the new SIWN format
+    oauthManager.storeFarcasterSigner({
+      signer_uuid: data.signer_uuid,
+      fid: data.fid,
+      username: data.user?.username || data.user?.handle || `fid:${data.fid}`,
+      displayName: data.user?.display_name || data.user?.displayName,
+      pfpUrl: data.user?.pfp_url || data.user?.pfpUrl
+    });
     
     // Update UI
     setConnections(prev => ({
@@ -454,29 +499,27 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
       farcaster: {
         ...prev.farcaster,
         isConnected: true,
-        username: userData.username,
-        fid: userData.fid,
-        displayName: userData.displayName,
+        username: data.user?.username || data.user?.handle || `fid:${data.fid}`,
+        fid: data.fid,
+        displayName: data.user?.display_name || data.user?.displayName,
         lastConnected: new Date().toISOString(),
         isConnecting: false
       }
     }));
     
-    setShowFarcasterQR(false);
+    // Close SIWN dialog
+    setShowFarcasterSIWN(false);
     
     toast({
       title: "Connected Successfully",
-      description: `Connected to Farcaster as ${userData.username || 'user'}`,
+      description: `Connected to Farcaster as ${data.user?.username || data.user?.displayName || `fid:${data.fid}`}`,
     });
   };
 
-  const handleFarcasterQRError = (error: string) => {
-    console.error('Farcaster QR authentication error:', error);
+  const handleFarcasterSIWNError = (error: string) => {
+    console.error('Farcaster SIWN authentication error:', error);
     
-    setConnections(prev => ({
-      ...prev,
-      farcaster: { ...prev.farcaster, isConnecting: false }
-    }));
+    setShowFarcasterSIWN(false);
     
     toast({
       title: "Connection Failed",
@@ -561,111 +604,130 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {platforms.map((platform) => {
-              const connection = connections[platform.id];
-              const PlatformIcon = platform.icon;
-              
-              return (
-                <div
-                  key={platform.id}
-                  className={`p-4 rounded-lg border ${platform.bgColor} transition-all hover:shadow-md`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-3">
-                      <PlatformIcon className={`h-6 w-6 ${platform.color}`} />
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <h3 className="font-medium">{platform.name}</h3>
-                          {platform.supportsOAuth && (
-                            <ExternalLink className="h-3 w-3 text-muted-foreground" />
+          <div className="grid grid-cols-1 gap-4">
+            {/* Enhanced Facebook Connection Card */}
+            <FacebookConnectionCard
+              isEnabled={connections.facebook.isEnabled}
+              onToggleEnabled={(enabled) => toggleEnabled('facebook')}
+              onStatusChange={(isConnected) => {
+                setConnections(prev => ({
+                  ...prev,
+                  facebook: {
+                    ...prev.facebook,
+                    isConnected,
+                    lastConnected: isConnected ? new Date().toISOString() : undefined
+                  }
+                }));
+              }}
+            />
+            
+            {/* Other Platform Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {platforms.filter(platform => platform.id !== 'facebook').map((platform) => {
+                const connection = connections[platform.id];
+                const PlatformIcon = platform.icon;
+                
+                return (
+                  <div
+                    key={platform.id}
+                    className={`p-4 rounded-lg border ${platform.bgColor} transition-all hover:shadow-md`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        <PlatformIcon className={`h-6 w-6 ${platform.color}`} />
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <h3 className="font-medium">{platform.name}</h3>
+                            {platform.supportsOAuth && (
+                              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                            )}
+                          </div>
+                          {connection.isConnected && (
+                            <div className="text-sm text-muted-foreground">
+                              {connection.username && <p>@{connection.username}</p>}
+                              {connection.fid && <p>FID: {connection.fid}</p>}
+                              {connection.displayName && <p>{connection.displayName}</p>}
+                            </div>
                           )}
                         </div>
-                        {connection.isConnected && (
-                          <div className="text-sm text-muted-foreground">
-                            {connection.username && <p>@{connection.username}</p>}
-                            {connection.fid && <p>FID: {connection.fid}</p>}
-                            {connection.displayName && <p>{connection.displayName}</p>}
-                          </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {connection.isConnected ? (
+                          <Badge variant="default" className="bg-green-500 text-white">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Connected
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            Not Connected
+                          </Badge>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          checked={connection.isEnabled}
+                          onCheckedChange={() => toggleEnabled(platform.id)}
+                          disabled={!connection.isConnected}
+                        />
+                        <span className="text-sm text-muted-foreground">
+                          Enable for posting
+                        </span>
+                      </div>
+                      
                       {connection.isConnected ? (
-                        <Badge variant="default" className="bg-green-500 text-white">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Connected
-                        </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDisconnect(platform.id)}
+                          disabled={connection.isConnecting}
+                        >
+                          Disconnect
+                        </Button>
                       ) : (
-                        <Badge variant="secondary">
-                          <AlertCircle className="h-3 w-3 mr-1" />
-                          Not Connected
-                        </Badge>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => handleConnect(platform.id)}
+                          disabled={connection.isConnecting}
+                        >
+                          {connection.isConnecting ? "Connecting..." : "Connect"}
+                        </Button>
                       )}
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        checked={connection.isEnabled}
-                        onCheckedChange={() => toggleEnabled(platform.id)}
-                        disabled={!connection.isConnected}
-                      />
-                      <span className="text-sm text-muted-foreground">
-                        Enable for posting
-                      </span>
-                    </div>
                     
-                    {connection.isConnected ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDisconnect(platform.id)}
-                        disabled={connection.isConnecting}
-                      >
-                        Disconnect
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => handleConnect(platform.id)}
-                        disabled={connection.isConnecting}
-                      >
-                        {connection.isConnecting ? "Connecting..." : "Connect"}
-                      </Button>
+                    {!platform.supportsOAuth && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Demo connection - OAuth integration pending
+                      </p>
+                    )}
+                    
+                    {connection.lastConnected && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Last connected: {new Date(connection.lastConnected).toLocaleDateString()}
+                      </p>
                     )}
                   </div>
-                  
-                  {!platform.supportsOAuth && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Demo connection - OAuth integration pending
-                    </p>
-                  )}
-                  
-                  {connection.lastConnected && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Last connected: {new Date(connection.lastConnected).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Farcaster QR Code Dialog */}
-      <Dialog open={showFarcasterQR} onOpenChange={setShowFarcasterQR}>
+      {/* Farcaster SIWN Dialog */}
+      <Dialog open={showFarcasterSIWN} onOpenChange={setShowFarcasterSIWN}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Connect to Farcaster</DialogTitle>
           </DialogHeader>
-          <FarcasterQRCode
-            onSuccess={handleFarcasterQRSuccess}
-            onError={handleFarcasterQRError}
-            onClose={() => setShowFarcasterQR(false)}
+          <FarcasterSIWN
+            onSuccess={handleFarcasterSIWNSuccess}
+            onError={handleFarcasterSIWNError}
+            theme="dark"
           />
         </DialogContent>
       </Dialog>

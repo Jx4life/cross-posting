@@ -1,261 +1,281 @@
 
-import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { oauthManager } from "@/services/oauth/OAuthManager";
 
 export interface PostResult {
-  platform: string;
   success: boolean;
-  message?: string;
-  data?: any;
+  platform: string;
+  message: string;
+  id?: string;
 }
 
 export const usePlatformPoster = () => {
-  // Web3 platforms (actual API implementations)
-  const postToTwitter = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
+  const postToTwitter = async (
+    content: string,
+    mediaUrl?: string | null,
+    mediaType?: 'image' | 'video' | null
+  ): Promise<PostResult> => {
     try {
       const { data, error } = await supabase.functions.invoke('post-to-twitter', {
-        body: { content, mediaUrl, mediaType }
+        body: { 
+          content, 
+          mediaUrl, 
+          mediaType 
+        }
       });
       
       if (error) throw error;
       
       return {
-        platform: 'twitter',
-        success: true,
-        data
+        success: data.success,
+        platform: 'Twitter',
+        message: data.success ? 'Posted successfully' : data.error,
+        id: data.id
       };
     } catch (error: any) {
-      console.error('Twitter posting error:', error);
       return {
-        platform: 'twitter',
         success: false,
-        message: error.message || 'Error posting to Twitter'
+        platform: 'Twitter',
+        message: error.message || 'Failed to post'
       };
     }
   };
-  
-  const postToFarcaster = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
-    console.log('=== FRONTEND FARCASTER POST ===');
-    console.log('Starting Farcaster post with:', { content, mediaUrl, mediaType });
-    
+
+  const postToLens = async (
+    content: string,
+    mediaUrl?: string | null,
+    mediaType?: 'image' | 'video' | null
+  ): Promise<PostResult> => {
     try {
-      console.log('Invoking Supabase function...');
+      const { data, error } = await supabase.functions.invoke('post-to-lens', {
+        body: { 
+          content, 
+          mediaUrl, 
+          mediaType 
+        }
+      });
+      
+      if (error) throw error;
+      
+      return {
+        success: data.success,
+        platform: 'Lens',
+        message: data.success ? 'Posted successfully' : data.error,
+        id: data.id
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        platform: 'Lens',
+        message: error.message || 'Failed to post'
+      };
+    }
+  };
+
+  const postToFarcaster = async (
+    content: string,
+    mediaUrl?: string | null,
+    mediaType?: 'image' | 'video' | null
+  ): Promise<PostResult> => {
+    try {
+      // Get the connected user's signer UUID from localStorage
+      let signerUuid: string | null = null;
+      try {
+        const farcasterCredentials = localStorage.getItem('farcaster_credentials');
+        if (farcasterCredentials) {
+          const credentials = JSON.parse(farcasterCredentials);
+          signerUuid = credentials.accessToken; // accessToken stores the signer_uuid
+          console.log('Using connected user signer UUID:', signerUuid?.substring(0, 8) + '...');
+        }
+      } catch (error) {
+        console.warn('Could not get Farcaster signer from localStorage:', error);
+      }
+
       const { data, error } = await supabase.functions.invoke('post-to-farcaster', {
         body: { 
           content, 
           mediaUrl, 
-          mediaType
-        }
-      });
-      
-      console.log('Supabase function response:', { data, error });
-      
-      if (error) {
-        console.error('Supabase function error:', error);
-        throw new Error(error.message || 'Farcaster API error');
-      }
-      
-      if (!data || !data.success) {
-        console.error('Farcaster posting failed:', data);
-        throw new Error(data?.error || 'Farcaster posting failed');
-      }
-      
-      console.log('=== FARCASTER POST SUCCESS ===');
-      console.log('Success data:', JSON.stringify(data, null, 2));
-      
-      // Create a more detailed success message
-      let successMessage = 'Posted successfully to Farcaster';
-      if (data.details?.castUrl) {
-        successMessage += `! View at: ${data.details.castUrl}`;
-      } else if (data.details?.castHash) {
-        successMessage += `! Cast hash: ${data.details.castHash}`;
-      }
-      
-      return {
-        platform: 'farcaster',
-        success: true,
-        data,
-        message: successMessage
-      };
-    } catch (error: any) {
-      console.error('=== FARCASTER POSTING ERROR ===');
-      console.error('Error details:', error);
-      return {
-        platform: 'farcaster',
-        success: false,
-        message: error.message || 'Error posting to Farcaster'
-      };
-    }
-  };
-  
-  const postToLens = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
-    try {
-      const walletAddress = localStorage.getItem('walletAddress');
-      const lensHandle = localStorage.getItem('lensHandle');
-      
-      const { data, error } = await supabase.functions.invoke('post-to-lens', {
-        body: { 
-          content,
-          walletAddress,
-          lensHandle,
-          mediaUrl,
-          mediaType
+          mediaType,
+          signer_uuid: signerUuid // Pass the connected user's signer UUID
         }
       });
       
       if (error) throw error;
       
       return {
-        platform: 'lens',
-        success: true,
-        data
+        success: data.success,
+        platform: 'Farcaster',
+        message: data.success ? 'Posted successfully' : data.error,
+        id: data.id
       };
     } catch (error: any) {
-      console.error('Lens posting error:', error);
       return {
-        platform: 'lens',
         success: false,
-        message: error.message || 'Error posting to Lens'
-      };
-    }
-  };
-  
-  const postToTikTok = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
-    try {
-      console.log('Posting to TikTok:', { content, mediaUrl, mediaType });
-      
-      // TikTok requires video
-      if (!mediaUrl || mediaType !== 'video') {
-        return {
-          platform: 'tiktok',
-          success: false,
-          message: 'TikTok posts require a video'
-        };
-      }
-      
-      // Call the TikTok edge function
-      const { data, error } = await supabase.functions.invoke('post-to-tiktok', {
-        body: { 
-          content,
-          mediaUrl,
-          mediaType
-        }
-      });
-      
-      if (error) throw error;
-      
-      if (!data || !data.success) {
-        throw new Error(data?.error || 'TikTok posting failed');
-      }
-      
-      return {
-        platform: 'tiktok',
-        success: true,
-        data: data.data,
-        message: data.message || 'Posted successfully to TikTok'
-      };
-    } catch (error: any) {
-      console.error('TikTok posting error:', error);
-      return {
-        platform: 'tiktok',
-        success: false,
-        message: error.message || 'Error posting to TikTok'
-      };
-    }
-  };
-  
-  const postToFacebook = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
-    try {
-      // This would be implemented with a real API in production
-      console.log('Posting to Facebook:', { content, mediaUrl, mediaType });
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      return {
-        platform: 'facebook',
-        success: true,
-        data: { id: 'fb-' + Date.now() }
-      };
-    } catch (error: any) {
-      console.error('Facebook posting error:', error);
-      return {
-        platform: 'facebook',
-        success: false,
-        message: error.message || 'Error posting to Facebook'
-      };
-    }
-  };
-  
-  const postToInstagram = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
-    try {
-      // This would be implemented with a real API in production
-      console.log('Posting to Instagram:', { content, mediaUrl, mediaType });
-      
-      // Instagram requires media
-      if (!mediaUrl) {
-        return {
-          platform: 'instagram',
-          success: false,
-          message: 'Instagram posts require an image or video'
-        };
-      }
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      return {
-        platform: 'instagram',
-        success: true,
-        data: { id: 'ig-' + Date.now() }
-      };
-    } catch (error: any) {
-      console.error('Instagram posting error:', error);
-      return {
-        platform: 'instagram',
-        success: false,
-        message: error.message || 'Error posting to Instagram'
-      };
-    }
-  };
-  
-  const postToYouTubeShorts = async (content: string, mediaUrl?: string | null, mediaType?: 'image' | 'video' | null): Promise<PostResult> => {
-    try {
-      // This would be implemented with a real API in production
-      console.log('Posting to YouTube Shorts:', { content, mediaUrl, mediaType });
-      
-      // YouTube Shorts requires video
-      if (!mediaUrl || mediaType !== 'video') {
-        return {
-          platform: 'youtubeShorts',
-          success: false,
-          message: 'YouTube Shorts require a video'
-        };
-      }
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      return {
-        platform: 'youtubeShorts',
-        success: true,
-        data: { id: 'yt-' + Date.now() }
-      };
-    } catch (error: any) {
-      console.error('YouTube Shorts posting error:', error);
-      return {
-        platform: 'youtubeShorts',
-        success: false,
-        message: error.message || 'Error posting to YouTube Shorts'
+        platform: 'Farcaster',
+        message: error.message || 'Failed to post'
       };
     }
   };
 
+  const postToFacebook = async (
+    content: string,
+    mediaUrl?: string | null,
+    mediaType?: 'image' | 'video' | null
+  ): Promise<PostResult> => {
+    try {
+      // Get Facebook credentials from local storage
+      const credentialsStr = localStorage.getItem('facebook_credentials');
+      console.log('🔍 Checking Facebook credentials...');
+      
+      const credentials = JSON.parse(credentialsStr || '{}');
+      
+      if (!credentials.accessToken) {
+        throw new Error('Facebook not connected. Please connect your Facebook account first.');
+      }
+
+      // Get Facebook target selection from localStorage
+      const savedTarget = localStorage.getItem('facebookPostTarget');
+      let pageId = null;
+      let pageAccessToken = null;
+      
+      if (savedTarget) {
+        try {
+          const target = JSON.parse(savedTarget);
+          if (target.type === 'page' && target.pageAccessToken) {
+            pageId = target.pageId;
+            pageAccessToken = target.pageAccessToken;
+            console.log('✅ Using Facebook page:', target.pageName);
+          }
+        } catch (error) {
+          console.error('Error parsing saved Facebook target:', error);
+        }
+      }
+
+      // Fallback: Check if user has pages available in credentials for backward compatibility
+      if (!pageId && credentials.pages && credentials.pages.length > 0) {
+        const selectedPage = credentials.selectedPageId 
+          ? credentials.pages.find((p: any) => p.id === credentials.selectedPageId)
+          : credentials.pages[0];
+
+        if (selectedPage && selectedPage.access_token) {
+          pageId = selectedPage.id;
+          pageAccessToken = selectedPage.access_token;
+          console.log('✅ Using fallback Facebook page:', selectedPage.name);
+        }
+      }
+
+      // Facebook requires page posting for most apps - personal timeline has strict limitations
+      if (!pageId || !pageAccessToken) {
+        throw new Error('Please select a Facebook page to post to. Personal timeline posting requires special app permissions that are not available for most applications.');
+      }
+
+      const { data, error } = await supabase.functions.invoke('post-to-facebook', {
+        body: {
+          content,
+          mediaUrl,
+          mediaType,
+          accessToken: credentials.accessToken,
+          pageId: pageId,
+          pageAccessToken: pageAccessToken || credentials.accessToken
+        }
+      });
+
+      console.log('📤 Facebook post response:', { data, error });
+
+      if (error) {
+        console.error('❌ Supabase function invoke error:', error);
+        throw new Error(error.message || 'Failed to post to Facebook');
+      }
+
+      // Track successful post
+      try {
+        const { facebookSDK } = await import('@/services/oauth/FacebookSDK');
+        facebookSDK.trackEvent('fb_post_success', {
+          content_type: mediaType || 'text',
+          has_media: !!mediaUrl
+        });
+      } catch (trackError) {
+        console.warn('Failed to track Facebook post event:', trackError);
+      }
+
+      return {
+        success: true,
+        platform: 'Facebook',
+        message: data.message || 'Posted successfully to Facebook',
+        id: data.postId
+      };
+    } catch (error) {
+      console.error('Facebook posting error:', error);
+      return {
+        success: false,
+        platform: 'Facebook',
+        message: error.message || 'Failed to post to Facebook'
+      };
+    }
+  };
+
+  const postToInstagram = async (
+    content: string,
+    mediaUrl?: string | null,
+    mediaType?: 'image' | 'video' | null
+  ): Promise<PostResult> => {
+    // Instagram posting implementation would go here
+    return {
+      success: false,
+      platform: 'Instagram',
+      message: 'Instagram posting not yet implemented'
+    };
+  };
+
+  const postToTikTok = async (
+    content: string,
+    mediaUrl?: string | null,
+    mediaType?: 'image' | 'video' | null,
+    mediaUrls?: string[]
+  ): Promise<PostResult> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('post-to-tiktok', {
+        body: { 
+          content, 
+          mediaUrl, 
+          mediaType,
+          mediaUrls // Support for photo carousel
+        }
+      });
+      
+      if (error) throw error;
+      
+      return {
+        success: data.success,
+        platform: 'TikTok',
+        message: data.success ? data.message || 'Posted successfully' : data.error,
+        id: data.data?.publish_id
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        platform: 'TikTok',
+        message: error.message || 'Failed to post'
+      };
+    }
+  };
+
+  const postToYouTubeShorts = async (
+    content: string,
+    mediaUrl?: string | null,
+    mediaType?: 'image' | 'video' | null
+  ): Promise<PostResult> => {
+    // YouTube Shorts posting implementation would go here
+    return {
+      success: false,
+      platform: 'YouTube Shorts',
+      message: 'YouTube Shorts posting not yet implemented'
+    };
+  };
+
   return {
     postToTwitter,
-    postToFarcaster,
     postToLens,
+    postToFarcaster,
     postToFacebook,
     postToInstagram,
     postToTikTok,
