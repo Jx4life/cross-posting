@@ -37,12 +37,12 @@ serve(async (req) => {
     // Use the correct TikTok Login Kit authorization endpoint
     const authUrl = `https://www.tiktok.com/v2/auth/authorize/?${params.toString()}`;
     
-    console.log('=== DEBUG CLIENT_KEY ===');
-    console.log('CLIENT_ID source: Supabase secrets');
-    console.log('CLIENT_ID (partial):', TIKTOK_CLIENT_ID.substring(0, 8) + '...');
-    console.log('Generated TikTok auth URL:', authUrl);
-    console.log('Scopes:', scopes.join(','));
-    console.log('Redirect URI:', redirectUri);
+    console.log('=== FINAL DEBUG ===');
+    console.log('CLIENT_KEY:', TIKTOK_CLIENT_ID);
+    console.log('REDIRECT_URI:', redirectUri);
+    console.log('SCOPES:', scopes.join(','));
+    console.log('FULL AUTH URL:', authUrl);
+    console.log('URL PARAMS:', params.toString());
     
     return new Response(
       JSON.stringify({ authUrl, state }),
