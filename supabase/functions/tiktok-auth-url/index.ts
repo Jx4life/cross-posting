@@ -16,10 +16,10 @@ serve(async (req) => {
     
     console.log('TikTok auth URL request:', { redirectUri });
     
-    // Use your sandbox client ID
+    // Use your correct sandbox client ID - sbawwup5buvyikd3wt
     const TIKTOK_CLIENT_ID = 'sbawwup5buvyikd3wt';
     
-    console.log('Using sandbox client ID:', TIKTOK_CLIENT_ID);
+    console.log('Using correct sandbox client ID:', TIKTOK_CLIENT_ID);
     
     // TikTok OAuth scopes
     const scopes = ['user.info.basic', 'video.upload', 'video.publish'];
