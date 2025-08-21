@@ -7,7 +7,7 @@ import { toast } from './ui/use-toast';
 
 export const TikTokSetupGuide = () => {
   const [currentStep, setCurrentStep] = useState(1);
-  const redirectUri = `${window.location.origin}/oauth/tiktok/callback`;
+  const redirectUri = `https://insyncapp.xyz/oauth/tiktok/callback`;
   
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);

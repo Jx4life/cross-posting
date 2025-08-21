@@ -320,9 +320,8 @@ export const SocialMediaConnections: React.FC<SocialMediaConnectionsProps> = ({
         console.warn('Could not clear existing TikTok config:', deleteError);
       }
       
-      // Use the exact same redirect URI format as the connector
-      const currentUrl = window.location.origin;
-      const redirectUri = `${currentUrl}/oauth/tiktok/callback`;
+      // Use the exact redirect URI registered in TikTok Developer Console
+      const redirectUri = `https://insyncapp.xyz/oauth/tiktok/callback`;
       
       console.log('Using redirect URI:', redirectUri);
       
