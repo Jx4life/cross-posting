@@ -38,8 +38,8 @@ export class TikTokAPI {
     // Use sandbox credentials
     this.config = {
       ...config,
-      clientId: 'sbawjmn8p4yrizyuis',
-      clientSecret: 'F51RS5h2sDaZUUxLbDWoe9p5TXEalKxj'
+      clientId: 'sbawwup5buvyikd3wt',
+      clientSecret: 'BuLt0A8gvRj3bjXLfDRJFVFZKWJ9RhrJ'
     };
   }
   

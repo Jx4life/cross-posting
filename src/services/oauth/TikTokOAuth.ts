@@ -18,8 +18,8 @@ export class TikTokOAuth {
     // Use sandbox credentials
     const sandboxConfig = {
       ...config,
-      clientId: 'sbawjmn8p4yrizyuis',
-      clientSecret: 'F51RS5h2sDaZUUxLbDWoe9p5TXEalKxj'
+      clientId: 'sbawwup5buvyikd3wt',
+      clientSecret: 'BuLt0A8gvRj3bjXLfDRJFVFZKWJ9RhrJ'
     };
     
     this.config = sandboxConfig;
