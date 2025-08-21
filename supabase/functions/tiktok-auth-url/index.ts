@@ -57,10 +57,13 @@ serve(async (req) => {
     
   } catch (error) {
     console.error('TikTok auth URL error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', JSON.stringify(error, null, 2));
     
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Failed to generate TikTok auth URL' 
+        error: error.message || 'Failed to generate TikTok auth URL',
+        details: error.stack || 'No stack trace available'
       }),
       { 
         status: 500, 
