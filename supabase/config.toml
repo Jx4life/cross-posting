@@ -65,6 +65,9 @@ verify_jwt = false
 [functions.tiktok-exchange-code]
 verify_jwt = false
 
+[functions.verify-tiktok-secrets]
+verify_jwt = false
+
 [edge-runtime]
 policy = "per_worker"
 inspector_port = 8083
