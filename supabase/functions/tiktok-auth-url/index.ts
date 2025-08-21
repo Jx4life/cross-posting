@@ -16,8 +16,8 @@ serve(async (req) => {
     
     console.log('TikTok auth URL request:', { redirectUri });
     
-    // Use sandbox client ID directly since we're in sandbox mode
-    const TIKTOK_CLIENT_ID = 'sbawwup5buvyikd3wt';
+    // Use the same sandbox client ID as in TikTokAPI.ts
+    const TIKTOK_CLIENT_ID = 'sbawjmn8p4yrizyuis';
     
     console.log('Using sandbox client ID:', TIKTOK_CLIENT_ID);
     
