@@ -302,7 +302,7 @@ class TikTokAPIClient {
         "source": "PULL_FROM_URL",
         "photo_cover_index": 1,
         "photo_images": [
-          "https://tiktokcdn.com/obj/example-image-01.webp",
+      
           "https://insyncapp.xyz/assets/logo-ad40T_MU.png"
         ]
       },
