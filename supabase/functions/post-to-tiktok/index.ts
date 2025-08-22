@@ -290,19 +290,27 @@ class TikTokAPIClient {
         disable_comment: false,
         disable_stitch: false,
       },
+      // source_info: {
+      //   source: 'FILE_UPLOAD',
+      //   photo_count: photos.length,
+      //   photos: photos.map(photo => ({
+      //     photo_size: photo.size,
+      //     photo_format: photo.format
+      //   }))
+      // },
       source_info: {
-        source: 'FILE_UPLOAD',
-        photo_count: photos.length,
-        photos: photos.map(photo => ({
-          photo_size: photo.size,
-          photo_format: photo.format
-        }))
+        "source": "PULL_FROM_URL",
+        "photo_cover_index": 1,
+        "photo_images": [
+          "https://tiktokcdn.com/obj/example-image-01.webp",
+          "https://insyncapp.xyz/assets/logo-ad40T_MU.png"
+        ]
       },
       post_mode: "MEDIA_UPLOAD",
       media_type: "PHOTO"
     }
   }
-  console.log("DEBUG INITPHOTO BODY",reqBody)
+  console.log("DEBUG INITPHOTO BODY", reqBody)
   return this.makeAPIRequest('/v2/post/publish/content/init/', reqBody);
 }
 
