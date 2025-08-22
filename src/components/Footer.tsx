@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import logo from '@/assets/logo.png';
 
 const Footer = () => {
   return (
@@ -27,9 +28,10 @@ const Footer = () => {
             Contact
           </a>
         </div>
-        <p className="mt-4 text-xs text-gray-500">
-          © 2025 InSync. All rights reserved.
-        </p>
+        <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-500">
+          <img src={logo} alt="InSync Logo" className="w-4 h-4" />
+          <span>© 2025 InSync. All rights reserved.</span>
+        </div>
       </div>
     </footer>
   );
