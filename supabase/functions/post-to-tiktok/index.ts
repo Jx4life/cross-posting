@@ -297,7 +297,9 @@ class TikTokAPIClient {
             photo_size: photo.size,
             photo_format: photo.format
           }))
-        }
+        },
+         "post_mode": "MEDIA_UPLOAD",
+    "media_type": "PHOTO"
       }
     });
   }
