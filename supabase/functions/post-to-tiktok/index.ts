@@ -278,7 +278,7 @@ class TikTokAPIClient {
   }
 
   async initializePhotoUpload(accessToken: string, photos: Array<{size: number, format: string}>, title: string, description?: string) {
-    return this.makeAPIRequest('/v2/post/publish/photo/init/', {
+    return this.makeAPIRequest('/v2/post/publish/content/init/', {
       method: 'POST',
       accessToken,
       body: {
