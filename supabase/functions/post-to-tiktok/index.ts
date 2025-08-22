@@ -277,32 +277,34 @@ class TikTokAPIClient {
     });
   }
 
-  async initializePhotoUpload(accessToken: string, photos: Array<{size: number, format: string}>, title: string, description?: string) {
-    return this.makeAPIRequest('/v2/post/publish/content/init/', {
-      method: 'POST',
-      accessToken,
-      body: {
-        post_info: {
-          title,
-          description: description || '',
-          privacy_level: 'SELF_ONLY',
-          disable_duet: false,
-          disable_comment: false,
-          disable_stitch: false,
-        },
-        source_info: {
-          source: 'FILE_UPLOAD',
-          photo_count: photos.length,
-          photos: photos.map(photo => ({
-            photo_size: photo.size,
-            photo_format: photo.format
-          }))
-        },
-         "post_mode": "MEDIA_UPLOAD",
-    "media_type": "PHOTO"
-      }
-    });
+   async initializePhotoUpload(accessToken: string, photos: Array<{ size: number, format: string }>, title: string, description ?: string) {
+  let reqBody = {
+    method: 'POST',
+    accessToken,
+    body: {
+      post_info: {
+        title,
+        description: description || '',
+        privacy_level: 'SELF_ONLY',
+        disable_duet: false,
+        disable_comment: false,
+        disable_stitch: false,
+      },
+      source_info: {
+        source: 'FILE_UPLOAD',
+        photo_count: photos.length,
+        photos: photos.map(photo => ({
+          photo_size: photo.size,
+          photo_format: photo.format
+        }))
+      },
+      post_mode: "MEDIA_UPLOAD",
+      media_type: "PHOTO"
+    }
   }
+  console.log("DEBUG INITPHOTO BODY",reqBody)
+  return this.makeAPIRequest('/v2/post/publish/content/init/', reqBody);
+}
 
   async uploadVideoFile(uploadUrl: string, videoBuffer: ArrayBuffer): Promise<void> {
     console.log(`Uploading video file (${videoBuffer.byteLength} bytes)`);
