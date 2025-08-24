@@ -248,8 +248,9 @@ class TikTokAPIClient {
       throw new Error(`TikTok API error: ${errorMessage}`);
     }
 
-    if (data.error) {
-      throw new Error(`TikTok API error: ${data.error.message || 'Unknown API error'}`);
+    // TikTok always returns an error object, check if error.code is not "ok"
+    if (data.error && data.error.code !== 'ok') {
+      throw new Error(`TikTok API error: ${data.error.message || data.error.code || 'Unknown API error'}`);
     }
 
     return data;
