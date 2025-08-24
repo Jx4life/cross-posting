@@ -235,11 +235,15 @@ class TikTokAPIClient {
     }
 
     let data: any;
-    try {
-      data = JSON.parse(responseText);
-    } catch (parseError) {
-      throw new Error(`Invalid JSON response from TikTok API: ${responseText.substring(0, 200)}`);
-    }
+ try {
+  data = JSON.parse(responseText);
+  console.log("API response url", url)
+  console.log("API response data", data)
+} catch (parseError) {
+  throw new Error(`Invalid JSON response from TikTok API: ${responseText.substring(0, 200)}`);
+}
+  throw new Error(`Invalid JSON response from TikTok API: ${responseText.substring(0, 200)}`);
+}
 
     if (!response.ok) {
       const errorMessage = data.error?.message || data.error_description || `HTTP ${response.status}`;
