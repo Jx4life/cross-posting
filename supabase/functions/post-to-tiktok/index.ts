@@ -50,8 +50,10 @@ class TikTokTokenManager {
     
     const data = await response.json();
     
-    if (!response.ok || data.error) {
-      throw new Error(`Token refresh failed: ${data.error_description || data.error}`);
+    // TikTok OAuth token response also follows the same pattern - check for error.code
+    if (!response.ok || (data.error && data.error.code !== 'ok')) {
+      const errorMessage = data.error?.message || data.error_description || data.error || 'Token refresh failed';
+      throw new Error(`Token refresh failed: ${errorMessage}`);
     }
     
     return data;
