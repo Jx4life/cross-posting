@@ -242,8 +242,6 @@ class TikTokAPIClient {
 } catch (parseError) {
   throw new Error(`Invalid JSON response from TikTok API: ${responseText.substring(0, 200)}`);
 }
-  throw new Error(`Invalid JSON response from TikTok API: ${responseText.substring(0, 200)}`);
-}
 
     if (!response.ok) {
       const errorMessage = data.error?.message || data.error_description || `HTTP ${response.status}`;
