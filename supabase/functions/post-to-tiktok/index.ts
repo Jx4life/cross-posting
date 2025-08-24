@@ -259,69 +259,63 @@ class TikTokAPIClient {
       accessToken,
       body: {
         post_info: {
-          title,
-          description: description || '',
+          title: title || 'Video via API',
           privacy_level: 'SELF_ONLY',
           disable_duet: false,
           disable_comment: false,
           disable_stitch: false,
-          video_cover_timestamp_ms: 1000
+          video_cover_timestamp_ms: 1000,
         },
         source_info: {
           source: 'FILE_UPLOAD',
           video_size: videoSize,
-          chunk_size: Math.min(videoSize, 10 * 1024 * 1024),
-          total_chunk_count: Math.ceil(videoSize / (10 * 1024 * 1024))
+          chunk_size: videoSize,
+          total_chunk_count: 1,
         }
       }
     });
   }
 
-   async initializePhotoUpload(accessToken: string, photos: Array<{ size: number, format: string }>, title: string, description ?: string) {
-  let reqBody = {
-    method: 'POST',
-    accessToken,
-    body: {
+  async initializePhotoUpload(accessToken: string, photos: Array<{ size: number, format: string }>, title: string, description?: string, photoUrls?: string[]) {
+    const reqBody = {
       post_info: {
-        title,
+        title: title || 'Photo via API',
         description: description || '',
-        privacy_level: 'SELF_ONLY',
-        disable_duet: false,
-        disable_comment: false,
-        disable_stitch: false,
       },
-      // source_info: {
-      //   source: 'FILE_UPLOAD',
-      //   photo_count: photos.length,
-      //   photos: photos.map(photo => ({
-      //     photo_size: photo.size,
-      //     photo_format: photo.format
-      //   }))
-      // },
-      source_info: {
-        "source": "PULL_FROM_URL",
-        "photo_cover_index": 1,
-        "photo_images": [
-      
-          "https://insyncapp.xyz/assets/logo-ad40T_MU.png"
-        ]
-      },
-      post_mode: "MEDIA_UPLOAD",
-      media_type: "PHOTO"
-    }
-  }
-  console.log("DEBUG INITPHOTO BODY", reqBody)
-  return this.makeAPIRequest('/v2/post/publish/content/init/', reqBody);
-}
+      post_mode: 'MEDIA_UPLOAD',
+      media_type: 'PHOTO'
+    };
 
-  async uploadVideoFile(uploadUrl: string, videoBuffer: ArrayBuffer): Promise<void> {
+    if (photoUrls && photoUrls.length > 0) {
+      // Use URL method
+      reqBody.source_info = {
+        source: 'PULL_FROM_URL',
+        photo_cover_index: 0,
+        photo_images: photoUrls
+      };
+    } else {
+      // Use file upload method
+      reqBody.source_info = {
+        source: 'FILE_UPLOAD'
+      };
+    }
+
+    console.log("DEBUG INITPHOTO BODY", reqBody);
+    return this.makeAPIRequest('/v2/post/publish/content/init/', {
+      method: 'POST',
+      accessToken,
+      body: reqBody
+    });
+  }
+
+  async uploadVideoFile(uploadUrl: string, videoBuffer: ArrayBuffer, mimeType?: string): Promise<void> {
     console.log(`Uploading video file (${videoBuffer.byteLength} bytes)`);
 
     const response = await fetch(uploadUrl, {
       method: 'PUT',
       headers: {
         'Content-Range': `bytes 0-${videoBuffer.byteLength - 1}/${videoBuffer.byteLength}`,
-        'Content-Length': videoBuffer.byteLength.toString(),
+        'Content-Type': mimeType || 'video/mp4',
       },
       body: videoBuffer
     });
@@ -334,7 +328,7 @@ class TikTokAPIClient {
     console.log('Video upload completed successfully');
   }
 
-  async uploadPhotoFiles(uploadUrls: string[], photoBuffers: ArrayBuffer[]): Promise<void> {
+  async uploadPhotoFiles(uploadUrls: string[], photoBuffers: ArrayBuffer[], mimeTypes?: string[]): Promise<void> {
     console.log(`Uploading ${photoBuffers.length} photos`);
 
     if (uploadUrls.length !== photoBuffers.length) {
@@ -343,13 +337,13 @@ class TikTokAPIClient {
 
     const uploadPromises = uploadUrls.map(async (uploadUrl, index) => {
       const photoBuffer = photoBuffers[index];
+      const mimeType = mimeTypes?.[index] || 'image/jpeg';
       console.log(`Uploading photo ${index + 1} (${photoBuffer.byteLength} bytes)`);
 
       const response = await fetch(uploadUrl, {
         method: 'PUT',
         headers: {
-          'Content-Range': `bytes 0-${photoBuffer.byteLength - 1}/${photoBuffer.byteLength}`,
-          'Content-Length': photoBuffer.byteLength.toString(),
+          'Content-Type': mimeType,
         },
         body: photoBuffer
       });
@@ -388,12 +382,8 @@ class TikTokAPIClient {
       accessToken,
       body: {
         post_info: {
-          title,
+          title: title || 'Video via API',
           description: description || '',
-          privacy_level: 'SELF_ONLY',
-          disable_duet: false,
-          disable_comment: false,
-          disable_stitch: false,
         },
         source_info: {
           source: 'PULL_FROM_URL',
